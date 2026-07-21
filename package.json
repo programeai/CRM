@@ -5,6 +5,7 @@
   "scripts": {
     "api": "pnpm --filter api",
     "web": "pnpm --filter web",
+    "dev": "pnpm db:up && pnpm --parallel --filter \"./apps/*\" dev",
     "dev:api": "pnpm --filter api start:dev",
     "dev:web": "pnpm --filter web dev",
     "db:up": "docker compose up -d",
