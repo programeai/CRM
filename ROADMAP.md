@@ -3,7 +3,7 @@
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada.
 >
-> **Última atualização:** 2026-07-21 · commit `66c2291`
+> **Última atualização:** 2026-07-21 · commit `60056f1`
 
 ## Visão
 
@@ -16,8 +16,8 @@ quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Sing
 | Fase | Entrega | Status | Spec |
 |---|---|---|---|
 | 0 | Fundação (monorepo, infra, auth, layout base) | ✅ concluída | [research](specs/research/2026-07-20-fase-0-fundacao.md) · [plan](specs/plans/2026-07-20-fase-0-fundacao.md) |
-| 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | 🚧 em pesquisa | [research](specs/research/2026-07-21-fase-1-clientes.md) |
-| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | ⬜ não iniciada | — |
+| 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | ✅ concluída | [research](specs/research/2026-07-21-fase-1-clientes.md) · [plan](specs/plans/2026-07-21-fase-1-clientes.md) |
+| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | 🔜 próxima | — |
 | 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | ⬜ não iniciada | — |
 | 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ⬜ não iniciada | — |
 | 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ⬜ não iniciada | — |
@@ -42,35 +42,40 @@ Base técnica do projeto.
 
 ---
 
-## Fase 1 — Clientes 🚧
+## Fase 1 — Clientes ✅
 
 CRUD de clientes e contatos, timeline de atividades e follow-ups. Ver [SPEC.md](SPEC.md) §3.1, §3.5, §5.
 
 **Backend** (`apps/api/src/modules/`)
-- [ ] Módulo `clients`: `GET/POST /clients`, `GET/PATCH /clients/:id`, `POST /clients/:id/archive` (soft delete via `archivedAt`; sem DELETE)
-- [ ] Módulo `contacts`: `GET/POST /clients/:id/contacts`, `PATCH/DELETE /contacts/:id` (regra: único `isPrimary` por cliente)
-- [ ] Módulo `activities`: `GET/POST /activities`, `PATCH /activities/:id`, `POST /activities/:id/complete` (follow-up com `scheduledFor`/`completedAt`)
-- [ ] DTOs com class-validator em pt-BR; validação de CPF/CNPJ quando informado
-- [ ] Paginação `?page=&limit=` → `{ data, meta: { total, page, limit } }` (novo padrão do projeto)
-- [ ] `ownerId` derivado do usuário autenticado (`req.user.sub`)
-- [ ] Testes unitários dos services (arquivamento, contato principal, validação de documento)
-- [ ] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
+- [x] Módulo `clients`: `GET/POST /clients`, `GET/PATCH /clients/:id`, `POST /clients/:id/archive` (soft delete via `archivedAt`; sem DELETE)
+- [x] Módulo `contacts`: `GET/POST /clients/:id/contacts`, `PATCH/DELETE /contacts/:id` (regra: único `isPrimary` por cliente)
+- [x] Módulo `activities`: `GET/POST /activities`, `PATCH /activities/:id`, `POST /activities/:id/complete` (follow-up com `scheduledFor`/`completedAt`)
+- [x] DTOs com class-validator em pt-BR; validação de CPF/CNPJ quando informado
+- [x] Paginação `?page=&limit=` → `{ data, meta: { total, page, limit } }` (novo padrão do projeto)
+- [x] `ownerId` derivado do usuário autenticado (`req.user.sub`)
+- [x] Testes unitários dos services (arquivamento, contato principal, validação de documento)
+- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
 
 **Frontend** (`apps/web/src/features/clientes/`)
-- [ ] Listagem de clientes (Table + TableLink + Badge de status + filtros/busca)
-- [ ] Formulário de cadastro/edição (RHF + Zod pt-BR, Select para enums via `@/lib/labels`)
-- [ ] Ficha do cliente com sub-abas (Dados + Contatos + Timeline; demais abas placeholder)
-- [ ] CRUD de contatos na ficha
-- [ ] Timeline de atividades + registro de follow-ups + marcar como concluído
-- [ ] Primeiro padrão de TanStack Query (queryKeys, mutations, invalidação)
-- [ ] Helpers de formatação em `lib/` (CPF/CNPJ, telefone, datas)
-- [ ] Trocar `PlaceholderPage` das rotas `/clientes` e `/clientes/:id`
+- [x] Listagem de clientes (Table + TableLink + Badge de status + filtros/busca)
+- [x] Formulário de cadastro/edição (RHF + Zod pt-BR, Select para enums via `@/lib/labels`)
+- [x] Ficha do cliente com sub-abas (Dados + Contatos + Timeline; demais abas placeholder)
+- [x] CRUD de contatos na ficha
+- [x] Timeline de atividades + registro de follow-ups + marcar como concluído
+- [x] Primeiro padrão de TanStack Query (queryKeys, mutations, invalidação)
+- [x] Helpers de formatação em `lib/` (CPF/CNPJ, telefone, datas)
+- [x] Trocar `PlaceholderPage` das rotas `/clientes` e `/clientes/:id`
 
-**Decisões em aberto (fechar no `/spec`):** arquitetura do módulo (repository pattern em camadas vs Prisma direto) · campos de endereço (schema não os tem) · granularidade dos módulos contacts/activities · filtro por `ownerId` e unicidade de documento. Detalhes na [pesquisa da Fase 1](specs/research/2026-07-21-fase-1-clientes.md#open-questions).
+**Extras entregues além do plano:** autopreenchimento de endereço via ViaCEP (por CEP) e de dados
+da empresa via BrasilAPI (ao completar o CNPJ), com máscaras controladas de CPF/CNPJ, telefone, CEP e UF.
+
+**Decisões fechadas no `/spec`:** arquitetura em camadas (`api`/`application`/`domain`/`infra` com repository pattern) ·
+campos de endereço adicionados ao schema · módulos `contacts`/`activities` separados · filtro por `ownerId` e
+unicidade de documento. Ver [plano da Fase 1](specs/plans/2026-07-21-fase-1-clientes.md).
 
 ---
 
-## Fase 2 — Pipeline ⬜
+## Fase 2 — Pipeline 🔜
 
 Kanban de oportunidades, da captação ao fechamento. Ver [SPEC.md](SPEC.md) §3.2.
 
