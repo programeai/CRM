@@ -33,7 +33,16 @@ model Client {
   status     ClientStatus @default(LEAD) // LEAD | ACTIVE | INACTIVE | LOST
   tags       String[]
   notes      String?
-  archivedAt DateTime? // soft delete
+  // --- endereço (opcional, campos simples) ---
+  zipCode    String?
+  street     String?
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String? // UF
+  // --- soft delete ---
+  archivedAt DateTime?
   contacts   Contact[]
   activities Activity[]
   deals      Deal[]
@@ -42,6 +51,9 @@ model Client {
   contracts  Contract[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+
+  @@index([ownerId, status])
+  @@index([ownerId, archivedAt])
 }
 
 model Contact {
