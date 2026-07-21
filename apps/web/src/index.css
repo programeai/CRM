@@ -48,73 +48,77 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Marca Solarz: fundos brancos e neutros cinza-frios (padrão Stripe/shadcn),
+   com o laranja da marca (#fe5b00) usado só como acento — sem tingir os fundos. */
 :root {
     --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
+    --foreground: oklch(0.2064 0.0388 265.55);
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
+    --card-foreground: oklch(0.2064 0.0388 265.55);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
+    --popover-foreground: oklch(0.2064 0.0388 265.55);
+    --primary: oklch(0.6806 0.2142 39.87);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.9679 0.0027 264.54);
+    --secondary-foreground: oklch(0.2438 0.0507 265.31);
+    --muted: oklch(0.9679 0.0027 264.54);
+    --muted-foreground: oklch(0.5503 0.0235 264.36);
+    --accent: oklch(0.9599 0.0034 264.54);
+    --accent-foreground: oklch(0.2438 0.0507 265.31);
+    --destructive: oklch(0.5883 0.2159 24.32);
+    --border: oklch(0.9278 0.0058 264.53);
+    --input: oklch(0.9196 0.0064 264.53);
+    --ring: oklch(0.6806 0.2142 39.87);
+    --chart-1: oklch(0.6806 0.2142 39.87);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: oklch(1 0 0);
+    --sidebar-foreground: oklch(0.2064 0.0388 265.55);
+    --sidebar-primary: oklch(0.6806 0.2142 39.87);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.9599 0.0034 264.54);
+    --sidebar-accent-foreground: oklch(0.2438 0.0507 265.31);
+    --sidebar-border: oklch(0.9278 0.0058 264.53);
+    --sidebar-ring: oklch(0.6806 0.2142 39.87);
 }
 
+/* Navy profundo como base, off-white quente no texto e o mesmo laranja da
+   marca como acento, um pouco mais claro para o escuro. */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
+    --background: oklch(0.1782 0.0275 265.95);
+    --foreground: oklch(0.9698 0.0034 56.39);
+    --card: oklch(0.2085 0.0338 265.86);
+    --card-foreground: oklch(0.9698 0.0034 56.39);
+    --popover: oklch(0.2085 0.0338 265.86);
+    --popover-foreground: oklch(0.9698 0.0034 56.39);
+    --primary: oklch(0.6885 0.2083 41.13);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.2718 0.0335 266.31);
+    --secondary-foreground: oklch(0.9698 0.0034 56.39);
+    --muted: oklch(0.2623 0.0318 266.34);
+    --muted-foreground: oklch(0.7183 0.0252 264.40);
+    --accent: oklch(0.2905 0.0368 266.27);
+    --accent-foreground: oklch(0.9698 0.0034 56.39);
+    --destructive: oklch(0.5380 0.1843 22.82);
+    --border: oklch(0.2812 0.0351 266.29);
+    --input: oklch(0.2997 0.0384 266.26);
+    --ring: oklch(0.6885 0.2083 41.13);
+    --chart-1: oklch(0.6885 0.2083 41.13);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar: oklch(0.1782 0.0275 265.95);
+    --sidebar-foreground: oklch(0.9698 0.0034 56.39);
+    --sidebar-primary: oklch(0.6885 0.2083 41.13);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.2905 0.0368 266.27);
+    --sidebar-accent-foreground: oklch(0.9698 0.0034 56.39);
+    --sidebar-border: oklch(0.2812 0.0351 266.29);
+    --sidebar-ring: oklch(0.6885 0.2083 41.13);
 }
 
 @layer base {
@@ -124,7 +128,131 @@
   body {
     @apply bg-background text-foreground;
     }
+  /* Regra global do sistema: todo elemento clicável usa cursor de ponteiro.
+     Elementos desabilitados (disabled, aria-disabled, data-disabled) ficam de
+     fora e mantêm o cursor padrão/bloqueado. Cobre elementos nativos e os
+     primitivos @base-ui (que renderizam divs com role de menuitem/option/tab). */
+  button:not(:disabled):not([aria-disabled="true"]):not([data-disabled]),
+  [role="button"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitem"]:not([data-disabled]),
+  [role="menuitemcheckbox"]:not([data-disabled]),
+  [role="menuitemradio"]:not([data-disabled]),
+  [role="option"]:not([data-disabled]),
+  [role="tab"]:not([data-disabled]),
+  [role="switch"]:not([data-disabled]),
+  a[href],
+  label[for],
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+    }
+  /* Escala global da interface. Como todo o dimensionamento usa rem, ajustar a
+     fonte-base aqui aumenta tudo proporcionalmente (fontes e ícones). 125% = 20px sobre 16px. */
   html {
     @apply font-sans;
+    font-size: 125%;
     }
+}
+
+/* Seleção de texto usa o laranja da marca (--primary), acompanhando claro/escuro. */
+::selection {
+  background-color: color-mix(in oklch, var(--primary) 85%, transparent);
+  color: var(--primary-foreground);
+}
+::-moz-selection {
+  background-color: color-mix(in oklch, var(--primary) 85%, transparent);
+  color: var(--primary-foreground);
+}
+
+/* Conteúdo de texto rico — renderização de campos markdown (escopo de proposta,
+   descrição de tarefa, notas). Reutilizável em qualquer preview/tela. */
+.rich-text-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.rich-text-content > :first-child {
+  margin-top: 0;
+}
+.rich-text-content > :last-child {
+  margin-bottom: 0;
+}
+.rich-text-content p {
+  margin: 0.5rem 0;
+}
+.rich-text-content h1 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  margin: 1.125rem 0 0.5rem;
+}
+.rich-text-content h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+.rich-text-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.875rem 0 0.375rem;
+}
+.rich-text-content h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.375rem;
+}
+.rich-text-content ul,
+.rich-text-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+.rich-text-content ul {
+  list-style: disc;
+}
+.rich-text-content ol {
+  list-style: decimal;
+}
+.rich-text-content li {
+  margin: 0.25rem 0;
+}
+.rich-text-content blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+  color: var(--muted-foreground);
+}
+.rich-text-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich-text-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+}
+.rich-text-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  margin: 0.75rem 0;
+}
+.rich-text-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  font-size: 0.85em;
+  table-layout: fixed;
+}
+.rich-text-content th,
+.rich-text-content td {
+  border: 1px solid var(--border);
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.rich-text-content th {
+  background: var(--muted);
+  font-weight: 600;
 }
