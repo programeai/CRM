@@ -4,7 +4,7 @@ author: claude
 source_prd: specs/research/2026-07-20-fase-0-fundacao.md
 git_commit: N/A (git inicializado na Phase 1 desta spec)
 branch: N/A
-status: approved
+status: implemented
 tags: [spec, monorepo, nestjs, prisma, auth, vite, react, shadcn, docker, pnpm]
 ---
 
@@ -1096,8 +1096,15 @@ Não são mais usados (o roteamento vive no `router.tsx`). Remover ou esvaziar p
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter web build` — compila o app completo com todas as rotas
-- [ ] `pnpm --filter api start:dev` + `pnpm --filter web dev` — ambos sobem sem erro
+- [x] `pnpm --filter web build` — compila o app completo com todas as rotas
+- [x] `pnpm --filter api start:dev` + `pnpm --filter web dev` — ambos sobem sem erro
+
+**Notas de adaptação (Phase 5)**:
+- Toda a UI foi construída com componentes shadcn (pedido do usuário): **`Sidebar`** completo (SidebarProvider/Sidebar/SidebarMenu/SidebarInset/SidebarTrigger) no `AppLayout`, ícones **lucide-react** na navegação; **`Card` + `Field`/`FieldGroup` + `Input` + `Button` + `Spinner`** na `LoginPage` (com `react-hook-form` + `zod`, validação via `data-invalid`/`aria-invalid`/`FieldError`); **`Empty`** na `PlaceholderPage`; **`Spinner`** no `ProtectedRoute`; toast via **`sonner`**.
+- Base do shadcn é **Base UI** (`@base-ui`), não Radix → `SidebarMenuButton` usa `render={<NavLink .../>}` (não `asChild`); estado ativo via `isActive` calculado com `useLocation`.
+- `main.tsx` envolve o app com `QueryClientProvider` + `AuthProvider` + `TooltipProvider` (o Sidebar usa Tooltip quando recolhido) + `RouterProvider` + `<Toaster/>`.
+- `App.tsx`/`App.css` e os assets do template Vite foram removidos (não usados).
+- Smoke test E2E via curl confirmou login com CORS correto (`Access-Control-Allow-Origin: http://localhost:5173`, `credentials: true`) e `Set-Cookie` HttpOnly; web serve `<title>CRM Solarz</title>`. Lint do web (oxlint): só warnings de fast-refresh em arquivos gerados do shadcn e no `auth.tsx` (não bloqueantes).
 
 #### Manual Verification
 - [ ] Acessar `http://localhost:5173/` sem sessão → redireciona para `/login`
