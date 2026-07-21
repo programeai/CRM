@@ -42,6 +42,7 @@ export default function ClienteDetalheLayout() {
     { label: 'Dados', to: `/clientes/${id}`, end: true },
     { label: 'Contatos', to: `/clientes/${id}/contatos` },
     { label: 'Timeline', to: `/clientes/${id}/timeline` },
+    { label: 'Oportunidades', to: `/clientes/${id}/oportunidades` },
     { label: 'Propostas', to: `/clientes/${id}/propostas` },
     { label: 'Projetos', to: `/clientes/${id}/projetos` },
     { label: 'Contratos', to: `/clientes/${id}/contratos` },
