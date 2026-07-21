@@ -105,6 +105,31 @@ import { Input } from '@/components/ui/input';
 />
 ```
 
+Com **`react-hook-form`**, o campo mascarado é **controlado** via `Controller` —
+guarda os dígitos crus no estado e exibe o valor mascarado (ex.: cadastro de cliente):
+
+```tsx
+import { Controller } from 'react-hook-form';
+import { maskDocument, onlyDigits } from '@/lib/format';
+
+<Controller
+  control={control}
+  name="document"
+  render={({ field }) => (
+    <Input
+      inputMode="numeric"
+      placeholder="000.000.000-00"
+      value={maskDocument(field.value ?? '')}       // exibe mascarado
+      onChange={(e) => field.onChange(onlyDigits(e.target.value))} // guarda cru
+      onBlur={field.onBlur}
+    />
+  )}
+/>
+```
+
+Campos que seguem um padrão fixo também são normalizados a cada tecla — ex.: **UF**
+(2 letras maiúsculas): `onChange={(e) => field.onChange(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2))}`.
+
 Para dinheiro, use o componente dedicado **`MoneyInput`** (`@/components/ui/money-input`),
 que já trata centavos e devolve `number` em reais via `onValueChange`. Não reimplemente
 máscara monetária na mão.
