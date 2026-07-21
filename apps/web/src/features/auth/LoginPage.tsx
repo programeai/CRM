@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -5,10 +6,13 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/auth';
+import { clearCredentials, loadCredentials, saveCredentials } from '@/lib/remember';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -19,18 +23,31 @@ type Values = z.infer<typeof schema>;
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [remember, setRemember] = useState(false);
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   });
 
+  useEffect(() => {
+    loadCredentials().then((creds) => {
+      if (creds) {
+        reset(creds);
+        setRemember(true);
+      }
+    });
+  }, [reset]);
+
   const onSubmit = async (v: Values) => {
     try {
       await login(v.email, v.password);
+      if (remember) await saveCredentials(v.email, v.password);
+      else clearCredentials();
       navigate('/', { replace: true });
     } catch {
       toast.error('Credenciais inválidas');
@@ -60,14 +77,23 @@ export default function LoginPage() {
               </Field>
               <Field data-invalid={!!errors.password}>
                 <FieldLabel htmlFor="password">Senha</FieldLabel>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="current-password"
                   aria-invalid={!!errors.password}
                   {...register('password')}
                 />
                 {errors.password && <FieldError>{errors.password.message}</FieldError>}
+              </Field>
+              <Field orientation="horizontal">
+                <Checkbox
+                  id="remember"
+                  checked={remember}
+                  onCheckedChange={(checked) => setRemember(checked === true)}
+                />
+                <FieldLabel htmlFor="remember" className="font-normal">
+                  Lembrar de mim
+                </FieldLabel>
               </Field>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Spinner data-icon="inline-start" />}
