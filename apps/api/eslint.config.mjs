@@ -38,6 +38,9 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
+      // Mocks de repositório (interfaces) disparam falso-positivo ao passar
+      // um método mockado para expect(); irrelevante em testes.
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 );
