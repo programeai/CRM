@@ -7,8 +7,10 @@ import ClienteDetalheLayout from '@/features/clientes/ClienteDetalheLayout';
 import DadosTab from '@/features/clientes/tabs/DadosTab';
 import ContatosTab from '@/features/clientes/tabs/ContatosTab';
 import TimelineTab from '@/features/clientes/tabs/TimelineTab';
+import OportunidadesTab from '@/features/clientes/tabs/OportunidadesTab';
 import PlaceholderTab from '@/features/clientes/tabs/PlaceholderTab';
 import PlaceholderPage from '@/features/_placeholder/PlaceholderPage';
+import PipelineBoardPage from '@/features/pipeline/PipelineBoardPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -27,12 +29,13 @@ export const router = createBrowserRouter([
               { index: true, element: <DadosTab /> },
               { path: 'contatos', element: <ContatosTab /> },
               { path: 'timeline', element: <TimelineTab /> },
+              { path: 'oportunidades', element: <OportunidadesTab /> },
               { path: 'propostas', element: <PlaceholderTab title="Propostas" /> },
               { path: 'projetos', element: <PlaceholderTab title="Projetos" /> },
               { path: 'contratos', element: <PlaceholderTab title="Contratos" /> },
             ],
           },
-          { path: '/pipeline', element: <PlaceholderPage title="Pipeline" /> },
+          { path: '/pipeline', element: <PipelineBoardPage /> },
           { path: '/propostas', element: <PlaceholderPage title="Propostas" /> },
           { path: '/propostas/:id', element: <PlaceholderPage title="Proposta" /> },
           { path: '/projetos/:id', element: <PlaceholderPage title="Projeto" /> },

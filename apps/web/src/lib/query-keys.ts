@@ -8,4 +8,13 @@ export const queryKeys = {
   activities: {
     byClient: (clientId: string) => ['activities', 'client', clientId] as const,
   },
+  deals: {
+    all: ['deals'] as const,
+    board: ['deals', 'board'] as const,
+    byClient: (clientId: string) => ['deals', 'client', clientId] as const,
+  },
+  stages: {
+    all: ['stages'] as const,
+  },
+  clientOptions: (search: string) => ['client-options', search] as const,
 } as const;
