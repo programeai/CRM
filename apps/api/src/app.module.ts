@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
+import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { envValidationSchema } from './config/env.validation';
 
@@ -22,6 +23,7 @@ import { envValidationSchema } from './config/env.validation';
     ClientsModule,
     ContactsModule,
     ActivitiesModule,
+    PipelineModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

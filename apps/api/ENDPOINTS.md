@@ -155,3 +155,107 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `200 Activity` (com `completedAt` preenchido).
 - **Erros:** `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.complete`
+
+---
+
+## Pipeline stages
+
+### GET /pipeline-stages
+- **Propósito:** Listar os estágios do pipeline, ordenados por `order`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 PipelineStage[]`.
+- **Erros:** `401`.
+- **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.list`
+
+### POST /pipeline-stages
+- **Propósito:** Criar um novo estágio no fim da ordem atual.
+- **Auth:** Bearer (access token).
+- **Body:** `{ name: string (mín. 2), isWon?: boolean, isLost?: boolean }`
+- **Resposta:** `201 PipelineStage`.
+- **Erros:** `400` (validação), `409 Já existe um estágio com este nome.`, `401`.
+- **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.create`
+
+### PATCH /pipeline-stages/reorder
+- **Propósito:** Reatribuir a ordem (`order`) sequencial dos estágios conforme a lista de ids informada.
+- **Auth:** Bearer (access token).
+- **Body:** `{ ids: uuid[] }`
+- **Resposta:** `200 PipelineStage[]` (já reordenados).
+- **Erros:** `400` (validação), `401`.
+- **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.reorder`
+
+### PATCH /pipeline-stages/:id
+- **Propósito:** Atualizar parcialmente um estágio (nome, `isWon`, `isLost`).
+- **Auth:** Bearer (access token).
+- **Body:** Campos parciais de `POST /pipeline-stages`.
+- **Resposta:** `200 PipelineStage`.
+- **Erros:** `400` (validação), `404 Estágio não encontrado.`, `409 Já existe um estágio com este nome.`, `401`.
+- **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.update`
+
+### DELETE /pipeline-stages/:id
+- **Propósito:** Excluir um estágio, desde que não possua oportunidades vinculadas.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Estágio não encontrado.`, `409 Não é possível excluir um estágio que possui oportunidades.`, `401`.
+- **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.remove`
+
+---
+
+## Deals
+
+### GET /deals
+- **Propósito:** Listar oportunidades do usuário autenticado (via cliente), com filtros e paginação.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page?`, `limit?`, `clientId?`, `stageId?`, `search?`)
+- **Resposta:** `200 { data: Deal[], meta: { total, page, limit } }` (`Deal` inclui `client: { id, name }`).
+- **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.list`
+
+### GET /deals/board
+- **Propósito:** Retornar todas as oportunidades do usuário autenticado, sem paginação, ordenadas por `stageId` e `position` — alimenta o Kanban.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Deal[]` (com `client: { id, name }`).
+- **Erros:** `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.board`
+
+### POST /deals
+- **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio; `position` vai para o fim da coluna.
+- **Auth:** Bearer (access token).
+- **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date }`
+- **Resposta:** `201 Deal`.
+- **Erros:** `400` (validação), `404 Cliente não encontrado.` / `404 Estágio não encontrado.`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.create`
+
+### GET /deals/:id
+- **Propósito:** Buscar uma oportunidade, validando que o cliente pertence ao usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Deal`.
+- **Erros:** `404 Oportunidade não encontrada.` (ou cliente de outro dono), `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.findOne`
+
+### PATCH /deals/:id
+- **Propósito:** Atualizar parcialmente uma oportunidade (não move de estágio — usar `/move`; `clientId`/`stageId` fora do body).
+- **Auth:** Bearer (access token).
+- **Body:** Campos parciais de `POST /deals` exceto `clientId`/`stageId`.
+- **Resposta:** `200 Deal`.
+- **Erros:** `400` (validação), `404 Oportunidade não encontrada.`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.update`
+
+### PATCH /deals/:id/move
+- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReason`; ao sair de um estágio `isLost` para outro, limpa `lostReason`. Muda de estágio → atualiza `stageMovedAt`.
+- **Auth:** Bearer (access token).
+- **Body:** `{ stageId: uuid, position: number (>=0), lostReason?: string }`
+- **Resposta:** `200 Deal`.
+- **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.`, `422 Informe o motivo da perda.`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.move`
+
+### DELETE /deals/:id
+- **Propósito:** Excluir (hard delete) uma oportunidade. `Proposal`/`Activity` vinculados mantêm o registro com `dealId = null`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Oportunidade não encontrada.`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.remove`
