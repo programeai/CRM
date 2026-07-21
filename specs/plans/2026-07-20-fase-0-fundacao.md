@@ -166,16 +166,18 @@ git commit -m "chore: scaffold monorepo (api + web + docker)"
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm install` — instala sem erro na raiz
-- [ ] `docker compose up -d && docker compose ps` — serviço `postgres` fica `healthy`
-- [ ] `pnpm --filter api build` — Nest compila
-- [ ] `pnpm --filter web build` — Vite/tsc compila
-- [ ] `git log --oneline` — mostra o commit de scaffold
+- [x] `pnpm install` — instala sem erro na raiz
+- [x] `docker compose up -d && docker compose ps` — serviço `postgres` fica `healthy`
+- [x] `pnpm --filter api build` — Nest compila
+- [x] `pnpm --filter web build` — Vite/tsc compila
+- [x] `git log --oneline` — mostra o commit de scaffold
 
 #### Manual Verification
 - [ ] `apps/api` e `apps/web` existem com estrutura esperada e `name` = `api`/`web`
 - [ ] `docker compose logs postgres` não mostra erros de inicialização
 - [ ] `psql postgresql://crm_user:crm_password@localhost:5432/crm_db -c '\l'` (ou via cliente) conecta
+
+**Nota de adaptação**: a porta 5432 do host já está ocupada por um serviço PostgreSQL nativo do sistema (`postgresql@16-main.service`), fora do escopo deste projeto. O `docker-compose.yml` foi ajustado para mapear `5435:5432` (em vez de `5432:5432`); `DATABASE_URL` (Phase 2) e instruções de conexão usam a porta `5435` no host. Confirmado: `psql postgresql://crm_user:crm_password@localhost:5435/crm_db -c '\l'` conecta e lista os bancos; `pnpm create vite@latest apps/web -- --template react-ts` (via `pnpm create`) não aplicou o template React corretamente (gerou vanilla-ts) — refeito com `pnpm dlx create-vite apps/web --template react-ts --no-interactive`, que funcionou como esperado.
 
 **⏸ PAUSE**: Após verificação automática, parar para confirmação humana antes da Phase 2.
 
@@ -361,10 +363,16 @@ pnpm --filter api prisma db seed
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api prisma validate` — schema válido
-- [ ] `pnpm --filter api prisma migrate dev --name init` — migration aplica sem erro
-- [ ] `pnpm --filter api prisma db seed` — roda sem erro; roda **duas vezes** sem duplicar (idempotência)
-- [ ] `pnpm --filter api build` — compila com o Prisma Client gerado
+- [x] `pnpm --filter api prisma validate` — schema válido
+- [x] `pnpm --filter api prisma migrate dev --name init` — migration aplica sem erro
+- [x] `pnpm --filter api prisma db seed` — roda sem erro; roda **duas vezes** sem duplicar (idempotência)
+- [x] `pnpm --filter api build` — compila com o Prisma Client gerado
+
+**Notas de adaptação (Phase 2)**:
+- `pnpm --filter api prisma <cmd>` colide com a resolução de scripts do pnpm ("None of the selected packages has a prisma script") → usar `pnpm --filter api exec prisma <cmd>`.
+- O `pnpm add prisma @prisma/client` instalou **Prisma 7.9.0**, que removeu `url = env(...)` do bloco `datasource` (exige `prisma.config.ts` + driver adapters, alterando a construção do `PrismaClient`). Como toda a spec foi escrita para o Prisma clássico (v6), fixei **`prisma@6.19.3` e `@prisma/client@6.19.3`** — adaptação de menor risco que preserva o código da spec como está. Idempotência confirmada no banco (1 User, 7 PipelineStage após 2 execuções); todas as 12 tabelas de modelo existem.
+- `DATABASE_URL` usa a porta **5435** (mapeamento do host, ver Phase 1).
+- Removidos os arquivos hello-world do scaffold Nest (`app.controller.ts`, `app.service.ts`, `app.controller.spec.ts`) pois o `app.module.ts` da spec não os importa.
 
 #### Manual Verification
 - [ ] `pnpm --filter api prisma studio` mostra a tabela `User` com `admin@crm.local` e `PipelineStage` com 7 linhas na ordem correta

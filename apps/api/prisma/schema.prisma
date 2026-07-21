@@ -1,0 +1,320 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- models: transcritos de SPEC.md §4, com os dois lados das relações
+//     (campo de relação + @relation + FK) exigidos pelo Prisma ---
+
+model User {
+  id               String   @id @default(uuid())
+  name             String
+  email            String   @unique
+  passwordHash     String
+  refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
+  createdAt        DateTime @default(now())
+}
+
+model Client {
+  id         String       @id @default(uuid())
+  ownerId    String // preparação p/ multiusuário
+  name       String
+  tradeName  String?
+  personType PersonType   @default(COMPANY) // INDIVIDUAL | COMPANY
+  document   String? // CPF/CNPJ
+  email      String?
+  phone      String?
+  website    String?
+  source     LeadSource? // REFERRAL | PAID_TRAFFIC | ORGANIC | OUTBOUND | OTHER
+  status     ClientStatus @default(LEAD) // LEAD | ACTIVE | INACTIVE | LOST
+  tags       String[]
+  notes      String?
+  archivedAt DateTime? // soft delete
+  contacts   Contact[]
+  activities Activity[]
+  deals      Deal[]
+  proposals  Proposal[]
+  projects   Project[]
+  contracts  Contract[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model Contact {
+  id        String  @id @default(uuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id])
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  isPrimary Boolean @default(false)
+}
+
+model PipelineStage {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  order  Int
+  isWon  Boolean @default(false)
+  isLost Boolean @default(false)
+  deals  Deal[]
+}
+
+model Deal {
+  id            String        @id @default(uuid())
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  stageId       String
+  stage         PipelineStage @relation(fields: [stageId], references: [id])
+  title         String
+  serviceType   ServiceType // SOFTWARE | WEBSITE | PAID_TRAFFIC
+  amount        Decimal?      @db.Decimal(12, 2)
+  probability   Int? // 0–100
+  expectedClose DateTime?
+  lostReason    String?
+  position      Int // ordenação na coluna
+  stageMovedAt  DateTime      @default(now()) // p/ indicador "esfriando"
+  proposals     Proposal[]
+  activities    Activity[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([stageId, position])
+}
+
+model Proposal {
+  id           String         @id @default(uuid())
+  number       String         @unique // PROP-2026-0042
+  version      Int            @default(1)
+  parentId     String? // versão anterior
+  parent       Proposal?      @relation("ProposalVersions", fields: [parentId], references: [id])
+  versions     Proposal[]     @relation("ProposalVersions")
+  clientId     String
+  client       Client         @relation(fields: [clientId], references: [id])
+  dealId       String?
+  deal         Deal?          @relation(fields: [dealId], references: [id])
+  serviceType  ServiceType
+  status       ProposalStatus @default(DRAFT) // DRAFT | SENT | NEGOTIATING | ACCEPTED | REJECTED | EXPIRED
+  scope        String? // markdown
+  paymentTerms String?
+  deliveryTime String?
+  validUntil   DateTime?
+  discount     Decimal?       @db.Decimal(12, 2)
+  total        Decimal        @db.Decimal(12, 2) // calculado no backend
+  items        ProposalItem[]
+  projects     Project[]
+  contracts    Contract[]
+  activities   Activity[]
+  sentAt       DateTime?
+  decidedAt    DateTime? // aceite/recusa
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([clientId, status])
+}
+
+model ProposalItem {
+  id          String   @id @default(uuid())
+  proposalId  String
+  proposal    Proposal @relation(fields: [proposalId], references: [id])
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  order       Int
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  proposalId  String?
+  proposal    Proposal?     @relation(fields: [proposalId], references: [id])
+  name        String
+  serviceType ServiceType
+  status      ProjectStatus @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
+  startDate   DateTime?
+  dueDate     DateTime?
+  tasks       Task[]
+  contracts   Contract[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id])
+  title       String
+  description String? // markdown
+  status      TaskStatus   @default(BACKLOG) // BACKLOG | TODO | IN_PROGRESS | REVIEW | DONE
+  priority    TaskPriority @default(MEDIUM) // LOW | MEDIUM | HIGH | URGENT
+  dueDate     DateTime?
+  position    Int
+  tags        String[]
+  checklist   Json? // [{ text, done }]
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId, status, position])
+}
+
+model Contract {
+  id                String         @id @default(uuid())
+  clientId          String
+  client            Client         @relation(fields: [clientId], references: [id])
+  projectId         String?
+  project           Project?       @relation(fields: [projectId], references: [id])
+  proposalId        String?
+  proposal          Proposal?      @relation(fields: [proposalId], references: [id])
+  description       String
+  billingType       BillingType // RECURRING | INSTALLMENTS | ONE_TIME
+  status            ContractStatus @default(ACTIVE) // ACTIVE | PAUSED | FINISHED | CANCELED
+  // RECURRING
+  monthlyAmount     Decimal?       @db.Decimal(12, 2)
+  billingDay        Int? // 1–28
+  startDate         DateTime?
+  endDate           DateTime? // null = tempo indeterminado
+  // INSTALLMENTS
+  downPayment       Decimal?       @db.Decimal(12, 2)
+  installments      Int? // qtd de parcelas (sem contar entrada)
+  installmentAmount Decimal?       @db.Decimal(12, 2)
+  payments          Payment[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Payment {
+  id          String         @id @default(uuid())
+  contractId  String
+  contract    Contract       @relation(fields: [contractId], references: [id])
+  description String // "Entrada", "Parcela 3/8", "Mensalidade 07/2026"
+  amount      Decimal        @db.Decimal(12, 2)
+  dueDate     DateTime
+  status      PaymentStatus  @default(PENDING) // PENDING | PAID | OVERDUE | CANCELED
+  paidAt      DateTime?
+  paidAmount  Decimal?       @db.Decimal(12, 2) // permite recebimento parcial/diferente
+  method      PaymentMethod? // PIX | TRANSFER | BOLETO | CARD | CASH
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([contractId, status])
+  @@index([dueDate, status])
+}
+
+model Activity {
+  id           String       @id @default(uuid())
+  clientId     String
+  client       Client       @relation(fields: [clientId], references: [id])
+  dealId       String?
+  deal         Deal?        @relation(fields: [dealId], references: [id])
+  proposalId   String?
+  proposal     Proposal?    @relation(fields: [proposalId], references: [id])
+  type         ActivityType // NOTE | CALL | MEETING | EMAIL | WHATSAPP | FOLLOW_UP
+  content      String
+  scheduledFor DateTime? // follow-ups
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+// --- enums necessários (inferidos dos comentários do SPEC.md §4) ---
+enum PersonType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum LeadSource {
+  REFERRAL
+  PAID_TRAFFIC
+  ORGANIC
+  OUTBOUND
+  OTHER
+}
+
+enum ClientStatus {
+  LEAD
+  ACTIVE
+  INACTIVE
+  LOST
+}
+
+enum ServiceType {
+  SOFTWARE
+  WEBSITE
+  PAID_TRAFFIC
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  NEGOTIATING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  DONE
+  CANCELED
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BillingType {
+  RECURRING
+  INSTALLMENTS
+  ONE_TIME
+}
+
+enum ContractStatus {
+  ACTIVE
+  PAUSED
+  FINISHED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum PaymentMethod {
+  PIX
+  TRANSFER
+  BOLETO
+  CARD
+  CASH
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  MEETING
+  EMAIL
+  WHATSAPP
+  FOLLOW_UP
+}
