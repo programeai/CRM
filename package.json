@@ -1,0 +1,13 @@
+{
+  "name": "crm",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "api": "pnpm --filter api",
+    "web": "pnpm --filter web",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev:web": "pnpm --filter web dev",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  }
+}
