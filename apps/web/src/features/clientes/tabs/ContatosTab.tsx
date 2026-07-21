@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { formatPhone } from '@/lib/format';
+import { formatPhone, maskPhone, onlyDigits } from '@/lib/format';
 import {
   useContacts,
   useCreateContact,
@@ -71,6 +71,7 @@ export default function ContatosTab() {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -258,7 +259,22 @@ export default function ContatosTab() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="contact-phone">Telefone</FieldLabel>
-                  <Input id="contact-phone" {...register('phone')} />
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field }) => (
+                      <Input
+                        id="contact-phone"
+                        inputMode="numeric"
+                        placeholder="(00) 00000-0000"
+                        value={maskPhone(field.value ?? '')}
+                        onChange={(e) =>
+                          field.onChange(onlyDigits(e.target.value))
+                        }
+                        onBlur={field.onBlur}
+                      />
+                    )}
+                  />
                 </Field>
               </FieldGroup>
             </form>
