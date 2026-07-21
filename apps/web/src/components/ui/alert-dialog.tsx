@@ -3,9 +3,31 @@ import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useStackedModal } from "@/components/ui/modal-stack"
 
-function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+/**
+ * Participa da pilha global de modais (mesma regra do `Dialog`): quando abre por
+ * cima de outro modal, o de baixo é soterrado sem perder o estado; ao fechar,
+ * o anterior volta ao topo intacto. Ver `modal-stack.tsx`.
+ */
+function AlertDialog({ open, onOpenChange, ...props }: AlertDialogPrimitive.Root.Props) {
+  const { visible } = useStackedModal(open)
+  return (
+    <AlertDialogPrimitive.Root
+      data-slot="alert-dialog"
+      open={open === undefined ? undefined : open && visible}
+      onOpenChange={
+        onOpenChange
+          ? (nextOpen, eventDetails) => {
+              // Enquanto soterrado, não deve emitir fechamento.
+              if (!visible) return
+              onOpenChange(nextOpen, eventDetails)
+            }
+          : undefined
+      }
+      {...props}
+    />
+  )
 }
 
 function AlertDialogTrigger({ ...props }: AlertDialogPrimitive.Trigger.Props) {

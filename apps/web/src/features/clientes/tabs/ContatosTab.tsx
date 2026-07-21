@@ -231,7 +231,7 @@ export default function ContatosTab() {
             <form onSubmit={handleSubmit(onSubmit)} id="contact-form">
               <FieldGroup>
                 <Field data-invalid={!!errors.name}>
-                  <FieldLabel htmlFor="contact-name">Nome</FieldLabel>
+                  <FieldLabel htmlFor="contact-name" required>Nome</FieldLabel>
                   <Input
                     id="contact-name"
                     aria-invalid={!!errors.name}

@@ -151,12 +151,19 @@ interface ClientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client?: Client;
+  /**
+   * Chamado após criar um cliente (apenas no modo de criação). Permite que quem
+   * abriu o diálogo — por exemplo, o formulário de oportunidade — receba o
+   * cliente recém-criado e já o selecione no campo de origem.
+   */
+  onCreated?: (client: Client) => void;
 }
 
 export function ClientFormDialog({
   open,
   onOpenChange,
   client,
+  onCreated,
 }: ClientFormDialogProps) {
   const isEdit = !!client;
   const createClient = useCreateClient();
@@ -293,8 +300,9 @@ export function ClientFormDialog({
         await updateClient.mutateAsync(body);
         toast.success('Cliente atualizado.');
       } else {
-        await createClient.mutateAsync(body);
+        const created = await createClient.mutateAsync(body);
         toast.success('Cliente criado.');
+        onCreated?.(created);
       }
       onOpenChange(false);
     } catch (error) {
@@ -326,7 +334,7 @@ export function ClientFormDialog({
             id="client-form"
           >
             <Field className="sm:col-span-2" data-invalid={!!errors.name}>
-              <FieldLabel htmlFor="name">Nome</FieldLabel>
+              <FieldLabel htmlFor="name" required>Nome</FieldLabel>
               <Input
                 id="name"
                 aria-invalid={!!errors.name}
@@ -341,7 +349,7 @@ export function ClientFormDialog({
             </Field>
 
             <Field>
-              <FieldLabel>Tipo de pessoa</FieldLabel>
+              <FieldLabel required>Tipo de pessoa</FieldLabel>
               <Controller
                 control={control}
                 name="personType"
@@ -460,7 +468,7 @@ export function ClientFormDialog({
             </Field>
 
             <Field>
-              <FieldLabel>Status</FieldLabel>
+              <FieldLabel required>Status</FieldLabel>
               <Controller
                 control={control}
                 name="status"

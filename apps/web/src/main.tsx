@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { ModalStackProvider } from '@/components/ui/modal-stack';
 import { AuthProvider } from '@/lib/auth';
 import { router } from '@/routes/router';
 import './index.css';
@@ -17,8 +18,10 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <AuthProvider>
           <TooltipProvider>
-            <RouterProvider router={router} />
-            <Toaster />
+            <ModalStackProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </ModalStackProvider>
           </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -4,9 +4,33 @@ import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useStackedModal } from "@/components/ui/modal-stack"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+/**
+ * Participa da pilha global de modais: quando outro Dialog abre por cima, este é
+ * soterrado (ocultado visualmente) sem perder o estado — o `open` lógico continua
+ * verdadeiro, apenas a visibilidade do primitivo é suspensa. Ao voltar ao topo,
+ * reaparece intacto. Ver `modal-stack.tsx`.
+ */
+function Dialog({ open, onOpenChange, ...props }: DialogPrimitive.Root.Props) {
+  const { visible } = useStackedModal(open)
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      open={open === undefined ? undefined : open && visible}
+      onOpenChange={
+        onOpenChange
+          ? (nextOpen, eventDetails) => {
+              // Enquanto soterrado, o Dialog não deve emitir fechamento — evita
+              // que a suspensão de visibilidade seja confundida com um "fechar".
+              if (!visible) return
+              onOpenChange(nextOpen, eventDetails)
+            }
+          : undefined
+      }
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

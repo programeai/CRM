@@ -65,7 +65,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)}>
             <FieldGroup>
               <Field data-invalid={!!errors.email}>
-                <FieldLabel htmlFor="email">E-mail</FieldLabel>
+                <FieldLabel htmlFor="email" required>E-mail</FieldLabel>
                 <Input
                   id="email"
                   type="email"
@@ -76,7 +76,7 @@ export default function LoginPage() {
                 {errors.email && <FieldError>{errors.email.message}</FieldError>}
               </Field>
               <Field data-invalid={!!errors.password}>
-                <FieldLabel htmlFor="password">Senha</FieldLabel>
+                <FieldLabel htmlFor="password" required>Senha</FieldLabel>
                 <PasswordInput
                   id="password"
                   autoComplete="current-password"

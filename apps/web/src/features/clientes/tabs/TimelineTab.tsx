@@ -89,7 +89,7 @@ export default function TimelineTab() {
       >
         <div className="flex flex-col gap-3 sm:flex-row">
           <Field className="sm:max-w-48">
-            <FieldLabel>Tipo</FieldLabel>
+            <FieldLabel required>Tipo</FieldLabel>
             <Controller
               control={control}
               name="type"
@@ -125,7 +125,7 @@ export default function TimelineTab() {
           )}
         </div>
         <Field data-invalid={!!errors.content}>
-          <FieldLabel htmlFor="content">Conteúdo</FieldLabel>
+          <FieldLabel htmlFor="content" required>Conteúdo</FieldLabel>
           <textarea
             id="content"
             rows={3}

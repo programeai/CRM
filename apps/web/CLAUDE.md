@@ -68,3 +68,18 @@ Uma feature não importa o interior de outra; reaproveitamento sobe para `compon
 - Tema claro/escuro via `next-themes` e a classe `.dark`; os tokens (cores, raios, fonte) estão centralizados em `src/index.css`.
 - A marca usa o **laranja Solarz** como acento (`--primary`); fundos são neutros cinza-frio (claro) / navy (escuro). Não tinja fundos com a cor de marca — use-a só para acento, foco e seleção.
 - **Cursor de ponteiro em tudo que é clicável.** Todo elemento interativo (botão, link, item de menu/select, aba, switch, etc.) deve usar `cursor: pointer`. Isso já é garantido globalmente por uma regra em `src/index.css` (`@layer base`) que cobre elementos nativos e os primitivos `@base-ui` (via `role`). **Não** adicione `cursor-default` a elementos clicáveis nem anule a regra; elementos desabilitados (`disabled`/`aria-disabled`/`data-disabled`) são excluídos automaticamente e mantêm o cursor padrão.
+
+### Formulários — campo obrigatório
+
+- **Todo input obrigatório exibe um asterisco vermelho (`*`) na label.** Regra absoluta, sem exceção. Um campo é obrigatório quando o schema (Zod) não o marca como `.optional()` — inclui selects/enums sem valor "vazio".
+- Use a prop `required` do `FieldLabel` (`@/components/ui/field`); ela renderiza o `*` em `text-destructive`. **Nunca** escreva o asterisco à mão no texto da label.
+
+```tsx
+<FieldLabel htmlFor="name" required>Nome</FieldLabel>   // correto
+<FieldLabel htmlFor="name">Nome *</FieldLabel>          // errado
+```
+
+### Modais — nunca um modal sobre outro
+
+- **É proibido abrir um modal por cima de outro.** Regra absoluta e geral da aplicação. Quando um modal abriria sobre outro, o de baixo é **soterrado** (ocultado visualmente, mas **montado** — preserva todo o estado de formulário) e volta ao topo intacto quando o de cima fecha. Se o de cima criou um item, o de baixo reaparece já com esse item preenchido no campo de origem (ex.: cadastro rápido de cliente no formulário de oportunidade).
+- A regra é aplicada **automaticamente** pelos primitivos `Dialog` e `AlertDialog` (e, por consequência, `ConfirmDialog`), via a pilha global em `@/components/ui/modal-stack` (`ModalStackProvider` + `useStackedModal`). Qualquer modal novo deve usar esses primitivos — **não** monte diálogos com estado próprio fora deles.
