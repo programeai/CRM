@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -133,6 +133,20 @@ interface ViaCepResponse {
   erro?: boolean;
 }
 
+interface BrasilApiCnpjResponse {
+  razao_social?: string;
+  nome_fantasia?: string;
+  email?: string;
+  ddd_telefone_1?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+}
+
 interface ClientFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -148,6 +162,15 @@ export function ClientFormDialog({
   const createClient = useCreateClient();
   const updateClient = useUpdateClient(client?.id ?? '');
   const [cepLoading, setCepLoading] = useState(false);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  /** Último CNPJ consultado, para não repetir a busca a cada tecla. */
+  const lastCnpjLookup = useRef<string | null>(null);
+  /**
+   * Último CEP já resolvido — evita reconsultar o ViaCEP e, principalmente,
+   * impede que o endereço preenchido pelo autocomplete do CNPJ seja
+   * sobrescrito quando o campo CEP perde o foco.
+   */
+  const lastCepLookup = useRef<string | null>(null);
 
   const {
     register,
@@ -163,13 +186,19 @@ export function ClientFormDialog({
   });
 
   useEffect(() => {
-    if (open) reset(client ? toValues(client) : EMPTY);
+    if (open) {
+      reset(client ? toValues(client) : EMPTY);
+      lastCnpjLookup.current = null;
+      lastCepLookup.current = null;
+    }
   }, [open, client, reset]);
 
   /** Consulta o ViaCEP e preenche o endereço quando o CEP tem 8 dígitos. */
   const lookupCep = async (raw: string) => {
     const cep = raw.replace(/\D/g, '');
     if (cep.length !== 8) return;
+    if (lastCepLookup.current === cep) return;
+    lastCepLookup.current = cep;
     setCepLoading(true);
     try {
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
@@ -191,7 +220,47 @@ export function ClientFormDialog({
     }
   };
 
-  const zip = register('zipCode');
+  /**
+   * Consulta a BrasilAPI e preenche os dados da empresa quando o CNPJ tem
+   * 14 dígitos. Disparada ao completar o documento (último dígito digitado).
+   */
+  const lookupCnpj = async (digits: string) => {
+    if (digits.length !== 14) return;
+    if (lastCnpjLookup.current === digits) return;
+    lastCnpjLookup.current = digits;
+    setCnpjLoading(true);
+    try {
+      const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!res.ok) {
+        toast.error('CNPJ não encontrado.');
+        return;
+      }
+      const data = (await res.json()) as BrasilApiCnpjResponse;
+      if (data.razao_social) setValue('name', data.razao_social);
+      if (data.nome_fantasia) setValue('tradeName', data.nome_fantasia);
+      if (data.email) setValue('email', data.email.toLowerCase());
+      if (data.ddd_telefone_1)
+        setValue('phone', onlyDigits(data.ddd_telefone_1).slice(0, 11));
+      if (data.cep) {
+        const cep = onlyDigits(data.cep);
+        setValue('zipCode', cep);
+        // Marca o CEP como já resolvido para o ViaCEP não sobrescrever
+        // o endereço vindo do CNPJ ao sair do campo CEP.
+        if (cep.length === 8) lastCepLookup.current = cep;
+      }
+      if (data.logradouro) setValue('street', data.logradouro);
+      if (data.numero) setValue('number', data.numero);
+      if (data.complemento) setValue('complement', data.complemento);
+      if (data.bairro) setValue('district', data.bairro);
+      if (data.municipio) setValue('city', data.municipio);
+      if (data.uf) setValue('state', data.uf);
+      toast.success('Dados da empresa preenchidos.');
+    } catch {
+      toast.error('Falha ao buscar o CNPJ.');
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
 
   const onSubmit = async (v: Values) => {
     const body = {
@@ -298,21 +367,33 @@ export function ClientFormDialog({
 
             <Field data-invalid={!!errors.document}>
               <FieldLabel htmlFor="document">CPF / CNPJ</FieldLabel>
-              <Controller
-                control={control}
-                name="document"
-                render={({ field }) => (
-                  <Input
-                    id="document"
-                    inputMode="numeric"
-                    placeholder="000.000.000-00"
-                    aria-invalid={!!errors.document}
-                    value={maskDocument(field.value ?? '')}
-                    onChange={(e) => field.onChange(onlyDigits(e.target.value))}
-                    onBlur={field.onBlur}
-                  />
+              <div className="relative">
+                <Controller
+                  control={control}
+                  name="document"
+                  render={({ field }) => (
+                    <Input
+                      id="document"
+                      inputMode="numeric"
+                      placeholder="000.000.000-00"
+                      aria-invalid={!!errors.document}
+                      value={maskDocument(field.value ?? '')}
+                      onChange={(e) => {
+                        const digits = onlyDigits(e.target.value);
+                        field.onChange(digits);
+                        if (digits.length === 14) {
+                          setValue('personType', 'COMPANY');
+                          void lookupCnpj(digits);
+                        }
+                      }}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+                {cnpjLoading && (
+                  <Spinner className="absolute top-1/2 right-3 -translate-y-1/2" />
                 )}
-              />
+              </div>
               {errors.document && (
                 <FieldError>{errors.document.message}</FieldError>
               )}
@@ -331,7 +412,20 @@ export function ClientFormDialog({
 
             <Field>
               <FieldLabel htmlFor="phone">Telefone</FieldLabel>
-              <Input id="phone" {...register('phone')} />
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field }) => (
+                  <Input
+                    id="phone"
+                    inputMode="numeric"
+                    placeholder="(00) 00000-0000"
+                    value={maskPhone(field.value ?? '')}
+                    onChange={(e) => field.onChange(onlyDigits(e.target.value))}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
             </Field>
 
             <Field>
@@ -416,14 +510,24 @@ export function ClientFormDialog({
             <Field>
               <FieldLabel htmlFor="zipCode">CEP</FieldLabel>
               <div className="relative">
-                <Input
-                  id="zipCode"
-                  placeholder="00000-000"
-                  {...zip}
-                  onBlur={(e) => {
-                    void zip.onBlur(e);
-                    void lookupCep(e.target.value);
-                  }}
+                <Controller
+                  control={control}
+                  name="zipCode"
+                  render={({ field }) => (
+                    <Input
+                      id="zipCode"
+                      inputMode="numeric"
+                      placeholder="00000-000"
+                      value={maskCep(field.value ?? '')}
+                      onChange={(e) =>
+                        field.onChange(onlyDigits(e.target.value))
+                      }
+                      onBlur={(e) => {
+                        field.onBlur();
+                        void lookupCep(e.target.value);
+                      }}
+                    />
+                  )}
                 />
                 {cepLoading && (
                   <Spinner className="absolute top-1/2 right-3 -translate-y-1/2" />
@@ -458,7 +562,27 @@ export function ClientFormDialog({
 
             <Field>
               <FieldLabel htmlFor="state">UF</FieldLabel>
-              <Input id="state" maxLength={2} {...register('state')} />
+              <Controller
+                control={control}
+                name="state"
+                render={({ field }) => (
+                  <Input
+                    id="state"
+                    maxLength={2}
+                    placeholder="UF"
+                    value={field.value ?? ''}
+                    onChange={(e) =>
+                      field.onChange(
+                        e.target.value
+                          .replace(/[^a-zA-Z]/g, '')
+                          .toUpperCase()
+                          .slice(0, 2),
+                      )
+                    }
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
             </Field>
           </form>
         </DialogBody>
