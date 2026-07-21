@@ -3,7 +3,7 @@
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada.
 >
-> **Última atualização:** 2026-07-21 · commit `60056f1`
+> **Última atualização:** 2026-07-21
 
 ## Visão
 
@@ -17,8 +17,8 @@ quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Sing
 |---|---|---|---|
 | 0 | Fundação (monorepo, infra, auth, layout base) | ✅ concluída | [research](specs/research/2026-07-20-fase-0-fundacao.md) · [plan](specs/plans/2026-07-20-fase-0-fundacao.md) |
 | 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | ✅ concluída | [research](specs/research/2026-07-21-fase-1-clientes.md) · [plan](specs/plans/2026-07-21-fase-1-clientes.md) |
-| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | 🔜 próxima | — |
-| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | ⬜ não iniciada | — |
+| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | ✅ concluída | [research](specs/research/2026-07-21-fase-2-pipeline.md) · [plan](specs/plans/2026-07-21-fase-2-pipeline.md) |
+| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | 🔜 próxima | — |
 | 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ⬜ não iniciada | — |
 | 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ⬜ não iniciada | — |
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ⬜ não iniciada | — |
@@ -75,15 +75,29 @@ unicidade de documento. Ver [plano da Fase 1](specs/plans/2026-07-21-fase-1-clie
 
 ---
 
-## Fase 2 — Pipeline 🔜
+## Fase 2 — Pipeline ✅
 
 Kanban de oportunidades, da captação ao fechamento. Ver [SPEC.md](SPEC.md) §3.2.
 
-- [ ] Estágios configuráveis: `GET/POST /pipeline-stages`, `PATCH/DELETE /pipeline-stages/:id`
-- [ ] Oportunidades (Deals): `GET/POST /deals`, `GET/PATCH/DELETE /deals/:id`, `PATCH /deals/:id/move` (stage + position)
-- [ ] Motivo da perda obrigatório ao mover para "Perdeu"; indicador "esfriando" (parada > X dias)
-- [ ] Kanban com drag & drop (dnd-kit) + optimistic update
-- [ ] Mover para "Ganhou" sugere criar Projeto
+**Backend** (`apps/api/src/modules/pipeline/`)
+- [x] Módulo `pipeline` (estágios + deals): `GET/POST /pipeline-stages`, `PATCH /pipeline-stages/reorder`, `PATCH/DELETE /pipeline-stages/:id`
+- [x] Oportunidades (Deals): `GET/POST /deals`, `GET /deals/board` (sem paginação), `GET/PATCH/DELETE /deals/:id`, `PATCH /deals/:id/move` (stage + position, reindexação em `$transaction`)
+- [x] Motivo da perda obrigatório (`422`) ao mover para estágio `isLost`; `stageMovedAt` atualizado a cada troca de estágio
+- [x] Proteção contra exclusão de estágio com oportunidades vinculadas (`409`)
+- [x] Posse derivada via `ClientsService` (`Deal`/`PipelineStage` não têm `ownerId`)
+- [x] Testes unitários dos services (`pipeline-stages.service.spec.ts`, `deals.service.spec.ts`)
+- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
+
+**Frontend** (`apps/web/src/features/pipeline/`)
+- [x] Kanban com drag & drop (`dnd-kit`) + optimistic update no cache do board (rollback em erro)
+- [x] Diálogo de motivo de perda ao soltar em estágio "Perdeu"
+- [x] Indicador "esfriando" derivado no client (> 7 dias parado em estágios não terminais)
+- [x] Tela de configuração de estágios (criar/renomear/reordenar/excluir, marcar `isWon`/`isLost`)
+- [x] Aba "Oportunidades" na ficha do cliente (lista + criação já vinculada ao cliente)
+- [x] Trocar `PlaceholderPage` da rota `/pipeline`
+
+**Deferido (fora do escopo desta fase):** criar Projeto automaticamente ao mover para "Ganhou" — fica
+para a Fase 4 (Demandas), quando o módulo de Projetos existir. Ver [plano da Fase 2](specs/plans/2026-07-21-fase-2-pipeline.md).
 
 ---
 
