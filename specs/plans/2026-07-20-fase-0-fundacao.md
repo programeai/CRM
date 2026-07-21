@@ -678,17 +678,25 @@ bootstrap();
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api build` — compila
-- [ ] `pnpm --filter api lint` — sem erros de lint (se o Nest scaffold trouxe eslint)
-- [ ] `curl -sX POST localhost:3000/api/v1/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@crm.local","password":"changeme123"}' -i` — retorna 201 com `accessToken` no corpo e `Set-Cookie: refresh_token=...; HttpOnly`
-- [ ] `curl -sX POST localhost:3000/api/v1/auth/login ... -d '{"email":"admin@crm.local","password":"errada"}'` — retorna 401
-- [ ] `curl -s localhost:3000/api/v1/auth/me` (sem token) — retorna 401
-- [ ] `curl -s localhost:3000/api/v1/auth/me -H "Authorization: Bearer <accessToken>"` — retorna o usuário sem `passwordHash`/`refreshTokenHash`
-- [ ] 6+ logins com senha errada em 1 min — o 6º retorna 429 (throttler)
+- [x] `pnpm --filter api build` — compila
+- [x] `pnpm --filter api lint` — sem erros de lint (se o Nest scaffold trouxe eslint)
+- [x] `curl -sX POST localhost:3000/api/v1/auth/login -H 'Content-Type: application/json' -d '{"email":"admin@crm.local","password":"changeme123"}' -i` — retorna 201 com `accessToken` no corpo e `Set-Cookie: refresh_token=...; HttpOnly`
+- [x] `curl -sX POST localhost:3000/api/v1/auth/login ... -d '{"email":"admin@crm.local","password":"errada"}'` — retorna 401
+- [x] `curl -s localhost:3000/api/v1/auth/me` (sem token) — retorna 401
+- [x] `curl -s localhost:3000/api/v1/auth/me -H "Authorization: Bearer <accessToken>"` — retorna o usuário sem `passwordHash`/`refreshTokenHash`
+- [x] 6+ logins com senha errada em 1 min — o 6º retorna 429 (throttler)
 
 #### Manual Verification
-- [ ] Refresh: guardar o cookie do login, chamar `POST /auth/refresh` com o cookie → novo `accessToken` e novo `Set-Cookie`
-- [ ] Logout zera `refreshTokenHash` (refresh subsequente com o cookie antigo dá 401)
+- [x] Refresh: guardar o cookie do login, chamar `POST /auth/refresh` com o cookie → novo `accessToken` e novo `Set-Cookie` (verificado via curl com cookie jar)
+- [x] Logout zera `refreshTokenHash` (refresh subsequente com o cookie antigo dá 401) (verificado via curl)
+
+**Notas de adaptação (Phase 3)**:
+- Nest 11 scaffold usa `tsconfig` com `module: nodenext` + `isolatedModules` → `import * as cookieParser` não é chamável (usar `import cookieParser from 'cookie-parser'`) e tipos do express em assinaturas decoradas precisam de `import type { Request, Response }`.
+- **Bug de DI na spec**: `JwtAuthGuard` é registrado como `APP_GUARD` no `AppModule`, mas `JwtService` só é provido dentro do `AuthModule`. Corrigido adicionando `exports: [JwtModule]` no `AuthModule` (o `AppModule` importa `AuthModule`, então o `JwtService` fica disponível para o guard global).
+- `login.dto.ts`: corrigido o import (`IsEmail` no lugar do typo `Isemail`), como a própria spec instruiu.
+- `class-validator`/`class-transformer` não vieram no scaffold Nest 11 → adicionados.
+- ESLint estrito (`recommendedTypeChecked`): tipei o request/payloads do guard e controller; adicionei `no-unused-vars` com `ignoreRestSiblings` (para o strip de campos em `me()`) e um override desligando `no-unsafe-*` em `*.spec.ts` (mocks de teste). Lint final: 0 erros.
+- Adicionado `auth.service.spec.ts` (6 testes, todos passam) conforme a Testing Strategy da spec; removido o `app.e2e-spec.ts` do scaffold (testava a rota hello-world removida).
 
 **⏸ PAUSE**: Parar para confirmação humana antes da Phase 4.
 
