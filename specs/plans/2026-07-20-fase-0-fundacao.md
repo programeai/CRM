@@ -862,13 +862,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter web build` — compila com os novos módulos e o alias `@`
-- [ ] `pnpm --filter web dlx shadcn@latest add button` (idempotente) — não quebra `components.json`
-- [ ] `test -f apps/web/src/lib/utils.ts && test -f apps/web/components.json` — shadcn inicializado
+- [x] `pnpm --filter web build` — compila com os novos módulos e o alias `@`
+- [x] `pnpm --filter web dlx shadcn@latest add button` (idempotente) — não quebra `components.json`
+- [x] `test -f apps/web/src/lib/utils.ts && test -f apps/web/components.json` — shadcn inicializado
 
 #### Manual Verification
 - [ ] `pnpm --filter web dev` sobe sem erro; a página inicial do Vite renderiza com Tailwind aplicando estilos
 - [ ] Um `<Button>` do shadcn renderiza estilizado numa página de teste
+
+**Notas de adaptação (Phase 4)**:
+- **react-router@8** (latest) exige React ≥19.2.7; a spec fixa React 18 (SPEC.md §6.3). Fixei **react-router@7.18.1** (suporta React 18), preservando a decisão de React 18.
+- **shadcn `nova`/`base-nova`**: o `init` foi rodado com `--preset nova` (dentro de `apps/web`, não interativo). A versão atual do shadcn **não tem mais o wrapper `Form`/`FormField`** — usa o primitivo **`Field`/`FieldGroup`** (skill forms.md). Adicionei `field` (+ `separator`). Portanto, a `LoginPage` (Phase 5) é construída com `Field`/`FieldGroup` + `react-hook-form` (`register`/`formState`), não com o `Form` da spec. Toda a UI usa componentes shadcn (conforme pedido do usuário).
+- Adicionei também o componente **`sidebar`** (que trouxe `sheet`, `skeleton`, `tooltip`, hook `use-mobile`) para construir o layout da Phase 5 com shadcn em vez de markup custom.
+- **TypeScript 6** (scaffold Vite) deprecou `baseUrl` → removido; `paths` (`@/*`) resolve relativo ao tsconfig com `moduleResolution: bundler`. Mantive `strict: true`.
+- `verbatimModuleSyntax: true` no tsconfig do Vite → imports de tipo usam `import type` (`AxiosError`, `InternalAxiosRequestConfig`, `ReactNode`).
 
 **⏸ PAUSE**: Parar para confirmação humana antes da Phase 5.
 
