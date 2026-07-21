@@ -58,7 +58,7 @@ export default function LoginPage() {
     <div className="grid min-h-screen place-items-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Entrar no CRM Solarz</CardTitle>
+          <CardTitle>Entrar no CRM ProgrameAi</CardTitle>
           <CardDescription>Acesse com seu e-mail e senha.</CardDescription>
         </CardHeader>
         <CardContent>
