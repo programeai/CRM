@@ -4,6 +4,7 @@ import {
   KanbanSquare,
   FileText,
   ListTodo,
+  FolderKanban,
   Wallet,
   FileSignature,
   type LucideIcon,
@@ -32,7 +33,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/propostas", label: "Propostas", icon: FileText },
     ],
   },
-  { label: "Operação", items: [{ to: "/demandas", label: "Demandas", icon: ListTodo }] },
+  {
+    label: "Operação",
+    items: [
+      { to: "/demandas", label: "Demandas", icon: ListTodo },
+      { to: "/projetos", label: "Projetos", icon: FolderKanban },
+    ],
+  },
   {
     label: "Financeiro",
     items: [

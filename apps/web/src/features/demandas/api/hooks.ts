@@ -1,0 +1,127 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { queryKeys } from '@/lib/query-keys';
+import { projectsApi } from './projects.api';
+import { tasksApi } from './tasks.api';
+import { clientsLookupApi } from './clients-lookup.api';
+import { reindexBoard } from '../lib/reindex-board';
+import type {
+  CreateProjectBody, CreateTaskBody, ListProjectsParams, ListTasksParams,
+  MoveTaskBody, Task, UpdateProjectBody, UpdateTaskBody,
+} from './types';
+
+// --- Projects ---
+export function useProjects(params: ListProjectsParams) {
+  return useQuery({
+    queryKey: queryKeys.projects.list(params),
+    queryFn: () => projectsApi.list(params),
+  });
+}
+export function useProjectsByClient(clientId: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.byClient(clientId),
+    queryFn: () => projectsApi.listByClient(clientId),
+  });
+}
+export function useProject(id: string) {
+  return useQuery({
+    queryKey: queryKeys.projects.detail(id),
+    queryFn: () => projectsApi.get(id),
+    enabled: !!id,
+  });
+}
+export function useClientOptions(search: string) {
+  return useQuery({
+    queryKey: queryKeys.clientOptions(search),
+    queryFn: () => clientsLookupApi.search(search),
+  });
+}
+
+function invalidateProjects(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: queryKeys.projects.all });
+}
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateProjectBody) => projectsApi.create(body),
+    onSuccess: () => invalidateProjects(qc),
+  });
+}
+export function useUpdateProject(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProjectBody) => projectsApi.update(id, body),
+    onSuccess: () => invalidateProjects(qc),
+  });
+}
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => projectsApi.remove(id),
+    onSuccess: () => invalidateProjects(qc),
+  });
+}
+
+// --- Tasks ---
+export function useBoard(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.tasks.board(projectId),
+    queryFn: () => tasksApi.board(projectId),
+    enabled: !!projectId,
+  });
+}
+export function useTasks(params: ListTasksParams) {
+  return useQuery({
+    queryKey: queryKeys.tasks.list(params),
+    queryFn: () => tasksApi.list(params),
+  });
+}
+function invalidateTasks(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: queryKeys.tasks.all });
+  void qc.invalidateQueries({ queryKey: queryKeys.projects.all }); // _count.tasks muda
+}
+export function useCreateTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateTaskBody) => tasksApi.create(body),
+    onSuccess: () => invalidateTasks(qc),
+  });
+}
+export function useUpdateTask(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateTaskBody) => tasksApi.update(id, body),
+    onSuccess: () => invalidateTasks(qc),
+  });
+}
+export function useDeleteTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tasksApi.remove(id),
+    onSuccess: () => invalidateTasks(qc),
+  });
+}
+
+/** Move com optimistic update no board do projeto; reverte em erro e reconcilia no settle. */
+export function useMoveTask(projectId: string) {
+  const qc = useQueryClient();
+  const key = queryKeys.tasks.board(projectId);
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: MoveTaskBody }) => tasksApi.move(id, body),
+    onMutate: async ({ id, body }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Task[]>(key);
+      if (prev) {
+        qc.setQueryData<Task[]>(key, reindexBoard(prev, id, body.status, body.position));
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+      toast.error('Falha ao mover a tarefa.');
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: key });
+    },
+  });
+}

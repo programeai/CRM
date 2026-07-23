@@ -9,11 +9,15 @@ import ContatosTab from '@/features/clientes/tabs/ContatosTab';
 import TimelineTab from '@/features/clientes/tabs/TimelineTab';
 import OportunidadesTab from '@/features/clientes/tabs/OportunidadesTab';
 import PropostasTab from '@/features/clientes/tabs/PropostasTab';
+import ProjetosTab from '@/features/clientes/tabs/ProjetosTab';
 import PlaceholderTab from '@/features/clientes/tabs/PlaceholderTab';
 import PlaceholderPage from '@/features/_placeholder/PlaceholderPage';
 import PipelineBoardPage from '@/features/pipeline/PipelineBoardPage';
 import PropostasListPage from '@/features/propostas/PropostasListPage';
 import PropostaDetalhePage from '@/features/propostas/PropostaDetalhePage';
+import ProjetosListPage from '@/features/demandas/ProjetosListPage';
+import ProjetoDetalhePage from '@/features/demandas/ProjetoDetalhePage';
+import MinhasDemandasPage from '@/features/demandas/MinhasDemandasPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -34,15 +38,16 @@ export const router = createBrowserRouter([
               { path: 'timeline', element: <TimelineTab /> },
               { path: 'oportunidades', element: <OportunidadesTab /> },
               { path: 'propostas', element: <PropostasTab /> },
-              { path: 'projetos', element: <PlaceholderTab title="Projetos" /> },
+              { path: 'projetos', element: <ProjetosTab /> },
               { path: 'contratos', element: <PlaceholderTab title="Contratos" /> },
             ],
           },
           { path: '/pipeline', element: <PipelineBoardPage /> },
           { path: '/propostas', element: <PropostasListPage /> },
           { path: '/propostas/:id', element: <PropostaDetalhePage /> },
-          { path: '/projetos/:id', element: <PlaceholderPage title="Projeto" /> },
-          { path: '/demandas', element: <PlaceholderPage title="Demandas" /> },
+          { path: '/projetos', element: <ProjetosListPage /> },
+          { path: '/projetos/:id', element: <ProjetoDetalhePage /> },
+          { path: '/demandas', element: <MinhasDemandasPage /> },
           { path: '/financeiro', element: <PlaceholderPage title="Financeiro — Recebimentos" /> },
           { path: '/financeiro/contratos', element: <PlaceholderPage title="Contratos" /> },
           {
