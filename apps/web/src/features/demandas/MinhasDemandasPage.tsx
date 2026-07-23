@@ -3,6 +3,7 @@ import {
   DndContext, DragOverlay, PointerSensor, closestCorners,
   useSensor, useSensors, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select, SelectContent, SelectItem, SelectTrigger,
@@ -129,10 +130,9 @@ export default function MinhasDemandasPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
+        <Input
+          className="max-w-xs"
           placeholder="Buscar cliente…"
-          className="h-10 w-56 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           value={clientSearch}
           onChange={(e) => setClientSearch(e.target.value)}
         />
@@ -141,7 +141,7 @@ export default function MinhasDemandasPage() {
           value={priority}
           onValueChange={(v) => setPriority(v ?? 'ALL')}
         >
-          <SelectTrigger className="w-56" />
+          <SelectTrigger className="ml-auto w-56" />
           <SelectContent>
             {(Object.keys(PRIORITY_FILTER_ITEMS) as (TaskPriority | 'ALL')[]).map((p) => (
               <SelectItem key={p} value={p}>
