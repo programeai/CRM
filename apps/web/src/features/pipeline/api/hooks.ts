@@ -83,6 +83,7 @@ export function useMoveDeal() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.deals.board });
+      void qc.invalidateQueries({ queryKey: queryKeys.projects.all });
     },
   });
 }

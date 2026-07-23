@@ -68,7 +68,10 @@ export function useProposalAction(action: 'send' | 'accept' | 'reject' | 'newVer
     mutationFn: (id: string) => proposalsApi[action](id),
     onSuccess: () => {
       invalidateAll(qc);
-      if (action === 'accept') void qc.invalidateQueries({ queryKey: queryKeys.deals.all });
+      if (action === 'accept') {
+        void qc.invalidateQueries({ queryKey: queryKeys.deals.all });
+        void qc.invalidateQueries({ queryKey: queryKeys.projects.all });
+      }
     },
   });
 }
