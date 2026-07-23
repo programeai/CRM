@@ -245,7 +245,7 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.update`
 
 ### PATCH /deals/:id/move
-- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReason`; ao sair de um estágio `isLost` para outro, limpa `lostReason`. Muda de estágio → atualiza `stageMovedAt`.
+- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReason`; ao sair de um estágio `isLost` para outro, limpa `lostReason`. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
 - **Auth:** Bearer (access token).
 - **Body:** `{ stageId: uuid, position: number (>=0), lostReason?: string }`
 - **Resposta:** `200 Deal`.
@@ -321,7 +321,7 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.send`
 
 ### POST /proposals/:id/accept
-- **Propósito:** Aceitar a proposta (`SENT`/`NEGOTIATING` → `ACCEPTED`), setando `decidedAt`. Se houver `dealId`, move o deal vinculado para o estágio "Ganhou" (isWon).
+- **Propósito:** Aceitar a proposta (`SENT`/`NEGOTIATING` → `ACCEPTED`), setando `decidedAt`. Se houver `dealId`, move o deal vinculado para o estágio "Ganhou" (isWon); ao mover, um Projeto é criado automaticamente a partir do deal (idempotente por `dealId`).
 - **Auth:** Bearer (access token).
 - **Body:** —
 - **Resposta:** `200 Proposal` (status `ACCEPTED`).
@@ -343,3 +343,103 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `201 Proposal` (nova versão, `DRAFT`).
 - **Erros:** `404 Proposta não encontrada.`, `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.newVersion`
+
+## Projects
+
+### GET /projects
+- **Propósito:** Listar projetos do usuário autenticado, paginado, com filtro opcional por cliente, status e busca por nome.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page`, `limit`, `clientId?`, `status?`, `search?`).
+- **Resposta:** `200 Paginated<Project>` (com `client` e `_count.tasks`).
+- **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.list`
+
+### POST /projects
+- **Propósito:** Criar um projeto vinculado a um cliente do usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** `{ name, clientId, serviceType, proposalId?, startDate?, dueDate? }`.
+- **Resposta:** `201 Project`.
+- **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.create`
+
+### GET /projects/:id
+- **Propósito:** Buscar um projeto, validando que o cliente pertence ao usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Project`.
+- **Erros:** `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.findOne`
+
+### PATCH /projects/:id
+- **Propósito:** Atualizar parcialmente um projeto (nome, tipo de serviço, status, início, prazo). `clientId`/`proposalId` são imutáveis.
+- **Auth:** Bearer (access token).
+- **Body:** Campos parciais de `POST /projects` exceto `clientId`/`proposalId`, mais `status?`.
+- **Resposta:** `200 Project`.
+- **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.update`
+
+### DELETE /projects/:id
+- **Propósito:** Excluir um projeto, desde que não possua tarefas vinculadas.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Projeto não encontrado.`, `409 Não é possível excluir um projeto que possui tarefas.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.remove`
+
+## Tasks
+
+### GET /tasks
+- **Propósito:** Listar tarefas do usuário autenticado, paginado, cruzando projetos ("Minhas demandas"), com filtros por projeto, cliente, status, prioridade e prazo.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page`, `limit`, `projectId?`, `clientId?`, `status?`, `priority?`, `dueBefore?`).
+- **Resposta:** `200 Paginated<Task>` (com `project` e `project.client`), ordenado por prazo (`dueDate asc`, nulls por último), prioridade e criação.
+- **Erros:** `400` (validação), `404 Projeto não encontrado.` (se `projectId` não for do dono), `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.list`
+
+### GET /tasks/board
+- **Propósito:** Listar todas as tarefas de um projeto, ordenadas por `(status, position)`, para alimentar o Kanban.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `projectId` obrigatório).
+- **Resposta:** `200 Task[]`.
+- **Erros:** `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.board`
+
+### POST /tasks
+- **Propósito:** Criar uma tarefa em um projeto do usuário autenticado, no fim da coluna de status (`position` sequencial).
+- **Auth:** Bearer (access token).
+- **Body:** `{ projectId, title, description?, status?, priority?, dueDate?, tags?, checklist? }`.
+- **Resposta:** `201 Task`.
+- **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.create`
+
+### GET /tasks/:id
+- **Propósito:** Buscar uma tarefa, validando posse via projeto→cliente do usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Task`.
+- **Erros:** `404 Tarefa não encontrada.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.findOne`
+
+### PATCH /tasks/:id
+- **Propósito:** Atualizar parcialmente uma tarefa (título, descrição, prioridade, prazo, tags, checklist). `projectId` é imutável; `status` só muda via `/move`.
+- **Auth:** Bearer (access token).
+- **Body:** Campos parciais de `POST /tasks` exceto `projectId`/`status`.
+- **Resposta:** `200 Task`.
+- **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.update`
+
+### PATCH /tasks/:id/move
+- **Propósito:** Mover a tarefa para outra coluna/posição do board, reindexando as colunas de origem e destino em transação. Ao entrar em `DONE`, seta `completedAt`; ao sair, limpa.
+- **Auth:** Bearer (access token).
+- **Body:** `{ status, position }`.
+- **Resposta:** `200 Task`.
+- **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.move`
+
+### DELETE /tasks/:id
+- **Propósito:** Excluir uma tarefa.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Tarefa não encontrada.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.remove`
