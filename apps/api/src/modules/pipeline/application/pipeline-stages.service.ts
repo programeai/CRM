@@ -36,6 +36,12 @@ export class PipelineStagesService {
     return first;
   }
 
+  /** Primeiro estágio marcado como "Ganhou" (isWon), ou null se não houver. */
+  async wonStage(): Promise<PipelineStage | null> {
+    const stages = await this.repo.findAllOrdered();
+    return stages.find((s) => s.isWon) ?? null;
+  }
+
   async create(dto: CreatePipelineStageDto): Promise<PipelineStage> {
     if (await this.repo.findByName(dto.name)) {
       throw new ConflictException('Já existe um estágio com este nome.');

@@ -259,3 +259,87 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Oportunidade não encontrada.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.remove`
+
+---
+
+## Proposals
+
+### GET /proposals
+- **Propósito:** Listar propostas do usuário autenticado (via cliente), com filtros e paginação.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page?`, `limit?`, `clientId?`, `status?`)
+- **Resposta:** `200 { data: Proposal[], meta: { total, page, limit } }` (`Proposal` inclui `items[]` e `client: { id, name }`).
+- **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.list`
+
+### POST /proposals
+- **Propósito:** Criar uma proposta (status `DRAFT`, `version 1`); gera `number` PROP-AAAA-NNNN e calcula `total` no backend a partir dos itens e desconto.
+- **Auth:** Bearer (access token).
+- **Body:** `{ clientId: uuid, serviceType: ServiceType, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date }`
+- **Resposta:** `201 Proposal` (com `items[]`, `total`, `number`).
+- **Erros:** `400` (validação / `Informe ao menos um item.`), `404 Cliente não encontrado.` / `Oportunidade não encontrada.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.create`
+
+### GET /proposals/:id
+- **Propósito:** Buscar uma proposta, validando que o cliente pertence ao usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Proposal` (com `items[]`).
+- **Erros:** `404 Proposta não encontrada.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.findOne`
+
+### GET /proposals/:id/versions
+- **Propósito:** Listar todas as versões da cadeia (mesmo `number`) da proposta informada, ordenadas por `version`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Proposal[]`.
+- **Erros:** `404 Proposta não encontrada.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.versions`
+
+### PATCH /proposals/:id
+- **Propósito:** Atualizar parcialmente uma proposta **apenas em rascunho** (`DRAFT`). Se `items` for informado, substitui os itens e recalcula `total`.
+- **Auth:** Bearer (access token).
+- **Body:** Campos parciais de `POST /proposals` exceto `clientId`/`dealId`.
+- **Resposta:** `200 Proposal`.
+- **Erros:** `400` (validação), `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser editados. Crie uma nova versão.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.update`
+
+### DELETE /proposals/:id
+- **Propósito:** Excluir uma proposta **apenas em rascunho** (`DRAFT`), removendo também seus itens.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser excluídos.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.remove`
+
+### POST /proposals/:id/send
+- **Propósito:** Enviar a proposta (`DRAFT` → `SENT`), setando `sentAt`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Proposal` (status `SENT`).
+- **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.send`
+
+### POST /proposals/:id/accept
+- **Propósito:** Aceitar a proposta (`SENT`/`NEGOTIATING` → `ACCEPTED`), setando `decidedAt`. Se houver `dealId`, move o deal vinculado para o estágio "Ganhou" (isWon).
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Proposal` (status `ACCEPTED`).
+- **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.accept`
+
+### POST /proposals/:id/reject
+- **Propósito:** Recusar a proposta (`SENT`/`NEGOTIATING` → `REJECTED`), setando `decidedAt`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Proposal` (status `REJECTED`).
+- **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.reject`
+
+### POST /proposals/:id/new-version
+- **Propósito:** Criar uma nova versão da proposta (mesmo `number`, `version+1`, `parentId` = origem), copiando itens e campos, com status `DRAFT`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `201 Proposal` (nova versão, `DRAFT`).
+- **Erros:** `404 Proposta não encontrada.`, `401`.
+- **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.newVersion`
