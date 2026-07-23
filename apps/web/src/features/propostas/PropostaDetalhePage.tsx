@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
-import { ArrowLeft, FileX, Pencil, Send, ThumbsDown, ThumbsUp, Copy, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileX,
+  FileSignature,
+  Pencil,
+  Send,
+  ThumbsDown,
+  ThumbsUp,
+  Copy,
+  Trash2,
+} from 'lucide-react';
+import { ContratoFormDialog } from '@/features/financeiro/ContratoFormDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,6 +62,7 @@ export default function PropostaDetalhePage() {
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [contratoOpen, setContratoOpen] = useState(false);
 
   const handleSend = async () => {
     try {
@@ -198,6 +210,12 @@ export default function PropostaDetalhePage() {
                 </Button>
               </>
             )}
+            {proposal.status === 'ACCEPTED' && (
+              <Button variant="outline" onClick={() => setContratoOpen(true)}>
+                <FileSignature data-icon="inline-start" />
+                Criar contrato
+              </Button>
+            )}
             {isFinal && (
               <Button
                 variant="outline"
@@ -324,6 +342,15 @@ export default function PropostaDetalhePage() {
       </div>
 
       <ProposalFormDialog open={editOpen} onOpenChange={setEditOpen} proposal={proposal} />
+
+      <ContratoFormDialog
+        open={contratoOpen}
+        onOpenChange={setContratoOpen}
+        defaultClientId={proposal.clientId}
+        defaultDescription={`Contrato — ${proposal.number}`}
+        defaultProposalId={proposal.id}
+        suggestedAmount={Number(proposal.total)}
+      />
 
       <ConfirmDialog
         open={acceptOpen}
