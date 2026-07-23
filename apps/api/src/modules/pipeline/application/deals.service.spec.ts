@@ -6,11 +6,13 @@ import { DealsService } from './deals.service';
 import type { DealRepository } from '../domain/deal.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { PipelineStagesService } from './pipeline-stages.service';
+import type { ProjectsService } from '../../projects/application/projects.service';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
   let clients: { findOne: jest.Mock };
   let stages: { findOne: jest.Mock; firstStage: jest.Mock };
+  let projects: { createFromDeal: jest.Mock };
   let service: DealsService;
 
   beforeEach(() => {
@@ -26,10 +28,12 @@ describe('DealsService', () => {
     };
     clients = { findOne: jest.fn() };
     stages = { findOne: jest.fn(), firstStage: jest.fn() };
+    projects = { createFromDeal: jest.fn() };
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
       stages as unknown as PipelineStagesService,
+      projects as unknown as ProjectsService,
     );
   });
 
@@ -89,5 +93,35 @@ describe('DealsService', () => {
         lostReason: null,
       }),
     );
+    expect(projects.createFromDeal).not.toHaveBeenCalled();
+  });
+
+  it('cria o projeto ao mover para um estágio isWon com mudança de estágio', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 's1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({ id: 'won', isWon: true, isLost: false });
+    repo.move.mockResolvedValue({ id: 'd1', stageId: 'won' } as never);
+    await service.move('owner', 'd1', { stageId: 'won', position: 0 });
+    expect(projects.createFromDeal).toHaveBeenCalledWith({
+      id: 'd1',
+      stageId: 'won',
+    });
+  });
+
+  it('não cria o projeto ao mover dentro do mesmo estágio isWon (sem mudança)', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 'won',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({ id: 'won', isWon: true, isLost: false });
+    repo.move.mockResolvedValue({ id: 'd1', stageId: 'won' } as never);
+    await service.move('owner', 'd1', { stageId: 'won', position: 1 });
+    expect(projects.createFromDeal).not.toHaveBeenCalled();
   });
 });

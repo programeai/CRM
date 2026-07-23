@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from '../clients/clients.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { PipelineStagesController } from './api/pipeline-stages.controller';
 import { PipelineStagesService } from './application/pipeline-stages.service';
 import { PIPELINE_STAGE_REPOSITORY } from './domain/pipeline-stage.repository';
@@ -10,7 +11,7 @@ import { DEAL_REPOSITORY } from './domain/deal.repository';
 import { PrismaDealRepository } from './infra/prisma-deal.repository';
 
 @Module({
-  imports: [ClientsModule],
+  imports: [ClientsModule, ProjectsModule],
   controllers: [PipelineStagesController, DealsController],
   providers: [
     PipelineStagesService,

@@ -10,6 +10,7 @@ import { ContactsModule } from './modules/contacts/contacts.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { envValidationSchema } from './config/env.validation';
 
@@ -28,6 +29,7 @@ import { envValidationSchema } from './config/env.validation';
     ActivitiesModule,
     PipelineModule,
     ProposalsModule,
+    ProjectsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

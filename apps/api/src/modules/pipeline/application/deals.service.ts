@@ -11,6 +11,7 @@ import {
 } from '../domain/deal.repository';
 import { ClientsService } from '../../clients/application/clients.service';
 import { PipelineStagesService } from './pipeline-stages.service';
+import { ProjectsService } from '../../projects/application/projects.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import type { CreateDealDto } from '../api/dto/create-deal.dto';
 import type { UpdateDealDto } from '../api/dto/update-deal.dto';
@@ -23,6 +24,7 @@ export class DealsService {
     @Inject(DEAL_REPOSITORY) private readonly repo: DealRepository,
     private readonly clients: ClientsService,
     private readonly stages: PipelineStagesService,
+    private readonly projects: ProjectsService,
   ) {}
 
   async list(ownerId: string, query: ListDealsQueryDto) {
@@ -109,7 +111,14 @@ export class DealsService {
     } else if (stageChanged) {
       patch.lostReason = null; // saiu de "Perdeu" → limpa o motivo
     }
-    return this.repo.move(id, dto.stageId, dto.position, patch);
+
+    const moved = await this.repo.move(id, dto.stageId, dto.position, patch);
+
+    // Criar-ao-ganhar: ao entrar num estágio isWon, semeia um Project (idempotente).
+    if (targetStage.isWon && stageChanged) {
+      await this.projects.createFromDeal(moved);
+    }
+    return moved;
   }
 
   async delete(ownerId: string, id: string): Promise<void> {
