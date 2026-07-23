@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -19,9 +20,16 @@ export class ListPaymentsQueryDto extends PaginationQueryDto {
   @IsUUID('4', { message: 'Contrato inválido.' })
   contractId?: string;
 
+  /**
+   * Aceita um único status (`?status=PAID`) ou vários (`?status[]=PENDING&status[]=OVERDUE`),
+   * normalizados para array. Usado pelos cards de resumo (ex.: "A receber" = PENDING + OVERDUE).
+   */
   @IsOptional()
-  @IsEnum(PaymentStatus, { message: 'Status inválido.' })
-  status?: PaymentStatus;
+  @Transform(({ value }) =>
+    value === undefined ? undefined : Array.isArray(value) ? value : [value],
+  )
+  @IsEnum(PaymentStatus, { each: true, message: 'Status inválido.' })
+  status?: PaymentStatus[];
 
   @IsOptional()
   @IsEnum(BillingType, { message: 'Regime inválido.' })

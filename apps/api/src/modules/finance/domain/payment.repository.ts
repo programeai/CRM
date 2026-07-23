@@ -17,17 +17,28 @@ export type PaymentWithContract = Prisma.PaymentGetPayload<{
   };
 }>;
 
-export interface PaymentListFilter {
+/** Filtros comuns a listagem e resumo (posse + recorte por cliente/contrato/regime/período). */
+export interface PaymentBaseFilter {
   ownerId: string; // filtra por contract.client.ownerId
   search?: string; // busca por nome do cliente (contract.client.name)
   clientId?: string;
   contractId?: string;
-  status?: PaymentStatus;
   billingType?: BillingType; // regime, via contract
   dueFrom?: Date;
   dueTo?: Date;
+}
+
+export interface PaymentListFilter extends PaymentBaseFilter {
+  status?: PaymentStatus[]; // um ou mais status
   skip: number;
   take: number;
+}
+
+/** Soma de valores agrupada por status (para os cards de recebimentos). */
+export interface PaymentStatusSum {
+  status: PaymentStatus;
+  amount: number; // Σ amount
+  paidAmount: number; // Σ paidAmount (0 quando ausente)
 }
 
 export interface PaymentRepository {
@@ -35,6 +46,8 @@ export interface PaymentRepository {
   findManyAndCount(
     filter: PaymentListFilter,
   ): Promise<{ data: PaymentWithContract[]; total: number }>;
+  /** Soma dos valores por status, respeitando os filtros (exceto status). */
+  sumByStatus(filter: PaymentBaseFilter): Promise<PaymentStatusSum[]>;
   update(
     id: string,
     data: Prisma.PaymentUpdateInput,

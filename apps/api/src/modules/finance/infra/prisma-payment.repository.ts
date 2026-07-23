@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
+  PaymentBaseFilter,
   PaymentListFilter,
   PaymentRepository,
 } from '../domain/payment.repository';
@@ -29,8 +30,11 @@ export class PrismaPaymentRepository implements PaymentRepository {
     });
   }
 
-  async findManyAndCount(filter: PaymentListFilter) {
-    const where: Prisma.PaymentWhereInput = {
+  /** Monta o `where` compartilhado entre listagem e resumo (status opcional). */
+  private buildWhere(
+    filter: PaymentBaseFilter & { status?: PaymentListFilter['status'] },
+  ): Prisma.PaymentWhereInput {
+    return {
       contract: {
         client: {
           ownerId: filter.ownerId,
@@ -42,7 +46,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
         ...(filter.billingType ? { billingType: filter.billingType } : {}),
       },
       ...(filter.contractId ? { contractId: filter.contractId } : {}),
-      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.status?.length ? { status: { in: filter.status } } : {}),
       ...(filter.dueFrom || filter.dueTo
         ? {
             dueDate: {
@@ -52,17 +56,39 @@ export class PrismaPaymentRepository implements PaymentRepository {
           }
         : {}),
     };
+  }
+
+  async findManyAndCount(filter: PaymentListFilter) {
+    const where = this.buildWhere(filter);
     const [data, total] = await this.prisma.$transaction([
       this.prisma.payment.findMany({
         where,
         include: withContract,
-        orderBy: { dueDate: 'asc' },
+        // Agrupa por cliente e depois por contrato; dentro do contrato, por vencimento.
+        orderBy: [
+          { contract: { client: { name: 'asc' } } },
+          { contract: { description: 'asc' } },
+          { dueDate: 'asc' },
+        ],
         skip: filter.skip,
         take: filter.take,
       }),
       this.prisma.payment.count({ where }),
     ]);
     return { data, total };
+  }
+
+  async sumByStatus(filter: PaymentBaseFilter) {
+    const rows = await this.prisma.payment.groupBy({
+      by: ['status'],
+      where: this.buildWhere(filter),
+      _sum: { amount: true, paidAmount: true },
+    });
+    return rows.map((r) => ({
+      status: r.status,
+      amount: r._sum.amount ? Number(r._sum.amount) : 0,
+      paidAmount: r._sum.paidAmount ? Number(r._sum.paidAmount) : 0,
+    }));
   }
 
   update(id: string, data: Prisma.PaymentUpdateInput) {
