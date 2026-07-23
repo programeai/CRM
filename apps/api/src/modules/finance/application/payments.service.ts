@@ -43,6 +43,8 @@ export class PaymentsService {
       billingType: query.billingType,
       dueFrom: query.dueFrom ? new Date(query.dueFrom) : undefined,
       dueTo: query.dueTo ? new Date(query.dueTo) : undefined,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
       skip,
       take,
     });

@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
   PaymentBaseFilter,
   PaymentListFilter,
   PaymentRepository,
+  PaymentSortField,
+  SortDirection,
 } from '../domain/payment.repository';
 
 const withContract = {
@@ -60,22 +62,104 @@ export class PrismaPaymentRepository implements PaymentRepository {
 
   async findManyAndCount(filter: PaymentListFilter) {
     const where = this.buildWhere(filter);
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.payment.findMany({
-        where,
+    const dir: SortDirection = filter.sortDir === 'desc' ? 'desc' : 'asc';
+    const total = await this.prisma.payment.count({ where });
+
+    // Ordenar por status exige prioridade customizada (Vencido → Pendente →
+    // Pago → Cancelado), que o Prisma não expressa (ele usa a ordem do enum).
+    // É também o padrão quando nenhuma coluna é escolhida. Nesse caso buscamos
+    // os IDs já ordenados via SQL e hidratamos com o Prisma (mantém os tipos).
+    if (!filter.sortBy || filter.sortBy === 'status') {
+      const ids = await this.orderedIdsByStatus(filter, dir);
+      if (ids.length === 0) return { data: [], total };
+      const rows = await this.prisma.payment.findMany({
+        where: { id: { in: ids } },
         include: withContract,
-        // Agrupa por cliente e depois por contrato; dentro do contrato, por vencimento.
-        orderBy: [
-          { contract: { client: { name: 'asc' } } },
+      });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const data = ids.map((id) => byId.get(id)).filter((r) => r != null);
+      return { data, total };
+    }
+
+    const data = await this.prisma.payment.findMany({
+      where,
+      include: withContract,
+      orderBy: this.prismaOrderBy(filter.sortBy, dir),
+      skip: filter.skip,
+      take: filter.take,
+    });
+    return { data, total };
+  }
+
+  /** ORDER BY nativo do Prisma para as colunas simples (não-status). */
+  private prismaOrderBy(
+    sortBy: Exclude<PaymentSortField, 'status'>,
+    dir: SortDirection,
+  ): Prisma.PaymentOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case 'client':
+        return [
+          { contract: { client: { name: dir } } },
           { contract: { description: 'asc' } },
           { dueDate: 'asc' },
-        ],
-        skip: filter.skip,
-        take: filter.take,
-      }),
-      this.prisma.payment.count({ where }),
-    ]);
-    return { data, total };
+        ];
+      case 'contract':
+        return [{ contract: { description: dir } }, { dueDate: 'asc' }];
+      case 'amount':
+        return [{ amount: dir }, { dueDate: 'asc' }];
+      case 'dueDate':
+      default:
+        return [{ dueDate: dir }];
+    }
+  }
+
+  /**
+   * IDs da página ordenados por prioridade de status (e depois cliente →
+   * contrato → vencimento), via SQL. `dir` inverte só a prioridade do status.
+   * O `WHERE` espelha `buildWhere` — mantenha os dois em sincronia.
+   */
+  private async orderedIdsByStatus(
+    filter: PaymentListFilter,
+    dir: SortDirection,
+  ): Promise<string[]> {
+    const conds: Prisma.Sql[] = [Prisma.sql`cl."ownerId" = ${filter.ownerId}`];
+    if (filter.search)
+      conds.push(Prisma.sql`cl.name ILIKE ${`%${filter.search}%`}`);
+    if (filter.clientId)
+      conds.push(Prisma.sql`c."clientId" = ${filter.clientId}`);
+    if (filter.billingType)
+      conds.push(Prisma.sql`c."billingType" = ${filter.billingType}::"BillingType"`);
+    if (filter.contractId)
+      conds.push(Prisma.sql`p."contractId" = ${filter.contractId}`);
+    if (filter.status?.length)
+      conds.push(
+        Prisma.sql`p.status IN (${Prisma.join(
+          filter.status.map((s) => Prisma.sql`${s}::"PaymentStatus"`),
+        )})`,
+      );
+    if (filter.dueFrom) conds.push(Prisma.sql`p."dueDate" >= ${filter.dueFrom}`);
+    if (filter.dueTo) conds.push(Prisma.sql`p."dueDate" <= ${filter.dueTo}`);
+
+    const statusDir = Prisma.raw(dir === 'desc' ? 'DESC' : 'ASC');
+    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT p.id
+      FROM "Payment" p
+      JOIN "Contract" c ON c.id = p."contractId"
+      JOIN "Client" cl ON cl.id = c."clientId"
+      WHERE ${Prisma.join(conds, ' AND ')}
+      ORDER BY
+        CASE p.status
+          WHEN 'OVERDUE' THEN 0
+          WHEN 'PENDING' THEN 1
+          WHEN 'PAID' THEN 2
+          ELSE 3
+        END ${statusDir},
+        cl.name ASC,
+        c.description ASC,
+        p."dueDate" ASC
+      LIMIT ${filter.take} OFFSET ${filter.skip}
+    `);
+    return rows.map((r) => r.id);
   }
 
   async sumByStatus(filter: PaymentBaseFilter) {

@@ -28,8 +28,22 @@ export interface PaymentBaseFilter {
   dueTo?: Date;
 }
 
+/** Colunas pelas quais a listagem pode ser ordenada. */
+export const PAYMENT_SORT_FIELDS = [
+  'status',
+  'client',
+  'contract',
+  'dueDate',
+  'amount',
+] as const;
+export type PaymentSortField = (typeof PAYMENT_SORT_FIELDS)[number];
+export type SortDirection = 'asc' | 'desc';
+
 export interface PaymentListFilter extends PaymentBaseFilter {
   status?: PaymentStatus[]; // um ou mais status
+  /** Coluna de ordenação; ausente = padrão (status por prioridade → cliente → contrato). */
+  sortBy?: PaymentSortField;
+  sortDir?: SortDirection; // padrão 'asc'
   skip: number;
   take: number;
 }

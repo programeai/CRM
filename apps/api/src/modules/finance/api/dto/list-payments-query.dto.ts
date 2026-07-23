@@ -2,11 +2,17 @@ import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
 import { BillingType, PaymentStatus } from '@prisma/client';
+import {
+  PAYMENT_SORT_FIELDS,
+  type PaymentSortField,
+  type SortDirection,
+} from '../../domain/payment.repository';
 import { PaginationQueryDto } from '../../../../shared/dto/pagination-query.dto';
 
 export class ListPaymentsQueryDto extends PaginationQueryDto {
@@ -42,4 +48,12 @@ export class ListPaymentsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsDateString({}, { message: 'Data final inválida.' })
   dueTo?: string;
+
+  @IsOptional()
+  @IsIn(PAYMENT_SORT_FIELDS, { message: 'Ordenação inválida.' })
+  sortBy?: PaymentSortField;
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'], { message: 'Direção de ordenação inválida.' })
+  sortDir?: SortDirection;
 }
