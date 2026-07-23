@@ -397,11 +397,11 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.list`
 
 ### GET /tasks/board
-- **Propósito:** Listar todas as tarefas de um projeto, ordenadas por `(status, position)`, para alimentar o Kanban.
+- **Propósito:** Alimentar o Kanban de tarefas. Com `projectId`, lista as tarefas do projeto ordenadas por `(status, position)`. Sem `projectId`, lista todas as tarefas do usuário autenticado (board cross-projeto de "Minhas demandas"), ordenadas por `(status, prazo asc, prioridade desc, position)`.
 - **Auth:** Bearer (access token).
-- **Body:** — (query: `projectId` obrigatório).
+- **Body:** — (query: `projectId` opcional).
 - **Resposta:** `200 Task[]`.
-- **Erros:** `404 Projeto não encontrado.`, `401`.
+- **Erros:** `404 Projeto não encontrado.` (quando `projectId` é informado e não pertence ao usuário), `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.board`
 
 ### POST /tasks
