@@ -132,7 +132,7 @@ export default function MinhasDemandasPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Input
           className="max-w-xs"
-          placeholder="Buscar cliente…"
+          placeholder="Buscar por cliente…"
           value={clientSearch}
           onChange={(e) => setClientSearch(e.target.value)}
         />
