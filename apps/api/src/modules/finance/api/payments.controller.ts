@@ -10,6 +10,7 @@ import {
 import { PaymentsService } from '../application/payments.service';
 import { CurrentUserId } from '../../../shared/current-user.decorator';
 import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
+import { PaymentSummaryQueryDto } from './dto/payment-summary-query.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { PayPaymentDto } from './dto/pay-payment.dto';
 
@@ -22,6 +23,13 @@ export class PaymentsController {
     @Query() query: ListPaymentsQueryDto,
   ) {
     return this.payments.list(ownerId, query);
+  }
+
+  @Get('summary') summary(
+    @CurrentUserId() ownerId: string,
+    @Query() query: PaymentSummaryQueryDto,
+  ) {
+    return this.payments.summary(ownerId, query);
   }
 
   @Patch(':id') update(

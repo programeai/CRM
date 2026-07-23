@@ -13,6 +13,7 @@ import {
 import { ClientsService } from '../../clients/application/clients.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import type { ListPaymentsQueryDto } from '../api/dto/list-payments-query.dto';
+import type { PaymentSummaryQueryDto } from '../api/dto/payment-summary-query.dto';
 import type { UpdatePaymentDto } from '../api/dto/update-payment.dto';
 import type { PayPaymentDto } from '../api/dto/pay-payment.dto';
 
@@ -46,6 +47,31 @@ export class PaymentsService {
       take,
     });
     return paginated(data, total, page, limit);
+  }
+
+  /**
+   * Totais para os cards de recebimentos, respeitando os filtros (exceto status):
+   * `recebido` (PAID), `aReceber` (PENDING + OVERDUE) e `emAtraso` (OVERDUE).
+   */
+  async summary(ownerId: string, query: PaymentSummaryQueryDto) {
+    if (query.clientId) await this.clients.findOne(ownerId, query.clientId); // posse
+    const rows = await this.repo.sumByStatus({
+      ownerId,
+      search: query.search,
+      clientId: query.clientId,
+      contractId: query.contractId,
+      billingType: query.billingType,
+      dueFrom: query.dueFrom ? new Date(query.dueFrom) : undefined,
+      dueTo: query.dueTo ? new Date(query.dueTo) : undefined,
+    });
+    const find = (s: PaymentStatus) => rows.find((r) => r.status === s);
+    const paid = find('PAID');
+    const pending = find('PENDING');
+    const overdue = find('OVERDUE');
+    const recebido = paid ? paid.paidAmount || paid.amount : 0;
+    const emAtraso = overdue?.amount ?? 0;
+    const aReceber = (pending?.amount ?? 0) + emAtraso;
+    return { recebido, aReceber, emAtraso };
   }
 
   /** Editar cobrança APENAS enquanto PENDING (valor/vencimento/descrição). */
