@@ -265,9 +265,9 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 ## Proposals
 
 ### GET /proposals
-- **Propósito:** Listar propostas do usuário autenticado (via cliente), com filtros e paginação.
+- **Propósito:** Listar propostas do usuário autenticado (via cliente), com filtros e paginação. `search` filtra por número da proposta ou nome/email do cliente (contains, case-insensitive).
 - **Auth:** Bearer (access token).
-- **Body:** — (query: `page?`, `limit?`, `clientId?`, `status?`)
+- **Body:** — (query: `page?`, `limit?`, `search?`, `clientId?`, `status?`)
 - **Resposta:** `200 { data: Proposal[], meta: { total, page, limit } }` (`Proposal` inclui `items[]` e `client: { id, name }`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.list`
