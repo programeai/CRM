@@ -40,6 +40,8 @@ export interface TaskRepository {
   ): Promise<{ data: TaskWithProject[]; total: number }>;
   /** Todas as tarefas de um projeto, ordenadas por (status, position) — alimenta o board. */
   findAllForBoard(projectId: string): Promise<TaskWithProject[]>;
+  /** Todas as tarefas do dono (cross-projeto) — alimenta o board de "Minhas demandas". */
+  findAllForBoardByOwner(ownerId: string): Promise<TaskWithProject[]>;
   update(id: string, data: Prisma.TaskUpdateInput): Promise<TaskWithProject>;
   delete(id: string): Promise<void>;
   /** Maior `position` na coluna status do projeto (ou -1 se vazia). */

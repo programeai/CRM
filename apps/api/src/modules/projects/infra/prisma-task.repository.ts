@@ -67,6 +67,20 @@ export class PrismaTaskRepository implements TaskRepository {
     });
   }
 
+  findAllForBoardByOwner(ownerId: string) {
+    return this.prisma.task.findMany({
+      where: { project: { client: { ownerId } } },
+      include: withProject,
+      // prazo mais próximo primeiro; nulls por último (Prisma põe null no fim em asc)
+      orderBy: [
+        { status: 'asc' },
+        { dueDate: 'asc' },
+        { priority: 'desc' },
+        { position: 'asc' },
+      ],
+    });
+  }
+
   update(id: string, data: Prisma.TaskUpdateInput) {
     return this.prisma.task.update({
       where: { id },

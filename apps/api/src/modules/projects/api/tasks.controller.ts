@@ -28,7 +28,7 @@ export class TasksController {
 
   @Get('board') board(
     @CurrentUserId() ownerId: string,
-    @Query('projectId') projectId: string,
+    @Query('projectId') projectId?: string,
   ) {
     return this.tasks.board(ownerId, projectId);
   }

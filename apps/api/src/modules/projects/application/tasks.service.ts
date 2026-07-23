@@ -35,9 +35,16 @@ export class TasksService {
     return paginated(data, total, page, limit);
   }
 
-  async board(ownerId: string, projectId: string): Promise<TaskWithProject[]> {
-    await this.projects.findOne(ownerId, projectId); // posse
-    return this.repo.findAllForBoard(projectId);
+  async board(
+    ownerId: string,
+    projectId?: string,
+  ): Promise<TaskWithProject[]> {
+    if (projectId) {
+      await this.projects.findOne(ownerId, projectId); // posse
+      return this.repo.findAllForBoard(projectId);
+    }
+    // Sem projectId → board cross-projeto de "Minhas demandas" (todas as tarefas do dono).
+    return this.repo.findAllForBoardByOwner(ownerId);
   }
 
   async findOne(ownerId: string, id: string): Promise<TaskWithProject> {
