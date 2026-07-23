@@ -443,3 +443,107 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Tarefa não encontrada.`, `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.remove`
+
+---
+
+## Contracts
+
+### GET /contracts
+- **Propósito:** Listar contratos do usuário autenticado, paginado, com filtro opcional por cliente, status e regime de cobrança.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page`, `limit`, `clientId?`, `status?`, `billingType?`).
+- **Resposta:** `200 Paginated<Contract>` (com `client` e `payments` ordenadas por vencimento).
+- **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.list`
+
+### POST /contracts
+- **Propósito:** Criar um contrato vinculado a um cliente do usuário autenticado. Conforme o regime (`billingType`), gera a agenda de cobranças: `INSTALLMENTS` cria Entrada (se houver) + N parcelas; `ONE_TIME` cria uma cobrança única; `RECURRING` não cria nenhuma (o cron gera as mensalidades).
+- **Auth:** Bearer (access token).
+- **Body:** `{ clientId, description, billingType, projectId?, proposalId?, ` + campos condicionais por regime: RECURRING `{ monthlyAmount, billingDay (1-28), startDate, endDate? }`; INSTALLMENTS `{ downPayment?, downPaymentDueDate?, installments, installmentAmount, firstInstallmentDueDate }`; ONE_TIME `{ amount, dueDate }` `}`.
+- **Resposta:** `201 Contract` (com `payments` já geradas conforme o regime).
+- **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.create`
+
+### GET /contracts/:id
+- **Propósito:** Buscar um contrato, validando que o cliente pertence ao usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Contract` (com `payments`).
+- **Erros:** `404 Contrato não encontrado.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.findOne`
+
+### PATCH /contracts/:id
+- **Propósito:** Atualizar parcialmente um contrato (descrição, valor mensal, dia de vencimento, data de término). `clientId`/`billingType` e os campos de INSTALLMENTS já materializados em cobranças são imutáveis. Reajuste de `monthlyAmount` vale só para as mensalidades ainda não geradas.
+- **Auth:** Bearer (access token).
+- **Body:** `{ description?, monthlyAmount?, billingDay?, endDate? }`.
+- **Resposta:** `200 Contract`.
+- **Erros:** `400` (validação), `404 Contrato não encontrado.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.update`
+
+### POST /contracts/:id/pause
+- **Propósito:** Pausar um contrato `ACTIVE` (suspende a geração de novas mensalidades pelo cron).
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Contract` (`status: PAUSED`).
+- **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.pause`
+
+### POST /contracts/:id/resume
+- **Propósito:** Retomar um contrato `PAUSED`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Contract` (`status: ACTIVE`).
+- **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.resume`
+
+### POST /contracts/:id/cancel
+- **Propósito:** Cancelar um contrato. Cancela também as cobranças `PENDING`/`OVERDUE` (em aberto); as `PAID` permanecem no histórico.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Contract` (`status: CANCELED`, cobranças em aberto `CANCELED`).
+- **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.cancel`
+
+---
+
+## Payments
+
+### GET /payments
+- **Propósito:** Listar cobranças do usuário autenticado, paginado, com filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `page`, `limit`, `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`).
+- **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`).
+- **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.list`
+
+### PATCH /payments/:id
+- **Propósito:** Editar uma cobrança (descrição, valor, vencimento), permitido apenas enquanto `PENDING`.
+- **Auth:** Bearer (access token).
+- **Body:** `{ description?, amount?, dueDate? }`.
+- **Resposta:** `200 Payment`.
+- **Erros:** `400` (validação), `404 Cobrança não encontrada.`, `422 Apenas cobranças pendentes podem ser editadas.`, `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.update`
+
+### POST /payments/:id/pay
+- **Propósito:** Dar baixa numa cobrança `PENDING`/`OVERDUE` (marca `PAID`, aceita valor recebido parcial/diferente).
+- **Auth:** Bearer (access token).
+- **Body:** `{ method, paidAt?, paidAmount?, notes? }`.
+- **Resposta:** `200 Payment` (`status: PAID`, `paidAt`/`paidAmount`/`method` preenchidos).
+- **Erros:** `400` (validação), `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.pay`
+
+### POST /payments/:id/revert
+- **Propósito:** Estornar uma cobrança `PAID` (volta a `PENDING`); nunca destrutivo — o estorno fica registrado em `notes`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Payment` (`status: PENDING`, `paidAt`/`paidAmount`/`method` limpos, `notes` com o registro do estorno).
+- **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.revert`
+
+### POST /payments/:id/cancel
+- **Propósito:** Cancelar uma cobrança `PENDING`/`OVERDUE`.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 Payment` (`status: CANCELED`).
+- **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.cancel`
