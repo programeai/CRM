@@ -5,6 +5,10 @@ import { getAccessToken, setAccessToken } from './auth-store';
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
+  // Serializa arrays como chaves repetidas (`status=A&status=B`), sem `[]`.
+  // O Express 5 (query parser `simple`) só entende esse formato como array —
+  // o formato padrão `status[]=A` viraria a chave literal `status[]`.
+  paramsSerializer: { indexes: null },
 });
 
 api.interceptors.request.use((config) => {
