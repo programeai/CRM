@@ -109,7 +109,7 @@ export function BaixaDialog({ open, onOpenChange, payment }: Props) {
                 control={control}
                 name="method"
                 render={({ field }) => (
-                  <Select<PaymentMethod> value={field.value} onValueChange={field.onChange}>
+                  <Select<PaymentMethod> items={PAYMENT_METHOD_LABELS} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger />
                     <SelectContent>
                       {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (

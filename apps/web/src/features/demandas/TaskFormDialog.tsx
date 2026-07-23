@@ -126,7 +126,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                 control={control}
                 name="priority"
                 render={({ field }) => (
-                  <Select<TaskPriority> value={field.value} onValueChange={field.onChange}>
+                  <Select<TaskPriority> items={TASK_PRIORITY_LABELS} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger />
                     <SelectContent>
                       {(Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).map((p) => (

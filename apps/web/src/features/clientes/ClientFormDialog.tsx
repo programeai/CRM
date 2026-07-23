@@ -355,6 +355,7 @@ export function ClientFormDialog({
                 name="personType"
                 render={({ field }) => (
                   <Select<PersonType>
+                    items={PERSON_TYPE_LABELS}
                     value={field.value}
                     onValueChange={(v) => field.onChange(v)}
                   >
@@ -448,6 +449,7 @@ export function ClientFormDialog({
                 name="source"
                 render={({ field }) => (
                   <Select<LeadSource | ''>
+                    items={{ '': 'Não informada', ...LEAD_SOURCE_LABELS }}
                     value={field.value ?? ''}
                     onValueChange={(v) => field.onChange(v || undefined)}
                   >
@@ -474,6 +476,7 @@ export function ClientFormDialog({
                 name="status"
                 render={({ field }) => (
                   <Select<ClientStatus>
+                    items={CLIENT_STATUS_LABELS}
                     value={field.value}
                     onValueChange={(v) => field.onChange(v)}
                   >

@@ -355,6 +355,7 @@ export function ContratoFormDialog({
                   name="billingType"
                   render={({ field }) => (
                     <Select<BillingType>
+                      items={BILLING_TYPE_LABELS}
                       value={field.value}
                       onValueChange={field.onChange}
                       disabled={isEdit}

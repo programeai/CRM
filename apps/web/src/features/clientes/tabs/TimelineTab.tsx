@@ -95,6 +95,7 @@ export default function TimelineTab() {
               name="type"
               render={({ field }) => (
                 <Select<ActivityType>
+                  items={ACTIVITY_TYPE_LABELS}
                   value={field.value}
                   onValueChange={(v) => field.onChange(v)}
                 >

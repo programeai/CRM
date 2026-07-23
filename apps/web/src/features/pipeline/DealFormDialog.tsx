@@ -205,7 +205,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
                 control={control}
                 name="serviceType"
                 render={({ field }) => (
-                  <Select<ServiceType> value={field.value} onValueChange={field.onChange}>
+                  <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger />
                     <SelectContent>
                       {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (

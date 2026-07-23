@@ -222,7 +222,7 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
                   control={control}
                   name="serviceType"
                   render={({ field }) => (
-                    <Select<ServiceType> value={field.value} onValueChange={field.onChange}>
+                    <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger />
                       <SelectContent>
                         {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (

@@ -194,7 +194,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
                 control={control}
                 name="serviceType"
                 render={({ field }) => (
-                  <Select<ServiceType> value={field.value} onValueChange={field.onChange}>
+                  <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger />
                     <SelectContent>
                       {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
@@ -216,6 +216,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
                   name="status"
                   render={({ field }) => (
                     <Select<ProjectStatus>
+                      items={PROJECT_STATUS_LABELS}
                       value={field.value}
                       onValueChange={field.onChange}
                     >
