@@ -509,9 +509,9 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 ## Payments
 
 ### GET /payments
-- **Propósito:** Listar cobranças do usuário autenticado, paginado, com filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
+- **Propósito:** Listar cobranças do usuário autenticado, paginado, com busca opcional por nome do cliente (`search`) e filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
 - **Auth:** Bearer (access token).
-- **Body:** — (query: `page`, `limit`, `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`).
+- **Body:** — (query: `page`, `limit`, `search?` (nome do cliente, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`).
 - **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`).
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.list`
