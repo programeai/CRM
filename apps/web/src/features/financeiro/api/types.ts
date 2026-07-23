@@ -95,6 +95,10 @@ export interface ListContractsParams {
   status?: ContractStatus;
   billingType?: BillingType;
 }
+/** Colunas ordenáveis da listagem de cobranças. */
+export type PaymentSortField = 'status' | 'client' | 'contract' | 'dueDate' | 'amount';
+export type SortDirection = 'asc' | 'desc';
+
 export interface ListPaymentsParams {
   page?: number;
   limit?: number;
@@ -106,6 +110,8 @@ export interface ListPaymentsParams {
   billingType?: BillingType;
   dueFrom?: string;
   dueTo?: string;
+  sortBy?: PaymentSortField;
+  sortDir?: SortDirection;
 }
 
 /** Filtros do resumo de recebimentos (mesmos da listagem, sem paginação nem status). */

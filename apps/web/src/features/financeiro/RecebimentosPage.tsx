@@ -16,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
+import { SortButton, type SortDirection } from '@/components/ui/sort-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   BILLING_TYPE_LABELS,
@@ -30,7 +31,7 @@ import { usePayments, usePaymentsSummary } from './api/hooks';
 import { formatMoney, PAYMENT_STATUS_BADGE } from './lib/finance-format';
 import { isOverdue } from './lib/overdue';
 import { BaixaDialog } from './components/BaixaDialog';
-import type { BillingType, Payment, PaymentStatus } from './api/types';
+import type { BillingType, Payment, PaymentSortField, PaymentStatus } from './api/types';
 
 const LIMIT = 50;
 
@@ -87,6 +88,8 @@ function ColumnRadioFilter<T extends string>({
   onValueChange,
   options,
   translate,
+  sortDirection,
+  onSort,
 }: {
   label: string;
   name: string;
@@ -94,6 +97,8 @@ function ColumnRadioFilter<T extends string>({
   onValueChange: (value: T | 'ALL') => void;
   options: T[];
   translate: (value: T) => string;
+  sortDirection?: SortDirection | null;
+  onSort?: () => void;
 }) {
   const items: Array<{ value: T | 'ALL'; label: string }> = [
     { value: 'ALL', label: 'Todos' },
@@ -105,6 +110,8 @@ function ColumnRadioFilter<T extends string>({
       active={value !== 'ALL'}
       onClear={() => onValueChange('ALL')}
       contentClassName="w-52"
+      sortDirection={sortDirection}
+      onSort={onSort}
     >
       <div className="space-y-1">
         {items.map((opt) => (
@@ -133,9 +140,23 @@ export default function RecebimentosPage() {
   const [billingType, setBillingType] = useState<BillingType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [dueRange, setDueRange] = useState<DateRange | undefined>();
+  const [sort, setSort] = useState<{ by: PaymentSortField | null; dir: SortDirection }>({
+    by: null,
+    dir: 'asc',
+  });
   const [baixaTarget, setBaixaTarget] = useState<Payment | null>(null);
 
   const debouncedSearch = useDebouncedValue(search, 300);
+
+  /** Clica na coluna: ativa a ordenação por ela; se já ativa, inverte a direção. */
+  const toggleSort = (field: PaymentSortField) =>
+    setSort((prev) =>
+      prev.by === field
+        ? { by: field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { by: field, dir: 'asc' },
+    );
+  const sortDirOf = (field: PaymentSortField): SortDirection | null =>
+    sort.by === field ? sort.dir : null;
 
   /** Filtros compartilhados entre listagem e resumo (o resumo ignora o status). */
   const sharedFilters = {
@@ -148,6 +169,8 @@ export default function RecebimentosPage() {
   const { data, isLoading, isError } = usePayments({
     limit: LIMIT,
     status: statusFilter.length ? statusFilter : undefined,
+    sortBy: sort.by ?? undefined,
+    sortDir: sort.by ? sort.dir : undefined,
     ...sharedFilters,
   });
 
@@ -242,8 +265,20 @@ export default function RecebimentosPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Cobrança</TableHead>
-              <TableHead>Contrato</TableHead>
-              <TableHead>Cliente</TableHead>
+              <TableHead>
+                <SortButton
+                  label="Contrato"
+                  direction={sortDirOf('contract')}
+                  onSort={() => toggleSort('contract')}
+                />
+              </TableHead>
+              <TableHead>
+                <SortButton
+                  label="Cliente"
+                  direction={sortDirOf('client')}
+                  onSort={() => toggleSort('client')}
+                />
+              </TableHead>
               <TableHead>
                 <ColumnRadioFilter
                   label="Regime"
@@ -254,8 +289,20 @@ export default function RecebimentosPage() {
                   translate={translateBillingType}
                 />
               </TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Valor</TableHead>
+              <TableHead>
+                <SortButton
+                  label="Vencimento"
+                  direction={sortDirOf('dueDate')}
+                  onSort={() => toggleSort('dueDate')}
+                />
+              </TableHead>
+              <TableHead>
+                <SortButton
+                  label="Valor"
+                  direction={sortDirOf('amount')}
+                  onSort={() => toggleSort('amount')}
+                />
+              </TableHead>
               <TableHead>
                 <ColumnRadioFilter
                   label="Status"
@@ -264,6 +311,8 @@ export default function RecebimentosPage() {
                   onValueChange={(v) => setStatusFilter(v === 'ALL' ? [] : [v])}
                   options={Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]}
                   translate={translatePaymentStatus}
+                  sortDirection={sortDirOf('status')}
+                  onSort={() => toggleSort('status')}
                 />
               </TableHead>
               <TableHead>Ações</TableHead>
