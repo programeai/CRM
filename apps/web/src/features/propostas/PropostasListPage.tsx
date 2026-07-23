@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColumnFilter } from '@/components/ui/column-filter';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -20,6 +21,7 @@ import {
   translateServiceType,
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useProposals } from './api/hooks';
 import { formatMoney } from './lib/proposal-format';
 import { ProposalFormDialog } from './ProposalFormDialog';
@@ -90,12 +92,16 @@ function ColumnRadioFilter<T extends string>({
 
 export default function PropostasListPage() {
   const [status, setStatus] = useState<ProposalStatus | 'ALL'>('ALL');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data, isLoading } = useProposals({
     page,
     limit: LIMIT,
+    search: debouncedSearch || undefined,
     status: status === 'ALL' ? undefined : status,
   });
 
@@ -112,6 +118,18 @@ export default function PropostasListPage() {
           <Plus data-icon="inline-start" />
           Nova proposta
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          className="max-w-xs"
+          placeholder="Buscar por cliente ou número…"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            resetToFirstPage();
+          }}
+        />
       </div>
 
       <div className="rounded-lg border">

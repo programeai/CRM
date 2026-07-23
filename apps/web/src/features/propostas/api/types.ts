@@ -57,6 +57,7 @@ export type UpdateProposalBody = Partial<Omit<CreateProposalBody, 'clientId' | '
 export interface ListProposalsParams {
   page?: number;
   limit?: number;
+  search?: string;
   clientId?: string;
   status?: ProposalStatus;
 }
