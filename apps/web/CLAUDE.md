@@ -49,6 +49,7 @@ Uma feature não importa o interior de outra; reaproveitamento sobe para `compon
 ### Stack de UI
 
 - **`@base-ui/react` + shadcn (v4)** como primitivos. Os componentes base ficam em `src/components/ui`. **Não** reintroduza Radix.
+- **Sempre use os controles de formulário do design system (`src/components/ui`), nunca os elementos HTML nativos, quando existir um equivalente.** Regra absoluta: `<input>` → `Input`; `<select>` → `Select` (`SelectTrigger`/`SelectContent`/`SelectItem`); checkbox → `Checkbox`; e as variações prontas (`MoneyInput`, `PasswordInput`). Isso vale tanto em formulários quanto em filtros/toolbars. Só use um elemento nativo quando **ainda não houver** primitivo correspondente em `components/ui` (ex.: data/`type="date"` e `textarea` hoje); nesse caso, considere criar o primitivo antes de replicar o nativo. Código existente que use o nativo com equivalente disponível deve ser migrado.
 - **Tailwind CSS v4** com tokens de tema em `src/index.css`. Estilos vêm dos tokens do design system (`bg-background`, `text-foreground`, `border-border`, `text-primary`, etc.) — evite cores hard-coded.
 - Composição de classes sempre via `cn()` de `@/lib/utils`.
 - Ícones: `lucide-react`.
