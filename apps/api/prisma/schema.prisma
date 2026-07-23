@@ -203,6 +203,8 @@ model Contract {
   payments          Payment[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+
+  @@index([clientId, status])
 }
 
 model Payment {
