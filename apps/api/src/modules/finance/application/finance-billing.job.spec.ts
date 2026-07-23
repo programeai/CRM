@@ -20,6 +20,7 @@ describe('FinanceBillingJob', () => {
     payments = {
       findById: jest.fn(),
       findManyAndCount: jest.fn(),
+      sumByStatus: jest.fn(),
       update: jest.fn(),
       existsForDueDate: jest.fn(),
       create: jest.fn(),

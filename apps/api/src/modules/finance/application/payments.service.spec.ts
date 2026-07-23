@@ -15,6 +15,7 @@ describe('PaymentsService', () => {
     repo = {
       findById: jest.fn(),
       findManyAndCount: jest.fn(),
+      sumByStatus: jest.fn(),
       update: jest.fn(),
       existsForDueDate: jest.fn(),
       create: jest.fn(),
@@ -131,6 +132,16 @@ describe('PaymentsService', () => {
     await expect(service.cancel('owner', 'p1')).rejects.toBeInstanceOf(
       UnprocessableEntityException,
     );
+  });
+
+  it('summary: aReceber = pendentes + em atraso; recebido usa paidAmount', async () => {
+    repo.sumByStatus.mockResolvedValue([
+      { status: 'PAID', amount: 1000, paidAmount: 950 },
+      { status: 'PENDING', amount: 300, paidAmount: 0 },
+      { status: 'OVERDUE', amount: 200, paidAmount: 0 },
+    ]);
+    const totals = await service.summary('owner', {});
+    expect(totals).toEqual({ recebido: 950, aReceber: 500, emAtraso: 200 });
   });
 
   it('cancela cobrança PENDING', async () => {
