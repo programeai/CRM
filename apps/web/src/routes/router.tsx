@@ -8,9 +8,12 @@ import DadosTab from '@/features/clientes/tabs/DadosTab';
 import ContatosTab from '@/features/clientes/tabs/ContatosTab';
 import TimelineTab from '@/features/clientes/tabs/TimelineTab';
 import OportunidadesTab from '@/features/clientes/tabs/OportunidadesTab';
+import PropostasTab from '@/features/clientes/tabs/PropostasTab';
 import PlaceholderTab from '@/features/clientes/tabs/PlaceholderTab';
 import PlaceholderPage from '@/features/_placeholder/PlaceholderPage';
 import PipelineBoardPage from '@/features/pipeline/PipelineBoardPage';
+import PropostasListPage from '@/features/propostas/PropostasListPage';
+import PropostaDetalhePage from '@/features/propostas/PropostaDetalhePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -30,14 +33,14 @@ export const router = createBrowserRouter([
               { path: 'contatos', element: <ContatosTab /> },
               { path: 'timeline', element: <TimelineTab /> },
               { path: 'oportunidades', element: <OportunidadesTab /> },
-              { path: 'propostas', element: <PlaceholderTab title="Propostas" /> },
+              { path: 'propostas', element: <PropostasTab /> },
               { path: 'projetos', element: <PlaceholderTab title="Projetos" /> },
               { path: 'contratos', element: <PlaceholderTab title="Contratos" /> },
             ],
           },
           { path: '/pipeline', element: <PipelineBoardPage /> },
-          { path: '/propostas', element: <PlaceholderPage title="Propostas" /> },
-          { path: '/propostas/:id', element: <PlaceholderPage title="Proposta" /> },
+          { path: '/propostas', element: <PropostasListPage /> },
+          { path: '/propostas/:id', element: <PropostaDetalhePage /> },
           { path: '/projetos/:id', element: <PlaceholderPage title="Projeto" /> },
           { path: '/demandas', element: <PlaceholderPage title="Demandas" /> },
           { path: '/financeiro', element: <PlaceholderPage title="Financeiro — Recebimentos" /> },
