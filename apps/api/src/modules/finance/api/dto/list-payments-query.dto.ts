@@ -1,8 +1,16 @@
-import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { BillingType, PaymentStatus } from '@prisma/client';
 import { PaginationQueryDto } from '../../../../shared/dto/pagination-query.dto';
 
 export class ListPaymentsQueryDto extends PaginationQueryDto {
+  @IsOptional() @IsString() search?: string;
+
   @IsOptional()
   @IsUUID('4', { message: 'Cliente inválido.' })
   clientId?: string;

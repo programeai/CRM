@@ -35,6 +35,7 @@ export class PaymentsService {
     const { page, limit, skip, take } = normalizePage(query.page, query.limit);
     const { data, total } = await this.repo.findManyAndCount({
       ownerId,
+      search: query.search,
       clientId: query.clientId,
       contractId: query.contractId,
       status: query.status,

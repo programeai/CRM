@@ -19,6 +19,7 @@ export type PaymentWithContract = Prisma.PaymentGetPayload<{
 
 export interface PaymentListFilter {
   ownerId: string; // filtra por contract.client.ownerId
+  search?: string; // busca por nome do cliente (contract.client.name)
   clientId?: string;
   contractId?: string;
   status?: PaymentStatus;

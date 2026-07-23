@@ -32,7 +32,12 @@ export class PrismaPaymentRepository implements PaymentRepository {
   async findManyAndCount(filter: PaymentListFilter) {
     const where: Prisma.PaymentWhereInput = {
       contract: {
-        client: { ownerId: filter.ownerId },
+        client: {
+          ownerId: filter.ownerId,
+          ...(filter.search
+            ? { name: { contains: filter.search, mode: 'insensitive' } }
+            : {}),
+        },
         ...(filter.clientId ? { clientId: filter.clientId } : {}),
         ...(filter.billingType ? { billingType: filter.billingType } : {}),
       },
