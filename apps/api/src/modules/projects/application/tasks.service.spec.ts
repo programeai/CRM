@@ -14,6 +14,7 @@ describe('TasksService', () => {
       findById: jest.fn(),
       findManyAndCount: jest.fn(),
       findAllForBoard: jest.fn(),
+      findAllForBoardByOwner: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       maxPositionInStatus: jest.fn(),
