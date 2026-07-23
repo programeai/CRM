@@ -98,6 +98,7 @@ export interface ListContractsParams {
 export interface ListPaymentsParams {
   page?: number;
   limit?: number;
+  search?: string;
   clientId?: string;
   contractId?: string;
   status?: PaymentStatus;

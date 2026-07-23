@@ -3,6 +3,7 @@ import { Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -22,7 +23,7 @@ import {
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useClientOptions, usePayments } from './api/hooks';
+import { usePayments } from './api/hooks';
 import { formatMoney, PAYMENT_STATUS_BADGE } from './lib/finance-format';
 import { isOverdue } from './lib/overdue';
 import { BaixaDialog } from './components/BaixaDialog';
@@ -92,20 +93,18 @@ function monthToRange(month: string): { dueFrom?: string; dueTo?: string } {
 export default function RecebimentosPage() {
   const [status, setStatus] = useState<PaymentStatus | 'ALL'>('ALL');
   const [billingType, setBillingType] = useState<BillingType | 'ALL'>('ALL');
-  const [clientSearch, setClientSearch] = useState('');
-  const [clientId, setClientId] = useState<string | undefined>();
+  const [search, setSearch] = useState('');
   const [month, setMonth] = useState('');
   const [baixaTarget, setBaixaTarget] = useState<Payment | null>(null);
 
-  const debouncedClientSearch = useDebouncedValue(clientSearch, 300);
-  const { data: clientOptions } = useClientOptions(debouncedClientSearch);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { dueFrom, dueTo } = monthToRange(month);
   const { data, isLoading, isError } = usePayments({
     limit: LIMIT,
+    search: debouncedSearch || undefined,
     status: status === 'ALL' ? undefined : status,
     billingType: billingType === 'ALL' ? undefined : billingType,
-    clientId,
     dueFrom,
     dueTo,
   });
@@ -143,28 +142,15 @@ export default function RecebimentosPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={clientId ?? ''}
-          onChange={(e) => setClientId(e.target.value || undefined)}
-        >
-          <option value="">Todos os clientes</option>
-          {(clientOptions ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="Buscar cliente…"
-          className="h-10 w-48 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={clientSearch}
-          onChange={(e) => setClientSearch(e.target.value)}
+        <Input
+          className="max-w-xs"
+          placeholder="Buscar por cliente…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
         <input
           type="month"
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="ml-auto h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
         />
