@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import type { DateRange } from '@/components/ui/calendar';
 import {
   Table,
   TableBody,
@@ -80,33 +82,22 @@ function ColumnRadioFilter<T extends string>({
   );
 }
 
-/** Converte "AAAA-MM" (input month) em { dueFrom, dueTo } cobrindo o mês inteiro. */
-function monthToRange(month: string): { dueFrom?: string; dueTo?: string } {
-  if (!month) return {};
-  const [y, m] = month.split('-').map(Number);
-  const first = new Date(y, m - 1, 1);
-  const last = new Date(y, m, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { dueFrom: iso(first), dueTo: iso(last) };
-}
-
 export default function RecebimentosPage() {
   const [status, setStatus] = useState<PaymentStatus | 'ALL'>('ALL');
   const [billingType, setBillingType] = useState<BillingType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
-  const [month, setMonth] = useState('');
+  const [dueRange, setDueRange] = useState<DateRange | undefined>();
   const [baixaTarget, setBaixaTarget] = useState<Payment | null>(null);
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { dueFrom, dueTo } = monthToRange(month);
   const { data, isLoading, isError } = usePayments({
     limit: LIMIT,
     search: debouncedSearch || undefined,
     status: status === 'ALL' ? undefined : status,
     billingType: billingType === 'ALL' ? undefined : billingType,
-    dueFrom,
-    dueTo,
+    dueFrom: dueRange?.from,
+    dueTo: dueRange?.to,
   });
 
   const payments: Payment[] = data?.data ?? [];
@@ -148,11 +139,11 @@ export default function RecebimentosPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <input
-          type="month"
-          className="ml-auto h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
+        <DateRangePicker
+          className="ml-auto"
+          value={dueRange}
+          onChange={setDueRange}
+          placeholder="Vencimento"
         />
       </div>
 
