@@ -12,6 +12,7 @@ export type ProposalWithItems = Prisma.ProposalGetPayload<{
 
 export interface ProposalListFilter {
   ownerId: string; // filtra por client.ownerId
+  search?: string; // nº da proposta ou nome/email do cliente (contains, case-insensitive)
   clientId?: string;
   status?: import('@prisma/client').ProposalStatus;
   skip: number;

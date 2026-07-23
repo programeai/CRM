@@ -31,6 +31,23 @@ export class PrismaProposalRepository implements ProposalRepository {
       client: { ownerId: filter.ownerId },
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.search
+        ? {
+            OR: [
+              { number: { contains: filter.search, mode: 'insensitive' } },
+              {
+                client: {
+                  name: { contains: filter.search, mode: 'insensitive' },
+                },
+              },
+              {
+                client: {
+                  email: { contains: filter.search, mode: 'insensitive' },
+                },
+              },
+            ],
+          }
+        : {}),
     };
     const [data, total] = await this.prisma.$transaction([
       this.prisma.proposal.findMany({
