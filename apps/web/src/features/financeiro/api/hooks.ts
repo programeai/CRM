@@ -7,6 +7,7 @@ import type {
   CreateContractBody,
   ListContractsParams,
   ListPaymentsParams,
+  PaymentSummaryParams,
   PayPaymentBody,
   UpdateContractBody,
   UpdatePaymentBody,
@@ -74,6 +75,12 @@ export function usePayments(params: ListPaymentsParams) {
   return useQuery({
     queryKey: queryKeys.payments.list(params),
     queryFn: () => paymentsApi.list(params),
+  });
+}
+export function usePaymentsSummary(params: PaymentSummaryParams) {
+  return useQuery({
+    queryKey: queryKeys.payments.summary(params),
+    queryFn: () => paymentsApi.summary(params),
   });
 }
 export function useUpdatePayment(id: string) {

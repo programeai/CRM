@@ -101,8 +101,25 @@ export interface ListPaymentsParams {
   search?: string;
   clientId?: string;
   contractId?: string;
-  status?: PaymentStatus;
+  /** Um status ou vários (ex.: A receber = PENDING + OVERDUE). */
+  status?: PaymentStatus | PaymentStatus[];
   billingType?: BillingType;
   dueFrom?: string;
   dueTo?: string;
+}
+
+/** Filtros do resumo de recebimentos (mesmos da listagem, sem paginação nem status). */
+export interface PaymentSummaryParams {
+  search?: string;
+  clientId?: string;
+  contractId?: string;
+  billingType?: BillingType;
+  dueFrom?: string;
+  dueTo?: string;
+}
+
+export interface PaymentSummary {
+  recebido: number;
+  aReceber: number;
+  emAtraso: number;
 }
