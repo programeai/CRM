@@ -1,126 +1,163 @@
-import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { ColumnFilter } from '@/components/ui/column-filter';
+import { useMemo, useState } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableEmpty,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { TableLink } from '@/components/ui/table-link';
+  DndContext, DragOverlay, PointerSensor, closestCorners,
+  useSensor, useSensors, type DragEndEvent, type DragStartEvent,
+} from '@dnd-kit/core';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  TASK_PRIORITY_LABELS,
-  TASK_STATUS_LABELS,
-  translateTaskPriority,
-  translateTaskStatus,
-} from '@/lib/labels';
-import { formatDate } from '@/lib/format';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useClientOptions, useTasks } from './api/hooks';
-import { isOverdue } from './lib/overdue';
-import { TASK_PRIORITY_BADGE } from './lib/project-format';
+  Select, SelectContent, SelectItem, SelectTrigger,
+} from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { TASK_PRIORITY_LABELS } from '@/lib/labels';
+import { useMoveMyTask, useMyBoard } from './api/hooks';
+import { KanbanColumn } from './components/KanbanColumn';
+import { SortableTaskCard } from './components/SortableTaskCard';
+import { TaskCard } from './components/TaskCard';
+import { TaskFormDialog } from './TaskFormDialog';
+import { TASK_STATUS_ORDER } from './lib/project-format';
 import type { Task, TaskPriority, TaskStatus } from './api/types';
 
-const LIMIT = 50;
+const PRIORITY_RANK: Record<TaskPriority, number> = {
+  URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3,
+};
 
-/** Cabeçalho de coluna com filtro de opção única (mesmo padrão de `PropostasListPage`). */
-function ColumnRadioFilter<T extends string>({
-  label,
-  name,
-  value,
-  onValueChange,
-  options,
-  translate,
-}: {
-  label: string;
-  name: string;
-  value: T | 'ALL';
-  onValueChange: (value: T | 'ALL') => void;
-  options: T[];
-  translate: (value: T) => string;
-}) {
-  const items: Array<{ value: T | 'ALL'; label: string }> = [
-    { value: 'ALL', label: 'Todos' },
-    ...options.map((opt) => ({ value: opt, label: translate(opt) })),
-  ];
-  return (
-    <ColumnFilter
-      label={label}
-      active={value !== 'ALL'}
-      onClear={() => onValueChange('ALL')}
-      contentClassName="w-52"
-    >
-      <div className="space-y-1">
-        {items.map((opt) => (
-          <label
-            key={opt.value}
-            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-          >
-            <input
-              type="radio"
-              name={name}
-              value={opt.value}
-              checked={value === opt.value}
-              onChange={() => onValueChange(opt.value)}
-              className="size-4 accent-primary"
-            />
-            {opt.label}
-          </label>
-        ))}
-      </div>
-    </ColumnFilter>
-  );
+/** Opções do filtro de prioridade (inclui "todas"). */
+const PRIORITY_FILTER_ITEMS: Record<TaskPriority | 'ALL', string> = {
+  ALL: 'Todas as prioridades',
+  ...TASK_PRIORITY_LABELS,
+};
+
+/** Ordena dentro da coluna: prazo mais próximo primeiro (sem prazo por último), depois prioridade e recência. */
+function compareTasks(a: Task, b: Task) {
+  const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+  const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+  if (ad !== bd) return ad - bd;
+  if (PRIORITY_RANK[a.priority] !== PRIORITY_RANK[b.priority]) {
+    return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+  }
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
 export default function MinhasDemandasPage() {
   const [priority, setPriority] = useState<TaskPriority | 'ALL'>('ALL');
-  const [status, setStatus] = useState<TaskStatus | 'ALL'>('ALL');
+  const [projectIds, setProjectIds] = useState<string[]>([]);
   const [clientSearch, setClientSearch] = useState('');
-  const [clientId, setClientId] = useState<string | undefined>();
   const [dueBefore, setDueBefore] = useState('');
 
-  const debouncedClientSearch = useDebouncedValue(clientSearch, 300);
-  const { data: clientOptions } = useClientOptions(debouncedClientSearch);
+  const { data: tasks, isLoading } = useMyBoard();
+  const moveTask = useMoveMyTask();
 
-  const { data, isLoading } = useTasks({
-    limit: LIMIT,
-    priority: priority === 'ALL' ? undefined : priority,
-    status: status === 'ALL' ? undefined : status,
-    clientId,
-    dueBefore: dueBefore || undefined,
-  });
+  /** Projetos presentes nas demandas carregadas, únicos e ordenados por nome. */
+  const projectOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tasks ?? []) {
+      if (!map.has(t.project.id)) {
+        map.set(t.project.id, `${t.project.client.name} · ${t.project.name}`);
+      }
+    }
+    return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label, 'pt-BR'),
+    );
+  }, [tasks]);
 
-  const tasks: Task[] = data?.data ?? [];
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>();
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const filtered = useMemo(() => {
+    const search = clientSearch.trim().toLowerCase();
+    return (tasks ?? []).filter((t) => {
+      if (search && !t.project.client.name.toLowerCase().includes(search)) return false;
+      if (priority !== 'ALL' && t.priority !== priority) return false;
+      if (projectIds.length > 0 && !projectIds.includes(t.project.id)) return false;
+      if (dueBefore && (!t.dueDate || t.dueDate.slice(0, 10) > dueBefore)) return false;
+      return true;
+    });
+  }, [tasks, clientSearch, priority, projectIds, dueBefore]);
+
+  const byStatus = useMemo(() => {
+    const map = new Map<TaskStatus, Task[]>();
+    for (const t of filtered) {
+      const arr = map.get(t.status) ?? [];
+      arr.push(t);
+      map.set(t.status, arr);
+    }
+    for (const arr of map.values()) arr.sort(compareTasks);
+    return map;
+  }, [filtered]);
+
+  const openEditTask = (task: Task) => {
+    setEditingTask(task);
+    setTaskFormOpen(true);
+  };
+
+  /** Resolve o status destino a partir do `over` (coluna ou card). */
+  function resolveStatus(overId: string): TaskStatus | null {
+    const asColumn = TASK_STATUS_ORDER.find((s) => s === overId);
+    if (asColumn) return asColumn;
+    const overTask = (tasks ?? []).find((t) => t.id === overId);
+    return overTask?.status ?? null;
+  }
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveTask((tasks ?? []).find((t) => t.id === e.active.id) ?? null);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveTask(null);
+    const { active, over } = e;
+    if (!over) return;
+    const status = resolveStatus(String(over.id));
+    if (!status) return;
+    const current = (tasks ?? []).find((t) => t.id === active.id);
+    if (!current || current.status === status) return; // só muda status
+
+    // posição = fim da coluna de status desse projeto (o backend reindexa por-projeto).
+    const position = (tasks ?? []).filter(
+      (t) => t.projectId === current.projectId && t.status === status && t.id !== current.id,
+    ).length;
+
+    moveTask.mutate({ id: String(active.id), body: { status, position } });
+  }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-heading text-2xl font-semibold">Minhas demandas</h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          value={clientId ?? ''}
-          onChange={(e) => setClientId(e.target.value || undefined)}
-        >
-          <option value="">Todos os clientes</option>
-          {(clientOptions ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
         <input
           type="text"
           placeholder="Buscar cliente…"
-          className="h-10 w-48 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-10 w-56 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           value={clientSearch}
           onChange={(e) => setClientSearch(e.target.value)}
+        />
+        <Select<TaskPriority | 'ALL'>
+          items={PRIORITY_FILTER_ITEMS}
+          value={priority}
+          onValueChange={(v) => setPriority(v ?? 'ALL')}
+        >
+          <SelectTrigger className="w-56" />
+          <SelectContent>
+            {(Object.keys(PRIORITY_FILTER_ITEMS) as (TaskPriority | 'ALL')[]).map((p) => (
+              <SelectItem key={p} value={p}>
+                {PRIORITY_FILTER_ITEMS[p]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <MultiSelect
+          className="w-64"
+          options={projectOptions}
+          value={projectIds}
+          onValueChange={setProjectIds}
+          placeholder="Todos os projetos"
+          searchPlaceholder="Buscar projeto…"
+          emptyText="Nenhum projeto encontrado."
         />
         <input
           type="date"
@@ -130,86 +167,46 @@ export default function MinhasDemandasPage() {
         />
       </div>
 
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tarefa</TableHead>
-              <TableHead>Projeto</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>
-                <ColumnRadioFilter
-                  label="Prioridade"
-                  name="priority-filter"
-                  value={priority}
-                  onValueChange={setPriority}
-                  options={Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]}
-                  translate={translateTaskPriority}
-                />
-              </TableHead>
-              <TableHead>
-                <ColumnRadioFilter
-                  label="Status"
-                  name="status-filter"
-                  value={status}
-                  onValueChange={setStatus}
-                  options={Object.keys(TASK_STATUS_LABELS) as TaskStatus[]}
-                  translate={translateTaskStatus}
-                />
-              </TableHead>
-              <TableHead>Prazo</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((__, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-5 w-full" />
-                    </TableCell>
+      {isLoading ? (
+        <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-full w-72 shrink-0" />
+          ))}
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex min-h-0 min-w-0 flex-1 gap-4 overflow-x-auto">
+            {TASK_STATUS_ORDER.map((status) => {
+              const statusTasks = byStatus.get(status) ?? [];
+              return (
+                <KanbanColumn key={status} status={status} tasks={statusTasks}>
+                  {statusTasks.map((task) => (
+                    <SortableTaskCard
+                      key={task.id}
+                      task={task}
+                      showProject
+                      onClick={() => openEditTask(task)}
+                    />
                   ))}
-                </TableRow>
-              ))
-            ) : tasks.length > 0 ? (
-              tasks.map((task) => {
-                const overdue = isOverdue(task);
-                return (
-                  <TableRow key={task.id}>
-                    <TableCell>
-                      <TableLink to={`/projetos/${task.project.id}`}>{task.title}</TableLink>
-                    </TableCell>
-                    <TableCell>
-                      <TableLink to={`/projetos/${task.project.id}`}>{task.project.name}</TableLink>
-                    </TableCell>
-                    <TableCell>
-                      <TableLink to={`/clientes/${task.project.client.id}`}>
-                        {task.project.client.name}
-                      </TableLink>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={TASK_PRIORITY_BADGE[task.priority]}>
-                        {translateTaskPriority(task.priority)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{translateTaskStatus(task.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className={overdue ? 'text-destructive' : undefined}>
-                          {formatDate(task.dueDate) || '—'}
-                        </span>
-                        {overdue && <Badge variant="destructive">Atrasada</Badge>}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableEmpty colSpan={6}>Nenhuma tarefa encontrada.</TableEmpty>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                </KanbanColumn>
+              );
+            })}
+          </div>
+          <DragOverlay>{activeTask && <TaskCard task={activeTask} showProject />}</DragOverlay>
+        </DndContext>
+      )}
+
+      <TaskFormDialog
+        open={taskFormOpen}
+        onOpenChange={setTaskFormOpen}
+        task={editingTask}
+        defaultProjectId={editingTask?.project.id ?? ''}
+      />
     </div>
   );
 }

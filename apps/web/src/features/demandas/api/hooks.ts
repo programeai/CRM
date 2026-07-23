@@ -70,6 +70,13 @@ export function useBoard(projectId: string) {
     enabled: !!projectId,
   });
 }
+/** Board cross-projeto de "Minhas demandas" (todas as tarefas do dono). */
+export function useMyBoard() {
+  return useQuery({
+    queryKey: queryKeys.tasks.myBoard,
+    queryFn: () => tasksApi.board(),
+  });
+}
 export function useTasks(params: ListTasksParams) {
   return useQuery({
     queryKey: queryKeys.tasks.list(params),
@@ -122,6 +129,38 @@ export function useMoveTask(projectId: string) {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
+/**
+ * Move no board cross-projeto de "Minhas demandas": só muda o status da tarefa
+ * (a posição é reindexada por-projeto no backend). Optimistic: atualiza o status
+ * no cache; reverte em erro e reconcilia no settle.
+ */
+export function useMoveMyTask() {
+  const qc = useQueryClient();
+  const key = queryKeys.tasks.myBoard;
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: MoveTaskBody }) => tasksApi.move(id, body),
+    onMutate: async ({ id, body }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Task[]>(key);
+      if (prev) {
+        qc.setQueryData<Task[]>(
+          key,
+          prev.map((t) => (t.id === id ? { ...t, status: body.status } : t)),
+        );
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+      toast.error('Falha ao mover a tarefa.');
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      void qc.invalidateQueries({ queryKey: queryKeys.projects.all }); // _count.tasks não muda, mas board do projeto sim
     },
   });
 }

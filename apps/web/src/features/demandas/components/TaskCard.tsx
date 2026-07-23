@@ -9,9 +9,11 @@ import type { Task } from '../api/types';
 interface Props {
   task: Task;
   onClick?: () => void;
+  /** Exibe projeto/cliente da tarefa (usado no board cross-projeto de "Minhas demandas"). */
+  showProject?: boolean;
 }
 
-export function TaskCard({ task, onClick }: Props) {
+export function TaskCard({ task, onClick, showProject = false }: Props) {
   const overdue = isOverdue(task);
   const checklistTotal = task.checklist?.length ?? 0;
   const checklistDone = task.checklist?.filter((i) => i.done).length ?? 0;
@@ -30,6 +32,11 @@ export function TaskCard({ task, onClick }: Props) {
           {translateTaskPriority(task.priority)}
         </Badge>
       </div>
+      {showProject && (
+        <span className="truncate text-xs text-muted-foreground">
+          {task.project.name} · {task.project.client.name}
+        </span>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {task.dueDate && (
           <span className={`flex items-center gap-1 ${overdue ? 'text-destructive' : ''}`}>

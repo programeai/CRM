@@ -6,9 +6,10 @@ import type { Task } from '../api/types';
 interface Props {
   task: Task;
   onClick: () => void;
+  showProject?: boolean;
 }
 
-export function SortableTaskCard({ task, onClick }: Props) {
+export function SortableTaskCard({ task, onClick, showProject = false }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { status: task.status },
@@ -20,7 +21,7 @@ export function SortableTaskCard({ task, onClick }: Props) {
       {...attributes}
       {...listeners}
     >
-      <TaskCard task={task} onClick={onClick} />
+      <TaskCard task={task} onClick={onClick} showProject={showProject} />
     </div>
   );
 }

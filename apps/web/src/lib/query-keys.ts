@@ -32,6 +32,7 @@ export const queryKeys = {
   tasks: {
     all: ['tasks'] as const,
     board: (projectId: string) => ['tasks', 'board', projectId] as const,
+    myBoard: ['tasks', 'board', 'me'] as const,
     list: (params: object) => ['tasks', 'list', params] as const,
   },
   contracts: {
