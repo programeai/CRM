@@ -24,14 +24,60 @@ import {
   translatePaymentStatus,
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { usePayments } from './api/hooks';
+import { usePayments, usePaymentsSummary } from './api/hooks';
 import { formatMoney, PAYMENT_STATUS_BADGE } from './lib/finance-format';
 import { isOverdue } from './lib/overdue';
 import { BaixaDialog } from './components/BaixaDialog';
 import type { BillingType, Payment, PaymentStatus } from './api/types';
 
 const LIMIT = 50;
+
+/** Presets de status por card — clicar aplica o conjunto como filtro da listagem. */
+const CARD_PRESETS = {
+  recebido: ['PAID'],
+  aReceber: ['PENDING', 'OVERDUE'],
+  emAtraso: ['OVERDUE'],
+} satisfies Record<string, PaymentStatus[]>;
+
+/** Dois conjuntos de status são iguais (ordem irrelevante)? */
+function sameStatusSet(a: PaymentStatus[], b: PaymentStatus[]): boolean {
+  return a.length === b.length && a.every((s) => b.includes(s));
+}
+
+/** Card de total clicável que aplica/limpa um filtro de status na listagem. */
+function SummaryCard({
+  label,
+  value,
+  active,
+  destructive,
+  onClick,
+}: {
+  label: string;
+  value?: number;
+  active: boolean;
+  destructive?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title="Clique para filtrar as cobranças que formam este valor"
+      className={cn(
+        'flex flex-col gap-0.5 rounded-lg border p-4 text-left transition-colors hover:border-primary/60 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active && 'border-primary ring-1 ring-primary',
+      )}
+    >
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={cn('text-lg font-semibold', destructive && 'text-destructive')}>
+        {formatMoney(value)}
+      </span>
+    </button>
+  );
+}
 
 /** Cabeçalho de coluna com filtro de opção única (mesmo padrão de `PropostasListPage`). */
 function ColumnRadioFilter<T extends string>({
@@ -83,7 +129,7 @@ function ColumnRadioFilter<T extends string>({
 }
 
 export default function RecebimentosPage() {
-  const [status, setStatus] = useState<PaymentStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus[]>([]);
   const [billingType, setBillingType] = useState<BillingType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [dueRange, setDueRange] = useState<DateRange | undefined>();
@@ -91,30 +137,38 @@ export default function RecebimentosPage() {
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data, isLoading, isError } = usePayments({
-    limit: LIMIT,
+  /** Filtros compartilhados entre listagem e resumo (o resumo ignora o status). */
+  const sharedFilters = {
     search: debouncedSearch || undefined,
-    status: status === 'ALL' ? undefined : status,
     billingType: billingType === 'ALL' ? undefined : billingType,
     dueFrom: dueRange?.from,
     dueTo: dueRange?.to,
+  };
+
+  const { data, isLoading, isError } = usePayments({
+    limit: LIMIT,
+    status: statusFilter.length ? statusFilter : undefined,
+    ...sharedFilters,
   });
+
+  // Totais agregados no servidor (independentes do status filtrado na listagem).
+  const { data: summary } = usePaymentsSummary(sharedFilters);
 
   const payments: Payment[] = data?.data ?? [];
 
-  const recebido = payments
-    .filter((p) => p.status === 'PAID')
-    .reduce((sum, p) => sum + Number(p.paidAmount ?? p.amount), 0);
-  const aReceber = payments
-    .filter((p) => p.status === 'PENDING' || p.status === 'OVERDUE')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
-  const emAtraso = payments
-    .filter((p) => p.status === 'OVERDUE')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
+  /** O radio de coluna representa 1 status; conjuntos maiores (ex.: A receber) exibem "Todos". */
+  const columnStatus: PaymentStatus | 'ALL' =
+    statusFilter.length === 1 ? statusFilter[0] : 'ALL';
 
-  /** Total por cliente (visão de inadimplência), só relevante com o filtro Vencido. */
+  /** Aplica um preset de card como filtro; clicar no card ativo limpa o filtro. */
+  const toggleCard = (preset: PaymentStatus[]) =>
+    setStatusFilter((prev) => (sameStatusSet(prev, preset) ? [] : preset));
+
+  const isCardActive = (preset: PaymentStatus[]) => sameStatusSet(statusFilter, preset);
+
+  /** Total por cliente (visão de inadimplência), só relevante com o filtro Em atraso. */
   const porCliente =
-    status === 'OVERDUE'
+    isCardActive(CARD_PRESETS.emAtraso)
       ? Object.values(
           payments.reduce<Record<string, { name: string; total: number }>>((acc, p) => {
             const id = p.contract?.client.id ?? '—';
@@ -148,21 +202,28 @@ export default function RecebimentosPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-0.5 rounded-lg border p-4">
-          <span className="text-xs text-muted-foreground">Recebido</span>
-          <span className="text-lg font-semibold">{formatMoney(recebido)}</span>
-        </div>
-        <div className="flex flex-col gap-0.5 rounded-lg border p-4">
-          <span className="text-xs text-muted-foreground">A receber</span>
-          <span className="text-lg font-semibold">{formatMoney(aReceber)}</span>
-        </div>
-        <div className="flex flex-col gap-0.5 rounded-lg border p-4">
-          <span className="text-xs text-muted-foreground">Em atraso</span>
-          <span className="text-lg font-semibold text-destructive">{formatMoney(emAtraso)}</span>
-        </div>
+        <SummaryCard
+          label="Recebido"
+          value={summary?.recebido}
+          active={isCardActive(CARD_PRESETS.recebido)}
+          onClick={() => toggleCard(CARD_PRESETS.recebido)}
+        />
+        <SummaryCard
+          label="A receber"
+          value={summary?.aReceber}
+          active={isCardActive(CARD_PRESETS.aReceber)}
+          onClick={() => toggleCard(CARD_PRESETS.aReceber)}
+        />
+        <SummaryCard
+          label="Em atraso"
+          value={summary?.emAtraso}
+          active={isCardActive(CARD_PRESETS.emAtraso)}
+          destructive
+          onClick={() => toggleCard(CARD_PRESETS.emAtraso)}
+        />
       </div>
 
-      {status === 'OVERDUE' && porCliente.length > 0 && (
+      {isCardActive(CARD_PRESETS.emAtraso) && porCliente.length > 0 && (
         <div className="flex flex-col gap-2 rounded-lg border p-4">
           <h2 className="font-heading text-sm font-medium">Inadimplência por cliente</h2>
           <ul className="flex flex-col gap-1">
@@ -199,8 +260,8 @@ export default function RecebimentosPage() {
                 <ColumnRadioFilter
                   label="Status"
                   name="status-filter"
-                  value={status}
-                  onValueChange={setStatus}
+                  value={columnStatus}
+                  onValueChange={(v) => setStatusFilter(v === 'ALL' ? [] : [v])}
                   options={Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]}
                   translate={translatePaymentStatus}
                 />
