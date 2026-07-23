@@ -4,6 +4,7 @@ import { ListFilter, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { SortButton, type SortDirection } from "@/components/ui/sort-button"
 
 interface ColumnFilterProps {
   /** Rótulo da coluna, exibido ao lado do ícone de filtro. */
@@ -16,17 +17,33 @@ interface ColumnFilterProps {
   contentClassName?: string
   /** Limpa todos os filtros desta coluna — botão só aparece quando `active`. */
   onClear?: () => void
+  /** Torna o rótulo clicável para ordenar; direção ativa (ou `null`) desta coluna. */
+  sortDirection?: SortDirection | null
+  /** Alterna a ordenação por esta coluna. Sem ele, o rótulo é apenas texto. */
+  onSort?: () => void
 }
 
 /**
  * Cabeçalho de coluna com filtro embutido: mostra o rótulo e um ícone de funil
  * que abre um popover com os controles de filtro. O ícone fica destacado quando
- * há filtro ativo.
+ * há filtro ativo. Opcionalmente, o rótulo também ordena a listagem (`onSort`).
  */
-export function ColumnFilter({ label, active, children, contentClassName, onClear }: ColumnFilterProps) {
+export function ColumnFilter({
+  label,
+  active,
+  children,
+  contentClassName,
+  onClear,
+  sortDirection,
+  onSort,
+}: ColumnFilterProps) {
   return (
     <div className="flex items-center gap-1">
-      <span>{label}</span>
+      {onSort ? (
+        <SortButton label={label} direction={sortDirection ?? null} onSort={onSort} />
+      ) : (
+        <span>{label}</span>
+      )}
       <Popover>
         <PopoverTrigger
           aria-label={`Filtrar por ${label}`}
