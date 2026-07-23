@@ -511,10 +511,18 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 ### GET /payments
 - **Propósito:** Listar cobranças do usuário autenticado, paginado, com busca opcional por nome do cliente (`search`) e filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
 - **Auth:** Bearer (access token).
-- **Body:** — (query: `page`, `limit`, `search?` (nome do cliente, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`).
-- **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`).
+- **Body:** — (query: `page`, `limit`, `search?` (nome do cliente, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`). O `status` aceita um único valor (`?status=PAID`) **ou** vários (`?status[]=PENDING&status[]=OVERDUE`) — o resultado inclui qualquer um dos status informados.
+- **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`), ordenado por cliente (nome), depois por contrato (descrição) e, dentro do contrato, por vencimento.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.list`
+
+### GET /payments/summary
+- **Propósito:** Totais agregados das cobranças (para os cards de recebimentos), respeitando os mesmos filtros da listagem, **exceto** status: `recebido` (Σ de PAID, usando `paidAmount`), `aReceber` (Σ de PENDING + OVERDUE) e `emAtraso` (Σ de OVERDUE).
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `search?`, `clientId?`, `contractId?`, `billingType?`, `dueFrom?`, `dueTo?`).
+- **Resposta:** `200 { recebido: number, aReceber: number, emAtraso: number }`.
+- **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.summary`
 
 ### PATCH /payments/:id
 - **Propósito:** Editar uma cobrança (descrição, valor, vencimento), permitido apenas enquanto `PENDING`.
