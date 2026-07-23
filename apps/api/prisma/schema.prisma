@@ -91,6 +91,7 @@ model Deal {
   position      Int // ordenação na coluna
   stageMovedAt  DateTime      @default(now()) // p/ indicador "esfriando"
   proposals     Proposal[]
+  projects      Project[] // back-relation p/ Project.deal (criar-ao-ganhar)
   activities    Activity[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -145,6 +146,8 @@ model Project {
   client      Client        @relation(fields: [clientId], references: [id])
   proposalId  String?
   proposal    Proposal?     @relation(fields: [proposalId], references: [id])
+  dealId      String?       // origem: deal ganho (dedupe de criar-ao-ganhar)
+  deal        Deal?         @relation(fields: [dealId], references: [id])
   name        String
   serviceType ServiceType
   status      ProjectStatus @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
@@ -154,6 +157,8 @@ model Project {
   contracts   Contract[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([dealId])
 }
 
 model Task {
