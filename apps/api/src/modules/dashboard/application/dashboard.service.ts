@@ -89,13 +89,14 @@ export class DashboardService {
     // Estágios "abertos" = nem ganho nem perdido (oportunidades em negociação).
     const openStages = funnel.filter((s) => !s.isWon && !s.isLost);
     const totalOpen = openStages.reduce((acc, s) => acc + s.count, 0);
-    const amountInNegotiation = openStages.reduce((acc, s) => acc + s.amount, 0);
+    const amountInNegotiation = openStages.reduce(
+      (acc, s) => acc + s.amount,
+      0,
+    );
 
     // Conversão nos últimos 90 dias: aceitas ÷ (aceitas + recusadas) decididas.
-    const accepted =
-      decided.find((d) => d.status === 'ACCEPTED')?.count ?? 0;
-    const rejected =
-      decided.find((d) => d.status === 'REJECTED')?.count ?? 0;
+    const accepted = decided.find((d) => d.status === 'ACCEPTED')?.count ?? 0;
+    const rejected = decided.find((d) => d.status === 'REJECTED')?.count ?? 0;
     const decidedTotal = accepted + rejected;
     const conversionRate = decidedTotal > 0 ? accepted / decidedTotal : 0;
 

@@ -1,4 +1,8 @@
-import { DashboardService, buildWindows, monthBounds } from './dashboard.service';
+import {
+  DashboardService,
+  buildWindows,
+  monthBounds,
+} from './dashboard.service';
 import type { DashboardRepository } from '../domain/dashboard.repository';
 
 describe('monthBounds', () => {
@@ -66,10 +70,38 @@ describe('DashboardService', () => {
 
   it('agrega só os estágios abertos (ignora ganho/perdido) no funil', async () => {
     repo.funnel.mockResolvedValue([
-      { stageId: 's1', name: 'Novo', isWon: false, isLost: false, count: 2, amount: 1000 },
-      { stageId: 's2', name: 'Proposta', isWon: false, isLost: false, count: 1, amount: 500 },
-      { stageId: 's3', name: 'Ganhou', isWon: true, isLost: false, count: 5, amount: 9999 },
-      { stageId: 's4', name: 'Perdeu', isWon: false, isLost: true, count: 3, amount: 7777 },
+      {
+        stageId: 's1',
+        name: 'Novo',
+        isWon: false,
+        isLost: false,
+        count: 2,
+        amount: 1000,
+      },
+      {
+        stageId: 's2',
+        name: 'Proposta',
+        isWon: false,
+        isLost: false,
+        count: 1,
+        amount: 500,
+      },
+      {
+        stageId: 's3',
+        name: 'Ganhou',
+        isWon: true,
+        isLost: false,
+        count: 5,
+        amount: 9999,
+      },
+      {
+        stageId: 's4',
+        name: 'Perdeu',
+        isWon: false,
+        isLost: true,
+        count: 3,
+        amount: 7777,
+      },
     ]);
     repo.proposalsOpen.mockResolvedValue({ count: 0, amount: 0 });
     repo.proposalsAcceptedCount.mockResolvedValue(0);
