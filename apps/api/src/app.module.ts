@@ -12,6 +12,7 @@ import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { envValidationSchema } from './config/env.validation';
 
@@ -32,6 +33,7 @@ import { envValidationSchema } from './config/env.validation';
     ProposalsModule,
     ProjectsModule,
     FinanceModule,
+    DashboardModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

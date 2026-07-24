@@ -555,3 +555,33 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `200 Payment` (`status: CANCELED`).
 - **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.cancel`
+
+---
+
+## Dashboard
+
+Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente leitura. Valores monetários são `number`; a soma ocorre no banco (sem float). Janelas de tempo em UTC: "no mês" = vencimento/decisão no mês corrente; "próximos" = 7 dias; conversão = 90 dias.
+
+### GET /dashboard/summary
+- **Propósito:** Resumo comercial e operacional: funil de oportunidades, propostas, demandas e próximas ações (follow-ups).
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 { funnel, proposals, demands, upcomingActions }`, onde:
+  - `funnel: { stages: Array<{ stageId, name, isWon, isLost, count, amount }> (ordem do pipeline), totalOpen: number, amountInNegotiation: number }` — `totalOpen`/`amountInNegotiation` somam apenas estágios não terminais (nem `isWon` nem `isLost`).
+  - `proposals: { openCount, openAmount, acceptedThisMonth, conversionRate }` — em aberto = `DRAFT|SENT|NEGOTIATING`; `conversionRate` (0..1) = aceitas ÷ (aceitas + recusadas) decididas nos últimos 90 dias (0 se não houver decididas).
+  - `demands: { inProgress, overdue, upcoming: Array<{ id, title, status, priority, dueDate, projectId, projectName, clientId, clientName }> }` — `overdue` = tarefas não concluídas com `dueDate < agora`; `upcoming` = entregas nos próximos 7 dias (máx. 5).
+  - `upcomingActions: Array<{ id, type, content, scheduledFor, clientId, clientName }>` — follow-ups agendados não concluídos (máx. 5).
+- **Erros:** `401`.
+- **Handler:** `modules/dashboard/api/dashboard.controller.ts` → `DashboardController.summary`
+
+### GET /dashboard/finance
+- **Propósito:** Resumo financeiro: MRR, previsto × recebido no mês, total em atraso e próximos vencimentos.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 { mrr, month, overdue, upcoming }`, onde:
+  - `mrr: number` — Σ das mensalidades de contratos `ACTIVE` recorrentes.
+  - `month: { expected, received }` — por vencimento no mês corrente: `expected` = Σ das cobranças não canceladas; `received` = Σ do valor recebido (`paidAmount`, ou `amount` quando ausente) das cobranças `PAID`.
+  - `overdue: number` — Σ de `OVERDUE` + `PENDING` com `dueDate < agora` (trata a janela entre o cron e a leitura, ver SPEC §5).
+  - `upcoming: Array<{ id, description, dueDate, amount, contractId, clientId, clientName }>` — cobranças `PENDING` a vencer nos próximos 7 dias (máx. 5).
+- **Erros:** `401`.
+- **Handler:** `modules/dashboard/api/dashboard.controller.ts` → `DashboardController.finance`
