@@ -1,5 +1,6 @@
 import { CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { TagBadge } from '@/components/ui/tag-badge';
 import { translateTaskPriority } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { isOverdue } from '../lib/overdue';
@@ -54,9 +55,7 @@ export function TaskCard({ task, onClick, showProject = false }: Props) {
       {task.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {task.tags.map((tag) => (
-            <Badge key={tag} variant="secondary">
-              {tag}
-            </Badge>
+            <TagBadge key={tag} tag={tag} />
           ))}
         </div>
       )}
