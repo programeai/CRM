@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { DashboardService } from '../application/dashboard.service';
 import { CurrentUserId } from '../../../shared/current-user.decorator';
+import { FinanceQueryDto } from './dto/finance-query.dto';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -10,7 +11,10 @@ export class DashboardController {
     return this.dashboard.summary(ownerId);
   }
 
-  @Get('finance') finance(@CurrentUserId() ownerId: string) {
-    return this.dashboard.finance(ownerId);
+  @Get('finance') finance(
+    @CurrentUserId() ownerId: string,
+    @Query() query: FinanceQueryDto,
+  ) {
+    return this.dashboard.finance(ownerId, query.month);
   }
 }

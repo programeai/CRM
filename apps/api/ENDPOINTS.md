@@ -577,11 +577,12 @@ Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente le
 ### GET /dashboard/finance
 - **Propósito:** Resumo financeiro: MRR, previsto × recebido no mês, total em atraso e próximos vencimentos.
 - **Auth:** Bearer (access token).
+- **Query:** `month?` (`AAAA-MM`) — mês de referência dos totais previstos/recebidos; ausente → mês corrente. Só desloca `month`; `mrr`, `overdue` e `upcoming` são sempre relativos a agora.
 - **Body:** —
 - **Resposta:** `200 { mrr, month, overdue, upcoming }`, onde:
   - `mrr: number` — Σ das mensalidades de contratos `ACTIVE` recorrentes.
-  - `month: { expected, received }` — por vencimento no mês corrente: `expected` = Σ das cobranças não canceladas; `received` = Σ do valor recebido (`paidAmount`, ou `amount` quando ausente) das cobranças `PAID`.
+  - `month: { expected, received }` — por vencimento no mês de referência (ver `month?`): `expected` = Σ das cobranças não canceladas; `received` = Σ do valor recebido (`paidAmount`, ou `amount` quando ausente) das cobranças `PAID`.
   - `overdue: number` — Σ de `OVERDUE` + `PENDING` com `dueDate < agora` (trata a janela entre o cron e a leitura, ver SPEC §5).
   - `upcoming: Array<{ id, description, dueDate, amount, contractId, clientId, clientName }>` — cobranças `PENDING` a vencer nos próximos 7 dias (máx. 5).
-- **Erros:** `401`.
+- **Erros:** `401`; `400` (`month` fora do formato `AAAA-MM`).
 - **Handler:** `modules/dashboard/api/dashboard.controller.ts` → `DashboardController.finance`

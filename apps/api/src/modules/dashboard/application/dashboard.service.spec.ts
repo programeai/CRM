@@ -1,5 +1,26 @@
-import { DashboardService, buildWindows } from './dashboard.service';
+import { DashboardService, buildWindows, monthBounds } from './dashboard.service';
 import type { DashboardRepository } from '../domain/dashboard.repository';
+
+describe('monthBounds', () => {
+  const now = new Date('2026-07-23T15:00:00.000Z');
+
+  it('usa o mês de `now` quando `month` é ausente', () => {
+    const { monthStart, monthEnd } = monthBounds(now);
+    expect(monthStart.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+    expect(monthEnd.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+  });
+
+  it('recorta o mês informado (AAAA-MM) em UTC, fim exclusivo', () => {
+    const { monthStart, monthEnd } = monthBounds(now, '2026-02');
+    expect(monthStart.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+    expect(monthEnd.toISOString()).toBe('2026-03-01T00:00:00.000Z');
+  });
+
+  it('vira o ano em dezembro', () => {
+    const { monthEnd } = monthBounds(now, '2026-12');
+    expect(monthEnd.toISOString()).toBe('2027-01-01T00:00:00.000Z');
+  });
+});
 
 describe('buildWindows', () => {
   it('recorta o mês em UTC (início inclusivo, fim exclusivo)', () => {
@@ -109,5 +130,21 @@ describe('DashboardService', () => {
       overdue: 800,
       upcoming: [],
     });
+  });
+
+  it('desloca a janela do mês ao receber `month`, sem afetar o resto', async () => {
+    repo.monthlyRecurringRevenue.mockResolvedValue(0);
+    repo.monthSchedule.mockResolvedValue({ expected: 0, received: 0 });
+    repo.overdueTotal.mockResolvedValue(0);
+    repo.upcomingPayments.mockResolvedValue([]);
+
+    await service.finance('owner', '2026-02');
+
+    const [, monthStart, monthEnd] = repo.monthSchedule.mock.calls[0];
+    expect(monthStart.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+    expect(monthEnd.toISOString()).toBe('2026-03-01T00:00:00.000Z');
+    // atraso e próximos vencimentos continuam relativos a agora (não ao mês).
+    expect(repo.overdueTotal).toHaveBeenCalledTimes(1);
+    expect(repo.upcomingPayments).toHaveBeenCalledTimes(1);
   });
 });

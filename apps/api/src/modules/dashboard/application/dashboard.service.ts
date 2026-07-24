@@ -21,6 +21,27 @@ export interface DashboardWindows {
   conversionSince: Date; // now − 90 dias
 }
 
+/**
+ * Início e fim (exclusivo) de um mês, em UTC. `month` no formato `AAAA-MM`;
+ * ausente → mês de `now`. A validação do formato acontece no DTO da fronteira.
+ */
+export function monthBounds(
+  now: Date,
+  month?: string,
+): { monthStart: Date; monthEnd: Date } {
+  let year = now.getUTCFullYear();
+  let monthIndex = now.getUTCMonth();
+  if (month) {
+    const [y, m] = month.split('-').map(Number);
+    year = y;
+    monthIndex = m - 1;
+  }
+  return {
+    monthStart: new Date(Date.UTC(year, monthIndex, 1)),
+    monthEnd: new Date(Date.UTC(year, monthIndex + 1, 1)),
+  };
+}
+
 export function buildWindows(now: Date): DashboardWindows {
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
@@ -95,12 +116,17 @@ export class DashboardService {
     };
   }
 
-  /** Resumo financeiro: MRR, previsto × recebido no mês, atraso e próximos vencimentos. */
-  async finance(ownerId: string) {
+  /**
+   * Resumo financeiro: MRR, previsto × recebido no mês, atraso e próximos
+   * vencimentos. `month` (`AAAA-MM`) desloca apenas os totais do mês; MRR,
+   * atraso e próximos vencimentos são sempre relativos a agora.
+   */
+  async finance(ownerId: string, month?: string) {
     const w = buildWindows(new Date());
-    const [mrr, month, overdue, upcoming] = await Promise.all([
+    const { monthStart, monthEnd } = monthBounds(w.now, month);
+    const [mrr, monthSchedule, overdue, upcoming] = await Promise.all([
       this.repo.monthlyRecurringRevenue(ownerId),
-      this.repo.monthSchedule(ownerId, w.monthStart, w.monthEnd),
+      this.repo.monthSchedule(ownerId, monthStart, monthEnd),
       this.repo.overdueTotal(ownerId, w.now),
       this.repo.upcomingPayments(
         ownerId,
@@ -109,6 +135,6 @@ export class DashboardService {
         UPCOMING_TAKE,
       ),
     ]);
-    return { mrr, month, overdue, upcoming };
+    return { mrr, month: monthSchedule, overdue, upcoming };
   }
 }
