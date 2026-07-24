@@ -1,34 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Wordmark } from '@/components/ui/wordmark';
 
 /* Teal da marca clareado o suficiente para contrastar sobre o painel escuro. */
 const TEAL_ON_DARK = '#54c9c4';
 const PANEL_BG = '#0b1220';
-
-/** Wordmark tipográfico ProgrameAi: sans peso 800 com o "Ai" no acento da marca. */
-export function Wordmark({
-  tone = 'light',
-  className,
-  ...rest
-}: React.ComponentProps<'span'> & { tone?: 'light' | 'dark' }) {
-  return (
-    <span
-      className={cn('font-sans font-extrabold tracking-[-0.03em] select-none', className)}
-      {...rest}
-    >
-      <span className={tone === 'dark' ? 'text-white' : 'text-foreground'}>
-        Programe
-      </span>
-      <span
-        className={tone === 'light' ? 'text-primary' : undefined}
-        style={tone === 'dark' ? { color: TEAL_ON_DARK } : undefined}
-      >
-        Ai
-      </span>
-    </span>
-  );
-}
 
 const HIGHLIGHTS = [
   'Pipeline visual do lead ao fechamento',
