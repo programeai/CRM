@@ -10,7 +10,7 @@ import TimelineTab from '@/features/clientes/tabs/TimelineTab';
 import OportunidadesTab from '@/features/clientes/tabs/OportunidadesTab';
 import PropostasTab from '@/features/clientes/tabs/PropostasTab';
 import ProjetosTab from '@/features/clientes/tabs/ProjetosTab';
-import PlaceholderPage from '@/features/_placeholder/PlaceholderPage';
+import DashboardPage from '@/features/dashboard/DashboardPage';
 import PipelineBoardPage from '@/features/pipeline/PipelineBoardPage';
 import PropostasListPage from '@/features/propostas/PropostasListPage';
 import PropostaDetalhePage from '@/features/propostas/PropostaDetalhePage';
@@ -30,7 +30,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <PlaceholderPage title="Dashboard" /> },
+          { path: '/', element: <DashboardPage /> },
           { path: '/clientes', element: <ClientesListPage /> },
           {
             path: '/clientes/:id',

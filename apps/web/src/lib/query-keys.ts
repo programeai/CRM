@@ -46,5 +46,9 @@ export const queryKeys = {
     list: (params: object) => ['payments', 'list', params] as const,
     summary: (params: object) => ['payments', 'summary', params] as const,
   },
+  dashboard: {
+    summary: ['dashboard', 'summary'] as const,
+    finance: ['dashboard', 'finance'] as const,
+  },
   clientOptions: (search: string) => ['client-options', search] as const,
 } as const;
