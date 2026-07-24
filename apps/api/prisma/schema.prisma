@@ -58,6 +58,7 @@ model Client {
 
 model Contact {
   id        String  @id @default(uuid())
+  ownerId   String // denormalizado p/ RLS (== Client.ownerId)
   clientId  String
   client    Client  @relation(fields: [clientId], references: [id])
   name      String
@@ -65,6 +66,8 @@ model Contact {
   email     String?
   phone     String?
   isPrimary Boolean @default(false)
+
+  @@index([ownerId])
 }
 
 model PipelineStage {
@@ -78,6 +81,7 @@ model PipelineStage {
 
 model Deal {
   id            String        @id @default(uuid())
+  ownerId       String // denormalizado p/ RLS (== Client.ownerId)
   clientId      String
   client        Client        @relation(fields: [clientId], references: [id])
   stageId       String
@@ -97,10 +101,12 @@ model Deal {
   updatedAt     DateTime      @updatedAt
 
   @@index([stageId, position])
+  @@index([ownerId])
 }
 
 model Proposal {
   id           String         @id @default(uuid())
+  ownerId      String // denormalizado p/ RLS (== Client.ownerId)
   number       String         @unique // PROP-2026-0042
   version      Int            @default(1)
   parentId     String? // versão anterior
@@ -128,20 +134,25 @@ model Proposal {
   updatedAt    DateTime       @updatedAt
 
   @@index([clientId, status])
+  @@index([ownerId])
 }
 
 model ProposalItem {
   id          String   @id @default(uuid())
+  ownerId     String // denormalizado p/ RLS (== Proposal.ownerId)
   proposalId  String
   proposal    Proposal @relation(fields: [proposalId], references: [id])
   description String
   quantity    Decimal  @default(1) @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(12, 2)
   order       Int
+
+  @@index([ownerId])
 }
 
 model Project {
   id          String        @id @default(uuid())
+  ownerId     String // denormalizado p/ RLS (== Client.ownerId)
   clientId    String
   client      Client        @relation(fields: [clientId], references: [id])
   proposalId  String?
@@ -159,10 +170,12 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   @@index([dealId])
+  @@index([ownerId])
 }
 
 model Task {
   id          String       @id @default(uuid())
+  ownerId     String // denormalizado p/ RLS (== Project.ownerId)
   projectId   String
   project     Project      @relation(fields: [projectId], references: [id])
   title       String
@@ -178,10 +191,12 @@ model Task {
   updatedAt   DateTime     @updatedAt
 
   @@index([projectId, status, position])
+  @@index([ownerId])
 }
 
 model Contract {
   id                String         @id @default(uuid())
+  ownerId           String // denormalizado p/ RLS (== Client.ownerId)
   clientId          String
   client            Client         @relation(fields: [clientId], references: [id])
   projectId         String?
@@ -205,10 +220,12 @@ model Contract {
   updatedAt         DateTime       @updatedAt
 
   @@index([clientId, status])
+  @@index([ownerId])
 }
 
 model Payment {
   id          String         @id @default(uuid())
+  ownerId     String // denormalizado p/ RLS (== Contract.ownerId)
   contractId  String
   contract    Contract       @relation(fields: [contractId], references: [id])
   description String // "Entrada", "Parcela 3/8", "Mensalidade 07/2026"
@@ -224,10 +241,12 @@ model Payment {
 
   @@index([contractId, status])
   @@index([dueDate, status])
+  @@index([ownerId])
 }
 
 model Activity {
   id           String       @id @default(uuid())
+  ownerId      String // denormalizado p/ RLS (== Client.ownerId)
   clientId     String
   client       Client       @relation(fields: [clientId], references: [id])
   dealId       String?
@@ -241,6 +260,7 @@ model Activity {
   createdAt    DateTime     @default(now())
 
   @@index([clientId, createdAt])
+  @@index([ownerId])
 }
 
 // --- enums necessários (inferidos dos comentários do SPEC.md §4) ---
