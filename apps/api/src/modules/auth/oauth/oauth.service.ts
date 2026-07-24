@@ -63,7 +63,7 @@ export class OAuthService {
     const p = this.providers[slug];
     return Boolean(
       this.config.get<string>(p.clientIdKey) &&
-        this.config.get<string>(p.clientSecretKey),
+      this.config.get<string>(p.clientSecretKey),
     );
   }
 
@@ -120,7 +120,9 @@ export class OAuthService {
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!res.ok) {
-      throw new BadRequestException('Não foi possível obter os dados do Google.');
+      throw new BadRequestException(
+        'Não foi possível obter os dados do Google.',
+      );
     }
     const u = (await res.json()) as {
       sub: string;
@@ -144,7 +146,9 @@ export class OAuthService {
     };
     const res = await fetch('https://api.github.com/user', { headers });
     if (!res.ok) {
-      throw new BadRequestException('Não foi possível obter os dados do GitHub.');
+      throw new BadRequestException(
+        'Não foi possível obter os dados do GitHub.',
+      );
     }
     const u = (await res.json()) as {
       id: number;

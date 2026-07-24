@@ -132,7 +132,10 @@ describe('AuthService', () => {
       await service.requestPasswordReset('a@b.com');
       expect(users.deletePendingResetTokens).toHaveBeenCalledWith('u1');
       expect(users.createPasswordResetToken).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'u1', tokenHash: expect.any(String) }),
+        expect.objectContaining({
+          userId: 'u1',
+          tokenHash: expect.any(String),
+        }),
       );
       expect(mail.sendPasswordReset).toHaveBeenCalledWith(
         'a@b.com',
@@ -185,8 +188,14 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 10000),
       } as any);
       await service.resetPassword('token', 'novaSenha');
-      expect(users.updatePassword).toHaveBeenCalledWith('u1', expect.any(String));
-      expect(users.markResetTokenUsed).toHaveBeenCalledWith('t1', expect.any(Date));
+      expect(users.updatePassword).toHaveBeenCalledWith(
+        'u1',
+        expect.any(String),
+      );
+      expect(users.markResetTokenUsed).toHaveBeenCalledWith(
+        't1',
+        expect.any(Date),
+      );
       expect(users.setRefreshTokenHash).toHaveBeenCalledWith('u1', null);
     });
   });
