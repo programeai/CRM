@@ -642,3 +642,41 @@ Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente le
   - `upcoming: Array<{ id, description, dueDate, amount, contractId, clientId, clientName }>` — cobranças `PENDING` a vencer nos próximos 7 dias (máx. 5).
 - **Erros:** `401`; `400` (`month` fora do formato `AAAA-MM`).
 - **Handler:** `modules/dashboard/api/dashboard.controller.ts` → `DashboardController.finance`
+
+---
+
+## Billing (Stripe)
+
+Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo apenas quando `BILLING_ENABLED=true` e as chaves Stripe estão presentes; na autohospedagem o Stripe nunca é inicializado e checkout/portal respondem `503`. O estado local (`Subscription`, 1 por owner, sob RLS) é um espelho sincronizado pelo webhook. As três rotas abaixo são isentas do `BillingGuard` (`@AllowWithoutSubscription()`) para que um owner com trial expirado ainda consiga assinar.
+
+### POST /billing/checkout
+- **Propósito:** Criar (ou reaproveitar) o customer no Stripe e abrir uma sessão de Checkout no modo assinatura para o preço único configurado (`STRIPE_PRICE_ID`). Retorna a URL hospedada do Stripe.
+- **Auth:** Bearer (access token). Isenta do gate de assinatura.
+- **Body:** —
+- **Resposta:** `201 { url: string }` — URL de Checkout do Stripe (redirecionar o navegador).
+- **Erros:** `503 Cobrança não está habilitada nesta instância.` (billing off); `404 Usuário não encontrado.`; `401`.
+- **Handler:** `modules/billing/api/billing.controller.ts` → `BillingController.checkout`
+
+### POST /billing/portal
+- **Propósito:** Abrir o Customer Portal do Stripe para o owner gerenciar a própria assinatura (trocar cartão, cancelar, ver faturas).
+- **Auth:** Bearer (access token). Isenta do gate de assinatura.
+- **Body:** —
+- **Resposta:** `201 { url: string }` — URL do Customer Portal do Stripe.
+- **Erros:** `503 Cobrança não está habilitada nesta instância.` (billing off); `404 Assinatura não encontrada.` (owner sem customer Stripe); `401`.
+- **Handler:** `modules/billing/api/billing.controller.ts` → `BillingController.portal`
+
+### GET /billing/status
+- **Propósito:** Estado da assinatura do owner atual, para a UI de billing. Sempre responde (mesmo com billing off), permitindo ao frontend decidir se monta a feature.
+- **Auth:** Bearer (access token). Isenta do gate de assinatura.
+- **Body:** —
+- **Resposta:** `200 { billingEnabled: boolean, status: 'TRIALING'|'ACTIVE'|'PAST_DUE'|'CANCELED'|'INCOMPLETE'|null, trialEndsAt: string|null, currentPeriodEnd: string|null, cancelAtPeriodEnd: boolean, hasAccess: boolean }` — `billingEnabled=false` ⇒ o front esconde toda a UI de billing; `hasAccess` é a autoridade do gate (com billing off é sempre `true`).
+- **Erros:** `401`.
+- **Handler:** `modules/billing/api/billing.controller.ts` → `BillingController.status`
+
+### POST /billing/webhook
+- **Propósito:** Endpoint consumido pelo Stripe para sincronizar o `Subscription` local com os eventos de assinatura (`checkout.session.completed`, `customer.subscription.created|updated|deleted`). Idempotente; eventos não tratados respondem `200` sem efeito.
+- **Auth:** Pública (`@Public()`), sem JWT. A autenticidade vem da assinatura do webhook, verificada com `STRIPE_WEBHOOK_SECRET` sobre o `rawBody`. Sem contexto de owner — usa o client admin (bypassa RLS), resolvendo o owner pelo `stripeCustomerId` do evento.
+- **Body:** Payload de evento do Stripe (raw). Header obrigatório `stripe-signature`.
+- **Resposta:** `201 { received: true }`.
+- **Erros:** `400 Assinatura do webhook inválida.` (assinatura ausente/adulterada ou secret incorreto).
+- **Handler:** `modules/billing/api/stripe-webhook.controller.ts` → `StripeWebhookController.handle`

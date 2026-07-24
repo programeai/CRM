@@ -5,7 +5,9 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true mantém o parser JSON das demais rotas e expõe req.rawBody
+  // (Buffer), necessário para stripe.webhooks.constructEvent no webhook Stripe.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   app.setGlobalPrefix('api/v1');
   app.use(cookieParser());
