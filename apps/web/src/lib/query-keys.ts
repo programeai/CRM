@@ -48,7 +48,7 @@ export const queryKeys = {
   },
   dashboard: {
     summary: ['dashboard', 'summary'] as const,
-    finance: ['dashboard', 'finance'] as const,
+    finance: (month?: string) => ['dashboard', 'finance', month ?? 'current'] as const,
   },
   clientOptions: (search: string) => ['client-options', search] as const,
 } as const;

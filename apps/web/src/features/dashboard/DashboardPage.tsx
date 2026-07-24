@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { ArrowRight } from 'lucide-react';
@@ -7,6 +7,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { TableLink } from '@/components/ui/table-link';
+import { MonthPicker } from '@/components/ui/month-picker';
 import { formatMoney, formatDate } from '@/lib/format';
 import { translateTaskPriority, translateActivityType } from '@/lib/labels';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,12 @@ const PRIORITY_BADGE: Record<UpcomingTask['priority'], 'default' | 'secondary' |
 
 function formatPercent(rate: number): string {
   return `${Math.round(rate * 100)}%`;
+}
+
+/** Mês corrente no formato `AAAA-MM` (default do seletor da seção financeira). */
+function currentMonthValue(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 /** true se a data já passou (para destacar itens atrasados nas listas). */
@@ -158,10 +165,21 @@ function PaymentRow({ payment }: { payment: UpcomingPayment }) {
   );
 }
 
-function FinanceiroSection({ q }: { q: UseQueryResult<DashboardFinance> }) {
+function FinanceiroSection({
+  q,
+  month,
+  onMonthChange,
+}: {
+  q: UseQueryResult<DashboardFinance>;
+  month: string;
+  onMonthChange: (month: string) => void;
+}) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-heading text-lg font-semibold">Financeiro</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-heading text-lg font-semibold">Financeiro</h2>
+        <MonthPicker value={month} onChange={onMonthChange} />
+      </div>
       {q.isLoading ? (
         <KpiSkeletons count={4} />
       ) : q.isError || !q.data ? (
@@ -295,14 +313,16 @@ function OperacaoSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
 }
 
 export default function DashboardPage() {
+  const [month, setMonth] = useState(currentMonthValue);
+
   const summary = useDashboardSummary();
-  const finance = useDashboardFinance();
+  const finance = useDashboardFinance(month);
 
   return (
     <div className="flex flex-col gap-8">
       <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
       <ComercialSection q={summary} />
-      <FinanceiroSection q={finance} />
+      <FinanceiroSection q={finance} month={month} onMonthChange={setMonth} />
       <OperacaoSection q={summary} />
     </div>
   );

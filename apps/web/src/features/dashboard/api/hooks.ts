@@ -9,9 +9,9 @@ export function useDashboardSummary() {
   });
 }
 
-export function useDashboardFinance() {
+export function useDashboardFinance(month?: string) {
   return useQuery({
-    queryKey: queryKeys.dashboard.finance,
-    queryFn: () => dashboardApi.finance(),
+    queryKey: queryKeys.dashboard.finance(month),
+    queryFn: () => dashboardApi.finance(month),
   });
 }
