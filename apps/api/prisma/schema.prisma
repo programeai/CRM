@@ -11,12 +11,32 @@ datasource db {
 //     (campo de relação + @relation + FK) exigidos pelo Prisma ---
 
 model User {
-  id               String   @id @default(uuid())
+  id               String         @id @default(uuid())
   name             String
-  email            String   @unique
-  passwordHash     String
+  email            String         @unique
+  passwordHash     String? // opcional: contas criadas via OAuth não têm senha
   refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
-  createdAt        DateTime @default(now())
+  createdAt        DateTime       @default(now())
+  oauthAccounts    OAuthAccount[]
+}
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+}
+
+// Vínculo entre um usuário e uma identidade de provedor OAuth (Google/GitHub).
+// Um usuário pode ter vários provedores; cada identidade de provedor é única.
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  provider          OAuthProvider
+  providerAccountId String // id do usuário no provedor (sub/id)
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Client {
