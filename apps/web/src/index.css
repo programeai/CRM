@@ -8,6 +8,7 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -255,4 +256,53 @@
 .rich-text-content th {
   background: var(--muted);
   font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Telas de autenticação — identidade ProgrameAi.
+   O guia de marca define acento teal (#0E7C7B) sobre base clara. Fixamos esse
+   visual apenas no shell de auth (independente do tema claro/escuro do app),
+   para que a porta de entrada fique sempre on-brand. O painel showcase escuro
+   pinta suas próprias cores literais; o formulário usa estes tokens.
+   ───────────────────────────────────────────────────────────────────────── */
+[data-auth-shell] {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.2064 0.0388 265.55);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2064 0.0388 265.55);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2064 0.0388 265.55);
+  --secondary: oklch(0.9679 0.0027 264.54);
+  --secondary-foreground: oklch(0.2438 0.0507 265.31);
+  --muted: oklch(0.9679 0.0027 264.54);
+  --muted-foreground: oklch(0.5503 0.0235 264.36);
+  --accent: oklch(0.9599 0.0034 264.54);
+  --accent-foreground: oklch(0.2438 0.0507 265.31);
+  --destructive: oklch(0.5883 0.2159 24.32);
+  --border: oklch(0.9278 0.0058 264.53);
+  --input: oklch(0.9196 0.0064 264.53);
+  /* Acento canônico da marca. */
+  --primary: #0e7c7b;
+  --primary-foreground: oklch(1 0 0);
+  --ring: #0e7c7b;
+}
+
+/* Entrada suave e escalonada dos elementos do painel showcase. */
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+[data-auth-shell] [data-animate] {
+  animation: auth-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-auth-shell] [data-animate] {
+    animation: none;
+  }
 }

@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/auth';
 import { clearCredentials, loadCredentials, saveCredentials } from '@/lib/remember';
+import { AuthLayout } from './AuthLayout';
 import { OAuthButtons } from './OAuthButtons';
 
 const OAUTH_ERRORS: Record<string, string> = {
@@ -71,69 +71,65 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen place-items-center bg-muted/30 p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Entrar no CRM ProgrameAi</CardTitle>
-          <CardDescription>Acesse com seu e-mail e senha.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <FieldGroup>
-              <Field data-invalid={!!errors.email}>
-                <FieldLabel htmlFor="email" required>E-mail</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="username"
-                  aria-invalid={!!errors.email}
-                  {...register('email')}
-                />
-                {errors.email && <FieldError>{errors.email.message}</FieldError>}
-              </Field>
-              <Field data-invalid={!!errors.password}>
-                <FieldLabel htmlFor="password" required>Senha</FieldLabel>
-                <PasswordInput
-                  id="password"
-                  autoComplete="current-password"
-                  aria-invalid={!!errors.password}
-                  {...register('password')}
-                />
-                {errors.password && <FieldError>{errors.password.message}</FieldError>}
-              </Field>
-              <div className="flex items-center justify-between">
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="remember"
-                    checked={remember}
-                    onCheckedChange={(checked) => setRemember(checked === true)}
-                  />
-                  <FieldLabel htmlFor="remember" className="font-normal">
-                    Lembrar de mim
-                  </FieldLabel>
-                </Field>
-                <Link
-                  to="/esqueci-senha"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Esqueci minha senha
-                </Link>
-              </div>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Spinner data-icon="inline-start" />}
-                Entrar
-              </Button>
-            </FieldGroup>
-          </form>
-          <OAuthButtons />
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Não tem uma conta?{' '}
-            <Link to="/registrar" className="font-medium text-primary hover:underline">
-              Criar conta
+    <AuthLayout
+      title="Bem-vindo de volta"
+      description="Acesse sua conta para gerenciar o comercial da agência."
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <FieldGroup>
+          <Field data-invalid={!!errors.email}>
+            <FieldLabel htmlFor="email" required>E-mail</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="username"
+              placeholder="voce@agencia.com.br"
+              aria-invalid={!!errors.email}
+              {...register('email')}
+            />
+            {errors.email && <FieldError>{errors.email.message}</FieldError>}
+          </Field>
+          <Field data-invalid={!!errors.password}>
+            <FieldLabel htmlFor="password" required>Senha</FieldLabel>
+            <PasswordInput
+              id="password"
+              autoComplete="current-password"
+              aria-invalid={!!errors.password}
+              {...register('password')}
+            />
+            {errors.password && <FieldError>{errors.password.message}</FieldError>}
+          </Field>
+          <div className="flex items-center justify-between">
+            <Field orientation="horizontal">
+              <Checkbox
+                id="remember"
+                checked={remember}
+                onCheckedChange={(checked) => setRemember(checked === true)}
+              />
+              <FieldLabel htmlFor="remember" className="font-normal">
+                Lembrar de mim
+              </FieldLabel>
+            </Field>
+            <Link
+              to="/esqueci-senha"
+              className="shrink-0 whitespace-nowrap text-sm font-medium text-primary hover:underline"
+            >
+              Esqueci minha senha
             </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+          <Button type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting && <Spinner data-icon="inline-start" />}
+            Entrar
+          </Button>
+        </FieldGroup>
+      </form>
+      <OAuthButtons />
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        Não tem uma conta?{' '}
+        <Link to="/registrar" className="font-medium text-primary hover:underline">
+          Criar conta
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }
