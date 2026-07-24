@@ -24,6 +24,7 @@ import RecebimentosPage from '@/features/financeiro/RecebimentosPage';
 import ContratosListPage from '@/features/financeiro/ContratosListPage';
 import ContratoDetalhePage from '@/features/financeiro/ContratoDetalhePage';
 import ContratosDoClienteTab from '@/features/financeiro/ContratosDoClienteTab';
+import PerfilPage from '@/features/perfil/PerfilPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: '/', element: <DashboardPage /> },
+          { path: '/perfil', element: <PerfilPage /> },
           { path: '/clientes', element: <ClientesListPage /> },
           {
             path: '/clientes/:id',
