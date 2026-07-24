@@ -228,11 +228,11 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                   <div className="flex flex-col gap-2">
                     <textarea
                       autoFocus
-                      rows={4}
+                      rows={8}
                       value={descDraft}
                       placeholder="Descreva a demanda…"
                       onChange={(e) => setDescDraft(e.target.value)}
-                      className="min-h-24 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="min-h-48 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                     />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={saveDesc}>
@@ -248,7 +248,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                     type="button"
                     onClick={openDescEditor}
                     className={cn(
-                      'w-full rounded-lg bg-muted/50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted',
+                      'flex min-h-48 w-full items-start rounded-lg bg-muted/50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted',
                       !form.description.trim() && 'text-muted-foreground',
                     )}
                   >
