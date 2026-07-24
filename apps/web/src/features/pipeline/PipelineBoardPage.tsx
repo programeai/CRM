@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Plus, Settings2 } from 'lucide-react';
-import {
-  DndContext, DragOverlay, PointerSensor, closestCorners,
-  useSensor, useSensors, type DragEndEvent, type DragStartEvent,
-} from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
 import { useBoard, useMoveDeal, useStages } from './api/hooks';
 import { KanbanColumn } from './components/KanbanColumn';
 import { SortableDealCard } from './components/SortableDealCard';
@@ -15,18 +13,18 @@ import { LostReasonDialog } from './LostReasonDialog';
 import { StageConfigDialog } from './StageConfigDialog';
 import type { Deal } from './api/types';
 
+const getDealId = (d: Deal) => d.id;
+
 export default function PipelineBoardPage() {
   const { data: stages, isLoading: loadingStages } = useStages();
   const { data: deals, isLoading: loadingDeals } = useBoard();
   const [formOpen, setFormOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [editing, setEditing] = useState<Deal | undefined>();
-  const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [pendingLost, setPendingLost] = useState<{ id: string; stageId: string; position: number } | null>(
     null,
   );
   const moveDeal = useMoveDeal();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const byStage = useMemo(() => {
     const map = new Map<string, Deal[]>();
@@ -39,6 +37,29 @@ export default function PipelineBoardPage() {
     return map;
   }, [deals]);
 
+  const columns = useMemo(
+    () => (stages ?? []).map((stage) => ({ id: stage.id, items: byStage.get(stage.id) ?? [] })),
+    [stages, byStage],
+  );
+
+  const { activeId, getColumnItems, dndContextProps } = useKanbanDnd<Deal>({
+    columns,
+    getId: getDealId,
+    onDrop: ({ id, toColumnId, toIndex }) => {
+      const current = (deals ?? []).find((d) => d.id === id);
+      if (current && current.stageId === toColumnId && current.position === toIndex) return false;
+      const targetStage = (stages ?? []).find((s) => s.id === toColumnId);
+      if (targetStage?.isLost) {
+        setPendingLost({ id, stageId: toColumnId, position: toIndex }); // confirma motivo antes de persistir
+        return false; // volta à origem; o move é aplicado ao confirmar o diálogo
+      }
+      moveDeal.mutate({ id, body: { stageId: toColumnId, position: toIndex } });
+      return true;
+    },
+  });
+
+  const activeDeal = activeId ? (deals ?? []).find((d) => d.id === activeId) ?? null : null;
+
   const openCreate = () => {
     setEditing(undefined);
     setFormOpen(true);
@@ -47,44 +68,6 @@ export default function PipelineBoardPage() {
     setEditing(deal);
     setFormOpen(true);
   };
-
-  /** Resolve o estágio destino e a posição a partir do `over`. */
-  function resolveTarget(overId: string, activeId: string) {
-    const stage = (stages ?? []).find((s) => s.id === overId);
-    if (stage) {
-      // soltou sobre a própria coluna (área vazia) → fim da coluna
-      const col = byStage.get(stage.id) ?? [];
-      const withoutActive = col.filter((d) => d.id !== activeId);
-      return { stageId: stage.id, position: withoutActive.length };
-    }
-    // soltou sobre um card → assume o estágio e o índice desse card
-    const overDeal = (deals ?? []).find((d) => d.id === overId);
-    if (!overDeal) return null;
-    const col = (byStage.get(overDeal.stageId) ?? []).filter((d) => d.id !== activeId);
-    const index = col.findIndex((d) => d.id === overId);
-    return { stageId: overDeal.stageId, position: index < 0 ? col.length : index };
-  }
-
-  function handleDragStart(e: DragStartEvent) {
-    setActiveDeal((deals ?? []).find((d) => d.id === e.active.id) ?? null);
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    setActiveDeal(null);
-    const { active, over } = e;
-    if (!over) return;
-    const target = resolveTarget(String(over.id), String(active.id));
-    if (!target) return;
-    const current = (deals ?? []).find((d) => d.id === active.id);
-    if (current && current.stageId === target.stageId && current.position === target.position) return;
-
-    const targetStage = (stages ?? []).find((s) => s.id === target.stageId);
-    if (targetStage?.isLost) {
-      setPendingLost({ id: String(active.id), ...target }); // abre diálogo antes de persistir
-      return;
-    }
-    moveDeal.mutate({ id: String(active.id), body: target });
-  }
 
   const isLoading = loadingStages || loadingDeals;
 
@@ -111,15 +94,10 @@ export default function PipelineBoardPage() {
           ))}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext {...dndContextProps}>
           <div className="flex min-h-0 min-w-0 flex-1 gap-4 overflow-x-auto">
             {(stages ?? []).map((stage) => {
-              const stageDeals = byStage.get(stage.id) ?? [];
+              const stageDeals = getColumnItems(stage.id);
               const cooling = !stage.isWon && !stage.isLost;
               return (
                 <KanbanColumn key={stage.id} stage={stage} deals={stageDeals}>

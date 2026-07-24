@@ -2,10 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { ArrowLeft, FolderX, Pencil, Plus, Trash2 } from 'lucide-react';
-import {
-  DndContext, DragOverlay, PointerSensor, closestCorners,
-  useSensor, useSensors, type DragEndEvent, type DragStartEvent,
-} from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +25,8 @@ import { extractApiMessage } from './lib/api-error';
 import { PROJECT_STATUS_BADGE, TASK_STATUS_ORDER } from './lib/project-format';
 import type { Task, TaskStatus } from './api/types';
 
+const getTaskId = (t: Task) => t.id;
+
 export default function ProjetoDetalhePage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -40,9 +40,6 @@ export default function ProjetoDetalhePage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const byStatus = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>();
@@ -55,6 +52,25 @@ export default function ProjetoDetalhePage() {
     return map;
   }, [tasks]);
 
+  const columns = useMemo(
+    () => TASK_STATUS_ORDER.map((status) => ({ id: status, items: byStatus.get(status) ?? [] })),
+    [byStatus],
+  );
+
+  const { activeId, getColumnItems, dndContextProps } = useKanbanDnd<Task>({
+    columns,
+    getId: getTaskId,
+    onDrop: ({ id, toColumnId, toIndex }) => {
+      const status = toColumnId as TaskStatus;
+      const current = (tasks ?? []).find((t) => t.id === id);
+      if (current && current.status === status && current.position === toIndex) return false;
+      moveTask.mutate({ id, body: { status, position: toIndex } });
+      return true;
+    },
+  });
+
+  const activeTask = activeId ? (tasks ?? []).find((t) => t.id === activeId) ?? null : null;
+
   const openCreateTask = () => {
     setEditingTask(undefined);
     setTaskFormOpen(true);
@@ -63,39 +79,6 @@ export default function ProjetoDetalhePage() {
     setEditingTask(task);
     setTaskFormOpen(true);
   };
-
-  /** Resolve o status destino e a posição a partir do `over`. */
-  function resolveTarget(overId: string, activeId: string) {
-    const status = TASK_STATUS_ORDER.find((s) => s === overId);
-    if (status) {
-      // soltou sobre a própria coluna (área vazia) → fim da coluna
-      const col = byStatus.get(status) ?? [];
-      const withoutActive = col.filter((t) => t.id !== activeId);
-      return { status, position: withoutActive.length };
-    }
-    // soltou sobre um card → assume o status e o índice desse card
-    const overTask = (tasks ?? []).find((t) => t.id === overId);
-    if (!overTask) return null;
-    const col = (byStatus.get(overTask.status) ?? []).filter((t) => t.id !== activeId);
-    const index = col.findIndex((t) => t.id === overId);
-    return { status: overTask.status, position: index < 0 ? col.length : index };
-  }
-
-  function handleDragStart(e: DragStartEvent) {
-    setActiveTask((tasks ?? []).find((t) => t.id === e.active.id) ?? null);
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    setActiveTask(null);
-    const { active, over } = e;
-    if (!over) return;
-    const target = resolveTarget(String(over.id), String(active.id));
-    if (!target) return;
-    const current = (tasks ?? []).find((t) => t.id === active.id);
-    if (current && current.status === target.status && current.position === target.position) return;
-
-    moveTask.mutate({ id: String(active.id), body: target });
-  }
 
   const confirmDelete = async () => {
     try {
@@ -188,15 +171,10 @@ export default function ProjetoDetalhePage() {
           ))}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext {...dndContextProps}>
           <div className="flex min-h-0 min-w-0 flex-1 gap-4 overflow-x-auto">
             {TASK_STATUS_ORDER.map((status) => {
-              const statusTasks = byStatus.get(status) ?? [];
+              const statusTasks = getColumnItems(status);
               return (
                 <KanbanColumn key={status} status={status} tasks={statusTasks}>
                   {statusTasks.map((task) => (
