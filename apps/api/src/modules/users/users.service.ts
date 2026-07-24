@@ -1,12 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import { OAuthProvider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaAdminService } from '../../prisma/prisma-admin.service';
+
+/** Duração do trial concedido no cadastro. */
+const TRIAL_DAYS = 14;
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private admin: PrismaAdminService,
+  ) {}
+
+  /**
+   * Dados do trial concedido no cadastro. Vale para autohospedagem e SaaS: sem
+   * billing o gate ignora; com billing dá os 14 dias iniciais. `Subscription`
+   * tem RLS e o cadastro não tem contexto de owner → criado via client admin
+   * (nested create atômico com o User).
+   */
+  private trialSubscription() {
+    return {
+      status: 'TRIALING' as const,
+      trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+    };
+  }
+
   create(data: { name: string; email: string; passwordHash: string }) {
-    return this.prisma.user.create({ data });
+    return this.admin.user.create({
+      data: { ...data, subscription: { create: this.trialSubscription() } },
+    });
   }
   findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
@@ -42,7 +65,7 @@ export class UsersService {
     provider: OAuthProvider;
     providerAccountId: string;
   }) {
-    return this.prisma.user.create({
+    return this.admin.user.create({
       data: {
         name: data.name,
         email: data.email,
@@ -52,6 +75,7 @@ export class UsersService {
             providerAccountId: data.providerAccountId,
           },
         },
+        subscription: { create: this.trialSubscription() },
       },
     });
   }
