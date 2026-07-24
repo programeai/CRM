@@ -13,4 +13,15 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_TTL: Joi.string().default('7d'),
   FRONTEND_URL: Joi.string().uri().required(),
   COOKIE_DOMAIN: Joi.string().default('localhost'),
+  // Base pública da API, usada para montar o redirect_uri do OAuth
+  // (deve bater com o cadastrado no provedor). Ex.: http://localhost:3000
+  API_URL: Joi.string().uri().default('http://localhost:3000'),
+  // Credenciais OAuth — opcionais: cada provedor só é habilitado se as suas
+  // duas variáveis estiverem presentes.
+  GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').default(''),
+  GITHUB_CLIENT_ID: Joi.string().allow('').default(''),
+  GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),
+  // Captcha (Cloudflare Turnstile) — opcional: em branco desativa a verificação.
+  TURNSTILE_SECRET_KEY: Joi.string().allow('').default(''),
 });
