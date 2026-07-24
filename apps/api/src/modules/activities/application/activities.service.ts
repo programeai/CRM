@@ -20,6 +20,7 @@ export class ActivitiesService {
   async create(ownerId: string, dto: CreateActivityDto): Promise<Activity> {
     await this.clients.findOne(ownerId, dto.clientId); // garante posse
     return this.repo.create({
+      ownerId,
       clientId: dto.clientId,
       dealId: dto.dealId,
       type: dto.type,

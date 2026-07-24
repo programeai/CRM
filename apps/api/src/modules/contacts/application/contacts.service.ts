@@ -25,14 +25,19 @@ export class ContactsService {
     clientId: string,
     dto: CreateContactDto,
   ): Promise<Contact> {
-    await this.clients.findOne(ownerId, clientId); // garante posse
+    const client = await this.clients.findOne(ownerId, clientId); // garante posse
     // Primeiro contato do cliente sempre vira o principal.
     const isFirst = (await this.repo.countByClient(clientId)) === 0;
     const isPrimary = isFirst || dto.isPrimary === true;
     if (isPrimary && !isFirst) {
       await this.repo.clearPrimary(clientId);
     }
-    return this.repo.create({ ...dto, clientId, isPrimary });
+    return this.repo.create({
+      ...dto,
+      clientId,
+      isPrimary,
+      ownerId: client.ownerId,
+    });
   }
 
   async update(

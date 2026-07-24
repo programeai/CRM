@@ -56,6 +56,7 @@ export class DealsService {
       : await this.stages.firstStage();
     const position = (await this.repo.maxPositionInStage(stage.id)) + 1;
     return this.repo.create({
+      ownerId,
       clientId: dto.clientId,
       stageId: stage.id,
       title: dto.title,

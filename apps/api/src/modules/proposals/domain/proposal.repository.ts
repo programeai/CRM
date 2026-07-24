@@ -25,11 +25,18 @@ export interface ProposalRepository {
   findManyAndCount(
     filter: ProposalListFilter,
   ): Promise<{ data: ProposalWithItems[]; total: number }>;
-  /** Substitui os itens (deleteMany + create) e aplica o patch numa transação. */
+  /**
+   * Substitui os itens (deleteMany + create) e aplica o patch numa transação.
+   * `ownerId` de cada item é derivado internamente a partir do ownerId da
+   * própria proposta — o chamador não precisa (nem deve) informá-lo.
+   */
   updateWithItems(
     id: string,
     data: Prisma.ProposalUpdateInput,
-    items: Prisma.ProposalItemUncheckedCreateWithoutProposalInput[],
+    items: Omit<
+      Prisma.ProposalItemUncheckedCreateWithoutProposalInput,
+      'ownerId'
+    >[],
   ): Promise<ProposalWithItems>;
   /** Patch de campos escalares (status/datas) sem tocar nos itens. */
   update(

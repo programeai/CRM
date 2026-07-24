@@ -55,6 +55,7 @@ export class ProjectsService {
   ): Promise<ProjectWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida posse do cliente
     return this.repo.create({
+      ownerId,
       clientId: dto.clientId,
       name: dto.name,
       serviceType: dto.serviceType,
@@ -103,6 +104,7 @@ export class ProjectsService {
     const existing = await this.repo.findByDealId(deal.id);
     if (existing) return;
     await this.repo.create({
+      ownerId: deal.ownerId,
       clientId: deal.clientId,
       dealId: deal.id,
       name: deal.title,

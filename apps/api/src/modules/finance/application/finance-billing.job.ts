@@ -50,6 +50,7 @@ export class FinanceBillingJob {
         const mm = String(dueDate.getMonth() + 1).padStart(2, '0');
         const yyyy = dueDate.getFullYear();
         await this.payments.create({
+          ownerId: c.ownerId,
           contractId: c.id,
           description: `Mensalidade ${mm}/${yyyy}`,
           amount: c.monthlyAmount as unknown as number, // valor VIGENTE (reajuste vale p/ futuras)

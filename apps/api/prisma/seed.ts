@@ -10,6 +10,12 @@ async function main() {
     update: {},
     create: { email: 'admin@crm.local', name: 'Admin', passwordHash },
   });
+  // Segundo usuário: permite testar isolamento por ownerId (Fase 3 do RLS).
+  await prisma.user.upsert({
+    where: { email: 'demo@crm.local' },
+    update: {},
+    create: { email: 'demo@crm.local', name: 'Demo', passwordHash },
+  });
 
   const stages = [
     { name: 'Novo lead', isWon: false, isLost: false },

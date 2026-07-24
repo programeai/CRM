@@ -35,10 +35,7 @@ export class TasksService {
     return paginated(data, total, page, limit);
   }
 
-  async board(
-    ownerId: string,
-    projectId?: string,
-  ): Promise<TaskWithProject[]> {
+  async board(ownerId: string, projectId?: string): Promise<TaskWithProject[]> {
     if (projectId) {
       await this.projects.findOne(ownerId, projectId); // posse
       return this.repo.findAllForBoard(projectId);
@@ -57,6 +54,7 @@ export class TasksService {
     const position =
       (await this.repo.maxPositionInStatus(dto.projectId, status)) + 1;
     return this.repo.create({
+      ownerId,
       projectId: dto.projectId,
       title: dto.title,
       description: dto.description ?? null,

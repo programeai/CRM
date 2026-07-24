@@ -68,6 +68,7 @@ export class ContractsService {
     // (ver "Dependencies & Risks" do spec).
 
     const base = {
+      ownerId,
       clientId: dto.clientId,
       projectId: dto.projectId ?? null,
       proposalId: dto.proposalId ?? null,
@@ -93,6 +94,7 @@ export class ContractsService {
         installmentAmount: dto.installmentAmount!,
         payments: {
           create: charges.map((c) => ({
+            ownerId,
             description: c.description,
             amount: c.amount,
             dueDate: c.dueDate,
@@ -107,6 +109,7 @@ export class ContractsService {
         ...base,
         payments: {
           create: charges.map((c) => ({
+            ownerId,
             description: c.description,
             amount: c.amount,
             dueDate: c.dueDate,

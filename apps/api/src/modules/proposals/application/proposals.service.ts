@@ -73,6 +73,7 @@ export class ProposalsService {
     const total = computeTotal(dto.items, dto.discount);
 
     return this.repo.create({
+      ownerId,
       number,
       version: 1,
       clientId: dto.clientId,
@@ -87,6 +88,7 @@ export class ProposalsService {
       total,
       items: {
         create: dto.items.map((it, order) => ({
+          ownerId,
           description: it.description,
           quantity: it.quantity,
           unitPrice: it.unitPrice,
@@ -192,6 +194,7 @@ export class ProposalsService {
   async newVersion(ownerId: string, id: string): Promise<ProposalWithItems> {
     const source = await this.loadOwned(ownerId, id);
     return this.repo.create({
+      ownerId,
       number: source.number,
       version: source.version + 1,
       parentId: source.id,
@@ -207,6 +210,7 @@ export class ProposalsService {
       total: source.total,
       items: {
         create: source.items.map((it) => ({
+          ownerId,
           description: it.description,
           quantity: it.quantity,
           unitPrice: it.unitPrice,
