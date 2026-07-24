@@ -23,6 +23,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Wordmark } from "@/components/ui/wordmark";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,12 +61,18 @@ export default function AppLayout() {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-0">
-          <div className="flex h-14 items-center overflow-hidden border-b px-4 text-base font-semibold whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-            <span className="group-data-[collapsible=icon]:hidden">
-              CRM ProgrameAi
-            </span>
-            <span className="hidden group-data-[collapsible=icon]:inline">
-              CRM
+          <div className="flex h-14 items-center overflow-hidden border-b px-4 whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+            {/* Lockup do produto: marca ProgrameAi + selo "CRM" (o CRM oficial). */}
+            <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+              <Wordmark tone="light" className="text-lg" />
+              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-primary">
+                CRM
+              </span>
+            </div>
+            {/* Recolhido (modo ícone): monograma com o mesmo tratamento do wordmark. */}
+            <span className="hidden font-sans text-lg font-extrabold tracking-[-0.03em] select-none group-data-[collapsible=icon]:inline">
+              <span className="text-foreground">P</span>
+              <span className="text-primary">a</span>
             </span>
           </div>
         </SidebarHeader>
