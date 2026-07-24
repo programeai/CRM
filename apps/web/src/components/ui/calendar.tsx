@@ -42,37 +42,31 @@ export function fromISODate(iso?: string): Date | undefined {
 }
 
 /**
- * Calendário de mês único com seleção de intervalo (`mode="range"` do padrão shadcn).
+ * Calendário com seleção de intervalo (`mode="range"` do padrão shadcn).
  * O primeiro clique define o início; o segundo, o fim (reordenando se necessário);
  * um novo clique com o intervalo já completo recomeça a seleção.
+ *
+ * `numberOfMonths` renderiza N meses consecutivos lado a lado (padrão shadcn para
+ * intervalos: 2), com a navegação deslocando todo o bloco de meses.
  */
 export function Calendar({
   selected,
   onSelect,
   className,
+  numberOfMonths = 1,
 }: {
   selected?: DateRange
   onSelect: (range: DateRange) => void
   className?: string
+  numberOfMonths?: number
 }) {
   const initial = fromISODate(selected?.from) ?? new Date()
   const [view, setView] = React.useState(
     () => new Date(initial.getFullYear(), initial.getMonth(), 1),
   )
 
-  const year = view.getFullYear()
-  const month = view.getMonth()
-  const startWeekday = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const todayISO = toISODate(new Date())
-
-  const cells: Array<number | null> = [
-    ...Array.from({ length: startWeekday }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
-
-  const handleClick = (day: number) => {
-    const iso = toISODate(new Date(year, month, day))
+  /** Atualiza o intervalo a partir do dia (ISO) clicado. */
+  const pick = (iso: string) => {
     if (!selected?.from || selected.to) {
       onSelect({ from: iso, to: undefined })
       return
@@ -84,28 +78,89 @@ export function Calendar({
     }
   }
 
+  const count = Math.max(1, numberOfMonths)
+  const months = Array.from(
+    { length: count },
+    (_, i) => new Date(view.getFullYear(), view.getMonth() + i, 1),
+  )
+
   return (
-    <div className={cn("w-64 select-none", className)}>
-      <div className="mb-2 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Mês anterior"
-          onClick={() => setView(new Date(year, month - 1, 1))}
-        >
-          <ChevronLeft />
-        </Button>
+    <div className={cn("flex select-none items-start gap-4", className)}>
+      {months.map((m, i) => (
+        <MonthGrid
+          key={`${m.getFullYear()}-${m.getMonth()}`}
+          date={m}
+          selected={selected}
+          onPick={pick}
+          onPrev={
+            i === 0
+              ? () => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))
+              : undefined
+          }
+          onNext={
+            i === count - 1
+              ? () => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))
+              : undefined
+          }
+        />
+      ))}
+    </div>
+  )
+}
+
+/** Grade de um único mês. As setas só aparecem nas bordas do bloco (esquerda/direita). */
+function MonthGrid({
+  date,
+  selected,
+  onPick,
+  onPrev,
+  onNext,
+}: {
+  date: Date
+  selected?: DateRange
+  onPick: (iso: string) => void
+  onPrev?: () => void
+  onNext?: () => void
+}) {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const startWeekday = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const todayISO = toISODate(new Date())
+
+  const cells: Array<number | null> = [
+    ...Array.from({ length: startWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ]
+
+  return (
+    <div className="w-64">
+      <div className="relative mb-2 flex h-8 items-center justify-center">
+        {onPrev && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Mês anterior"
+            onClick={onPrev}
+            className="absolute left-0"
+          >
+            <ChevronLeft />
+          </Button>
+        )}
         <span className="text-sm font-medium">
           {MONTHS[month]} {year}
         </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Próximo mês"
-          onClick={() => setView(new Date(year, month + 1, 1))}
-        >
-          <ChevronRight />
-        </Button>
+        {onNext && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Próximo mês"
+            onClick={onNext}
+            className="absolute right-0"
+          >
+            <ChevronRight />
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-7 gap-y-1">
@@ -141,7 +196,7 @@ export function Calendar({
             >
               <button
                 type="button"
-                onClick={() => handleClick(day)}
+                onClick={() => onPick(iso)}
                 className={cn(
                   "flex size-8 items-center justify-center rounded-md text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                   !isEndpoint && "hover:bg-muted",

@@ -57,7 +57,7 @@ export function DateRangePicker({
         {label ?? placeholder}
       </PopoverTrigger>
       <PopoverContent align={align} className="w-auto p-3">
-        <Calendar selected={value} onSelect={onChange} />
+        <Calendar selected={value} onSelect={onChange} numberOfMonths={2} />
         {label && (
           <Button
             variant="ghost"
