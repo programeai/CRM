@@ -129,7 +129,7 @@ export default function AppLayout() {
                   <AvatarFallback>{userInitial}</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel className="flex max-w-56 flex-col gap-0.5">
                   <span className="truncate text-sm font-medium">
                     {userLabel}
