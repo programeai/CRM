@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, useNavigate, useParams } from 'react-router';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { ArrowLeft, Archive, Pencil, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ const STATUS_BADGE: Record<
 export default function ClienteDetalheLayout() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const goBack = useGoBack('/clientes');
   const { data: client, isLoading, isError } = useClient(id);
   const archiveClient = useArchiveClient();
@@ -41,14 +42,50 @@ export default function ClienteDetalheLayout() {
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   const tabs: SectionTabItem[] = [
-    { label: 'Dados', to: `/clientes/${id}`, end: true },
-    { label: 'Contatos', to: `/clientes/${id}/contatos` },
-    { label: 'Timeline', to: `/clientes/${id}/timeline` },
-    { label: 'Oportunidades', to: `/clientes/${id}/oportunidades` },
-    { label: 'Propostas', to: `/clientes/${id}/propostas` },
-    { label: 'Projetos', to: `/clientes/${id}/projetos` },
-    { label: 'Contratos', to: `/clientes/${id}/contratos` },
+    {
+      label: 'Dados',
+      to: `/clientes/${id}`,
+      end: true,
+      description: 'Informações cadastrais e de contato do cliente.',
+    },
+    {
+      label: 'Contatos',
+      to: `/clientes/${id}/contatos`,
+      description: 'Pessoas de contato vinculadas a este cliente.',
+    },
+    {
+      label: 'Timeline',
+      to: `/clientes/${id}/timeline`,
+      description: 'Histórico de interações e atividades do cliente.',
+    },
+    {
+      label: 'Oportunidades',
+      to: `/clientes/${id}/oportunidades`,
+      description: 'Oportunidades de negócio associadas a este cliente.',
+    },
+    {
+      label: 'Propostas',
+      to: `/clientes/${id}/propostas`,
+      description: 'Propostas comerciais enviadas para este cliente.',
+    },
+    {
+      label: 'Projetos',
+      to: `/clientes/${id}/projetos`,
+      description: 'Projetos deste cliente, em andamento ou concluídos.',
+    },
+    {
+      label: 'Contratos',
+      to: `/clientes/${id}/contratos`,
+      description: 'Contratos firmados com este cliente.',
+    },
   ];
+
+  const activeTab =
+    tabs.find((tab) =>
+      tab.end
+        ? location.pathname === tab.to
+        : location.pathname.startsWith(tab.to),
+    ) ?? tabs[0];
 
   const confirmArchive = async () => {
     try {
@@ -133,7 +170,19 @@ export default function ClienteDetalheLayout() {
         <SectionTabs items={tabs} />
       </div>
 
-      <Outlet context={client} />
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-semibold">
+            {activeTab.label}
+          </h2>
+          {activeTab.description && (
+            <p className="text-sm text-muted-foreground">
+              {activeTab.description}
+            </p>
+          )}
+        </div>
+        <Outlet context={client} />
+      </div>
 
       <ClientFormDialog open={editOpen} onOpenChange={setEditOpen} client={client} />
 

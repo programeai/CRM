@@ -5,6 +5,8 @@ export interface SectionTabItem {
   label: string
   to: string
   end?: boolean
+  /** Descrição curta da aba, exibida abaixo do título do conteúdo. */
+  description?: string
   /** Reservado para RBAC futuro; hoje ignorado (CRM é single-tenant). */
   permission?: string | string[]
 }
