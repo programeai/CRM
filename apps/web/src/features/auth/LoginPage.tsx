@@ -101,16 +101,24 @@ export default function LoginPage() {
                 />
                 {errors.password && <FieldError>{errors.password.message}</FieldError>}
               </Field>
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="remember"
-                  checked={remember}
-                  onCheckedChange={(checked) => setRemember(checked === true)}
-                />
-                <FieldLabel htmlFor="remember" className="font-normal">
-                  Lembrar de mim
-                </FieldLabel>
-              </Field>
+              <div className="flex items-center justify-between">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="remember"
+                    checked={remember}
+                    onCheckedChange={(checked) => setRemember(checked === true)}
+                  />
+                  <FieldLabel htmlFor="remember" className="font-normal">
+                    Lembrar de mim
+                  </FieldLabel>
+                </Field>
+                <Link
+                  to="/esqueci-senha"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Esqueci minha senha
+                </Link>
+              </div>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Spinner data-icon="inline-start" />}
                 Entrar

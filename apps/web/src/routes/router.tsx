@@ -3,6 +3,8 @@ import ProtectedRoute from '@/app/ProtectedRoute';
 import AppLayout from '@/app/AppLayout';
 import LoginPage from '@/features/auth/LoginPage';
 import RegisterPage from '@/features/auth/RegisterPage';
+import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/features/auth/ResetPasswordPage';
 import ClientesListPage from '@/features/clientes/ClientesListPage';
 import ClienteDetalheLayout from '@/features/clientes/ClienteDetalheLayout';
 import DadosTab from '@/features/clientes/tabs/DadosTab';
@@ -26,6 +28,8 @@ import ContratosDoClienteTab from '@/features/financeiro/ContratosDoClienteTab';
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/registrar', element: <RegisterPage /> },
+  { path: '/esqueci-senha', element: <ForgotPasswordPage /> },
+  { path: '/redefinir-senha', element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
     children: [
