@@ -77,6 +77,18 @@ export interface MoveTaskBody {
   position: number;
 }
 
+/** Uma tag existente do dono e em quantas demandas ela é usada. */
+export interface TagUsage {
+  tag: string;
+  count: number;
+}
+/** Demanda que usa uma tag — exibida no modal de exclusão global. */
+export interface TaskTagRef {
+  id: string;
+  title: string;
+  project: { id: string; name: string };
+}
+
 export interface ListProjectsParams {
   page?: number;
   limit?: number;
