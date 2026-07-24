@@ -15,27 +15,27 @@ export class PrismaActivityRepository implements ActivityRepository {
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
       ...(filter.dealId ? { dealId: filter.dealId } : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.activity.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.activity.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.activity.count({ where }),
+      this.prisma.db.activity.count({ where }),
     ]);
     return { data, total };
   }
 
   findById(id: string) {
-    return this.prisma.activity.findUnique({ where: { id } });
+    return this.prisma.db.activity.findUnique({ where: { id } });
   }
 
   create(data: Prisma.ActivityUncheckedCreateInput) {
-    return this.prisma.activity.create({ data });
+    return this.prisma.db.activity.create({ data });
   }
 
   update(id: string, data: Prisma.ActivityUpdateInput) {
-    return this.prisma.activity.update({ where: { id }, data });
+    return this.prisma.db.activity.update({ where: { id }, data });
   }
 }

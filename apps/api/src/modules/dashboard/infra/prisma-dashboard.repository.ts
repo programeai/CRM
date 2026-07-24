@@ -19,8 +19,8 @@ export class PrismaDashboardRepository implements DashboardRepository {
   async funnel(ownerId: string): Promise<FunnelStageRow[]> {
     // Estágios são globais (sem owner); os agregados vêm dos deals do dono.
     const [stages, grouped] = await Promise.all([
-      this.prisma.pipelineStage.findMany({ orderBy: { order: 'asc' } }),
-      this.prisma.deal.groupBy({
+      this.prisma.db.pipelineStage.findMany({ orderBy: { order: 'asc' } }),
+      this.prisma.db.deal.groupBy({
         by: ['stageId'],
         where: { client: { ownerId } },
         _count: { _all: true },
@@ -42,7 +42,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
   }
 
   async proposalsOpen(ownerId: string) {
-    const r = await this.prisma.proposal.aggregate({
+    const r = await this.prisma.db.proposal.aggregate({
       where: {
         client: { ownerId },
         status: { in: ['DRAFT', 'SENT', 'NEGOTIATING'] },
@@ -54,7 +54,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
   }
 
   proposalsAcceptedCount(ownerId: string, from: Date, to: Date) {
-    return this.prisma.proposal.count({
+    return this.prisma.db.proposal.count({
       where: {
         client: { ownerId },
         status: 'ACCEPTED',
@@ -67,7 +67,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
     ownerId: string,
     since: Date,
   ): Promise<ProposalStatusCount[]> {
-    const rows = await this.prisma.proposal.groupBy({
+    const rows = await this.prisma.db.proposal.groupBy({
       by: ['status'],
       where: { client: { ownerId }, decidedAt: { gte: since } },
       _count: { _all: true },
@@ -76,13 +76,13 @@ export class PrismaDashboardRepository implements DashboardRepository {
   }
 
   tasksInProgressCount(ownerId: string) {
-    return this.prisma.task.count({
+    return this.prisma.db.task.count({
       where: { project: { client: { ownerId } }, status: 'IN_PROGRESS' },
     });
   }
 
   tasksOverdueCount(ownerId: string, now: Date) {
-    return this.prisma.task.count({
+    return this.prisma.db.task.count({
       where: {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
@@ -97,7 +97,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
     until: Date,
     take: number,
   ): Promise<UpcomingTaskRow[]> {
-    const rows = await this.prisma.task.findMany({
+    const rows = await this.prisma.db.task.findMany({
       where: {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
@@ -112,7 +112,11 @@ export class PrismaDashboardRepository implements DashboardRepository {
         priority: true,
         dueDate: true,
         project: {
-          select: { id: true, name: true, client: { select: { id: true, name: true } } },
+          select: {
+            id: true,
+            name: true,
+            client: { select: { id: true, name: true } },
+          },
         },
       },
     });
@@ -133,7 +137,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
     ownerId: string,
     take: number,
   ): Promise<UpcomingActionRow[]> {
-    const rows = await this.prisma.activity.findMany({
+    const rows = await this.prisma.db.activity.findMany({
       where: {
         client: { ownerId },
         type: 'FOLLOW_UP',
@@ -161,7 +165,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
   }
 
   async monthlyRecurringRevenue(ownerId: string) {
-    const r = await this.prisma.contract.aggregate({
+    const r = await this.prisma.db.contract.aggregate({
       where: {
         client: { ownerId },
         status: 'ACTIVE',
@@ -178,7 +182,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
     // Recebido: das cobranças pagas, o valor efetivamente recebido —
     // `paidAmount` quando informado (parcial/diferente), senão `amount`.
     const [expected, paidWithAmount, paidWithoutAmount] = await Promise.all([
-      this.prisma.payment.aggregate({
+      this.prisma.db.payment.aggregate({
         where: {
           contract: { client: { ownerId } },
           status: { not: 'CANCELED' },
@@ -186,7 +190,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
         },
         _sum: { amount: true },
       }),
-      this.prisma.payment.aggregate({
+      this.prisma.db.payment.aggregate({
         where: {
           contract: { client: { ownerId } },
           status: 'PAID',
@@ -195,7 +199,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
         },
         _sum: { paidAmount: true },
       }),
-      this.prisma.payment.aggregate({
+      this.prisma.db.payment.aggregate({
         where: {
           contract: { client: { ownerId } },
           status: 'PAID',
@@ -214,10 +218,13 @@ export class PrismaDashboardRepository implements DashboardRepository {
   }
 
   async overdueTotal(ownerId: string, now: Date) {
-    const r = await this.prisma.payment.aggregate({
+    const r = await this.prisma.db.payment.aggregate({
       where: {
         contract: { client: { ownerId } },
-        OR: [{ status: 'OVERDUE' }, { status: 'PENDING', dueDate: { lt: now } }],
+        OR: [
+          { status: 'OVERDUE' },
+          { status: 'PENDING', dueDate: { lt: now } },
+        ],
       },
       _sum: { amount: true },
     });
@@ -230,7 +237,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
     until: Date,
     take: number,
   ): Promise<UpcomingPaymentRow[]> {
-    const rows = await this.prisma.payment.findMany({
+    const rows = await this.prisma.db.payment.findMany({
       where: {
         contract: { client: { ownerId } },
         status: 'PENDING',

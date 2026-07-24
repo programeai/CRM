@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaAdminService } from '../../../prisma/prisma-admin.service';
 import type {
   PaymentBaseFilter,
   PaymentListFilter,
@@ -23,10 +24,13 @@ const withContract = {
 
 @Injectable()
 export class PrismaPaymentRepository implements PaymentRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private admin: PrismaAdminService,
+  ) {}
 
   findById(id: string) {
-    return this.prisma.payment.findUnique({
+    return this.prisma.db.payment.findUnique({
       where: { id },
       include: withContract,
     });
@@ -45,8 +49,14 @@ export class PrismaPaymentRepository implements PaymentRepository {
         ...(filter.search
           ? {
               OR: [
-                { description: { contains: filter.search, mode: 'insensitive' } },
-                { client: { name: { contains: filter.search, mode: 'insensitive' } } },
+                {
+                  description: { contains: filter.search, mode: 'insensitive' },
+                },
+                {
+                  client: {
+                    name: { contains: filter.search, mode: 'insensitive' },
+                  },
+                },
               ],
             }
           : {}),
@@ -67,7 +77,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
   async findManyAndCount(filter: PaymentListFilter) {
     const where = this.buildWhere(filter);
     const dir: SortDirection = filter.sortDir === 'desc' ? 'desc' : 'asc';
-    const total = await this.prisma.payment.count({ where });
+    const total = await this.prisma.db.payment.count({ where });
 
     // Ordenar por status exige prioridade customizada (Vencido → Pendente →
     // Pago → Cancelado), que o Prisma não expressa (ele usa a ordem do enum).
@@ -76,7 +86,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
     if (!filter.sortBy || filter.sortBy === 'status') {
       const ids = await this.orderedIdsByStatus(filter, dir);
       if (ids.length === 0) return { data: [], total };
-      const rows = await this.prisma.payment.findMany({
+      const rows = await this.prisma.db.payment.findMany({
         where: { id: { in: ids } },
         include: withContract,
       });
@@ -85,7 +95,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
       return { data, total };
     }
 
-    const data = await this.prisma.payment.findMany({
+    const data = await this.prisma.db.payment.findMany({
       where,
       include: withContract,
       orderBy: this.prismaOrderBy(filter.sortBy, dir),
@@ -134,7 +144,9 @@ export class PrismaPaymentRepository implements PaymentRepository {
     if (filter.clientId)
       conds.push(Prisma.sql`c."clientId" = ${filter.clientId}`);
     if (filter.billingType)
-      conds.push(Prisma.sql`c."billingType" = ${filter.billingType}::"BillingType"`);
+      conds.push(
+        Prisma.sql`c."billingType" = ${filter.billingType}::"BillingType"`,
+      );
     if (filter.contractId)
       conds.push(Prisma.sql`p."contractId" = ${filter.contractId}`);
     if (filter.status?.length)
@@ -143,11 +155,14 @@ export class PrismaPaymentRepository implements PaymentRepository {
           filter.status.map((s) => Prisma.sql`${s}::"PaymentStatus"`),
         )})`,
       );
-    if (filter.dueFrom) conds.push(Prisma.sql`p."dueDate" >= ${filter.dueFrom}`);
+    if (filter.dueFrom)
+      conds.push(Prisma.sql`p."dueDate" >= ${filter.dueFrom}`);
     if (filter.dueTo) conds.push(Prisma.sql`p."dueDate" <= ${filter.dueTo}`);
 
     const statusDir = Prisma.raw(dir === 'desc' ? 'DESC' : 'ASC');
-    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    const rows = await this.prisma.db.$queryRaw<
+      Array<{ id: string }>
+    >(Prisma.sql`
       SELECT p.id
       FROM "Payment" p
       JOIN "Contract" c ON c.id = p."contractId"
@@ -169,7 +184,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
   }
 
   async sumByStatus(filter: PaymentBaseFilter) {
-    const rows = await this.prisma.payment.groupBy({
+    const rows = await this.prisma.db.payment.groupBy({
       by: ['status'],
       where: this.buildWhere(filter),
       _sum: { amount: true, paidAmount: true },
@@ -182,7 +197,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
   }
 
   update(id: string, data: Prisma.PaymentUpdateInput) {
-    return this.prisma.payment.update({
+    return this.prisma.db.payment.update({
       where: { id },
       data,
       include: withContract,
@@ -190,18 +205,21 @@ export class PrismaPaymentRepository implements PaymentRepository {
   }
 
   async existsForDueDate(contractId: string, dueDate: Date): Promise<boolean> {
-    const count = await this.prisma.payment.count({
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    const count = await this.admin.payment.count({
       where: { contractId, dueDate },
     });
     return count > 0;
   }
 
   create(data: Prisma.PaymentUncheckedCreateInput) {
-    return this.prisma.payment.create({ data, include: withContract });
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    return this.admin.payment.create({ data, include: withContract });
   }
 
   async markOverdue(now: Date): Promise<number> {
-    const r = await this.prisma.payment.updateMany({
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    const r = await this.admin.payment.updateMany({
       where: { status: 'PENDING', dueDate: { lt: now } },
       data: { status: 'OVERDUE' },
     });

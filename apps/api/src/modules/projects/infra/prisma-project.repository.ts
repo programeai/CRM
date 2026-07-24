@@ -16,11 +16,11 @@ export class PrismaProjectRepository implements ProjectRepository {
   constructor(private prisma: PrismaService) {}
 
   create(data: Prisma.ProjectUncheckedCreateInput) {
-    return this.prisma.project.create({ data, include: withClient });
+    return this.prisma.db.project.create({ data, include: withClient });
   }
 
   findById(id: string) {
-    return this.prisma.project.findUnique({
+    return this.prisma.db.project.findUnique({
       where: { id },
       include: withClient,
     });
@@ -35,21 +35,21 @@ export class PrismaProjectRepository implements ProjectRepository {
         ? { name: { contains: filter.search, mode: 'insensitive' } }
         : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.project.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.project.findMany({
         where,
         include: withClient,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.project.count({ where }),
+      this.prisma.db.project.count({ where }),
     ]);
     return { data, total };
   }
 
   findByClient(clientId: string) {
-    return this.prisma.project.findMany({
+    return this.prisma.db.project.findMany({
       where: { clientId },
       include: withClient,
       orderBy: { createdAt: 'desc' },
@@ -57,7 +57,7 @@ export class PrismaProjectRepository implements ProjectRepository {
   }
 
   update(id: string, data: Prisma.ProjectUpdateInput) {
-    return this.prisma.project.update({
+    return this.prisma.db.project.update({
       where: { id },
       data,
       include: withClient,
@@ -65,15 +65,15 @@ export class PrismaProjectRepository implements ProjectRepository {
   }
 
   async delete(id: string) {
-    await this.prisma.project.delete({ where: { id } });
+    await this.prisma.db.project.delete({ where: { id } });
   }
 
   async countTasks(projectId: string) {
-    return this.prisma.task.count({ where: { projectId } });
+    return this.prisma.db.task.count({ where: { projectId } });
   }
 
   findByDealId(dealId: string) {
-    return this.prisma.project.findFirst({
+    return this.prisma.db.project.findFirst({
       where: { dealId },
       include: withClient,
     });

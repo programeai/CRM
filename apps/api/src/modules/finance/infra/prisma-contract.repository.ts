@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaAdminService } from '../../../prisma/prisma-admin.service';
 import type {
   ContractListFilter,
   ContractRepository,
@@ -13,14 +14,17 @@ const withPayments = {
 
 @Injectable()
 export class PrismaContractRepository implements ContractRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private admin: PrismaAdminService,
+  ) {}
 
   create(data: Prisma.ContractUncheckedCreateInput) {
-    return this.prisma.contract.create({ data, include: withPayments });
+    return this.prisma.db.contract.create({ data, include: withPayments });
   }
 
   findById(id: string) {
-    return this.prisma.contract.findUnique({
+    return this.prisma.db.contract.findUnique({
       where: { id },
       include: withPayments,
     });
@@ -33,21 +37,21 @@ export class PrismaContractRepository implements ContractRepository {
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.billingType ? { billingType: filter.billingType } : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.contract.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.contract.findMany({
         where,
         include: withPayments,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.contract.count({ where }),
+      this.prisma.db.contract.count({ where }),
     ]);
     return { data, total };
   }
 
   findByClient(clientId: string) {
-    return this.prisma.contract.findMany({
+    return this.prisma.db.contract.findMany({
       where: { clientId },
       include: withPayments,
       orderBy: { createdAt: 'desc' },
@@ -55,7 +59,7 @@ export class PrismaContractRepository implements ContractRepository {
   }
 
   update(id: string, data: Prisma.ContractUpdateInput) {
-    return this.prisma.contract.update({
+    return this.prisma.db.contract.update({
       where: { id },
       data,
       include: withPayments,
@@ -63,7 +67,8 @@ export class PrismaContractRepository implements ContractRepository {
   }
 
   findActiveRecurring() {
-    return this.prisma.contract.findMany({
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    return this.admin.contract.findMany({
       where: { status: 'ACTIVE', billingType: 'RECURRING' },
       include: withPayments,
     });

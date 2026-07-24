@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaAdminService } from '../../../prisma/prisma-admin.service';
 import type {
   ProposalListFilter,
   ProposalRepository,
@@ -13,14 +14,17 @@ const withItems = {
 
 @Injectable()
 export class PrismaProposalRepository implements ProposalRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private admin: PrismaAdminService,
+  ) {}
 
   create(data: Prisma.ProposalUncheckedCreateInput) {
-    return this.prisma.proposal.create({ data, include: withItems });
+    return this.prisma.db.proposal.create({ data, include: withItems });
   }
 
   findById(id: string) {
-    return this.prisma.proposal.findUnique({
+    return this.prisma.db.proposal.findUnique({
       where: { id },
       include: withItems,
     });
@@ -49,21 +53,21 @@ export class PrismaProposalRepository implements ProposalRepository {
           }
         : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.proposal.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.proposal.findMany({
         where,
         include: withItems,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.proposal.count({ where }),
+      this.prisma.db.proposal.count({ where }),
     ]);
     return { data, total };
   }
 
   update(id: string, data: Prisma.ProposalUpdateInput) {
-    return this.prisma.proposal.update({
+    return this.prisma.db.proposal.update({
       where: { id },
       data,
       include: withItems,
@@ -73,36 +77,42 @@ export class PrismaProposalRepository implements ProposalRepository {
   async updateWithItems(
     id: string,
     data: Prisma.ProposalUpdateInput,
-    items: Prisma.ProposalItemUncheckedCreateWithoutProposalInput[],
+    items: Omit<
+      Prisma.ProposalItemUncheckedCreateWithoutProposalInput,
+      'ownerId'
+    >[],
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.proposalItem.deleteMany({ where: { proposalId: id } });
-      await tx.proposal.update({
-        where: { id },
-        data: {
-          ...data,
-          items: { create: items.map((it) => ({ ...it })) },
-        },
-      });
-      return tx.proposal.findUniqueOrThrow({
-        where: { id },
-        include: withItems,
-      });
+    // Atômico via transação do request (this.prisma.db); sem $transaction aninhado.
+    const db = this.prisma.db;
+    const { ownerId } = await db.proposal.findUniqueOrThrow({
+      where: { id },
+      select: { ownerId: true },
+    });
+    await db.proposalItem.deleteMany({ where: { proposalId: id } });
+    await db.proposal.update({
+      where: { id },
+      data: {
+        ...data,
+        items: { create: items.map((it) => ({ ...it, ownerId })) },
+      },
+    });
+    return db.proposal.findUniqueOrThrow({
+      where: { id },
+      include: withItems,
     });
   }
 
   async delete(id: string) {
-    // itens primeiro (FK sem cascade); ver Migration & Rollback.
-    await this.prisma.$transaction([
-      this.prisma.proposalItem.deleteMany({ where: { proposalId: id } }),
-      this.prisma.proposal.delete({ where: { id } }),
-    ]);
+    // itens primeiro (FK sem cascade); atômico via transação do request.
+    const db = this.prisma.db;
+    await db.proposalItem.deleteMany({ where: { proposalId: id } });
+    await db.proposal.delete({ where: { id } });
   }
 
   async maxSequenceForYear(year: number): Promise<number> {
     // Ordena desc por `number`; como o sufixo é zero-padded (0001..9999) e o
     // prefixo é fixo por ano, a ordenação lexical coincide com a numérica.
-    const last = await this.prisma.proposal.findFirst({
+    const last = await this.prisma.db.proposal.findFirst({
       where: { number: { startsWith: `PROP-${year}-` } },
       orderBy: { number: 'desc' },
       select: { number: true },
@@ -113,7 +123,7 @@ export class PrismaProposalRepository implements ProposalRepository {
   }
 
   findVersionsByNumber(number: string) {
-    return this.prisma.proposal.findMany({
+    return this.prisma.db.proposal.findMany({
       where: { number },
       include: withItems,
       orderBy: { version: 'asc' },
@@ -121,7 +131,8 @@ export class PrismaProposalRepository implements ProposalRepository {
   }
 
   async expireOverdue(now: Date): Promise<number> {
-    const r = await this.prisma.proposal.updateMany({
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    const r = await this.admin.proposal.updateMany({
       where: {
         status: { in: ['SENT', 'NEGOTIATING'] },
         validUntil: { lt: now },

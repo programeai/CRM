@@ -14,11 +14,14 @@ export class PrismaDealRepository implements DealRepository {
   constructor(private prisma: PrismaService) {}
 
   create(data: Prisma.DealUncheckedCreateInput) {
-    return this.prisma.deal.create({ data, include: withClient });
+    return this.prisma.db.deal.create({ data, include: withClient });
   }
 
   findById(id: string) {
-    return this.prisma.deal.findUnique({ where: { id }, include: withClient });
+    return this.prisma.db.deal.findUnique({
+      where: { id },
+      include: withClient,
+    });
   }
 
   async findManyAndCount(filter: DealListFilter) {
@@ -30,21 +33,21 @@ export class PrismaDealRepository implements DealRepository {
         ? { title: { contains: filter.search, mode: 'insensitive' } }
         : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.deal.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.deal.findMany({
         where,
         include: withClient,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.deal.count({ where }),
+      this.prisma.db.deal.count({ where }),
     ]);
     return { data, total };
   }
 
   findAllForBoard(ownerId: string) {
-    return this.prisma.deal.findMany({
+    return this.prisma.db.deal.findMany({
       where: { client: { ownerId } },
       include: withClient,
       orderBy: [{ stageId: 'asc' }, { position: 'asc' }],
@@ -52,7 +55,7 @@ export class PrismaDealRepository implements DealRepository {
   }
 
   update(id: string, data: Prisma.DealUpdateInput) {
-    return this.prisma.deal.update({
+    return this.prisma.db.deal.update({
       where: { id },
       data,
       include: withClient,
@@ -60,11 +63,11 @@ export class PrismaDealRepository implements DealRepository {
   }
 
   async delete(id: string) {
-    await this.prisma.deal.delete({ where: { id } });
+    await this.prisma.db.deal.delete({ where: { id } });
   }
 
   async maxPositionInStage(stageId: string) {
-    const r = await this.prisma.deal.aggregate({
+    const r = await this.prisma.db.deal.aggregate({
       where: { stageId },
       _max: { position: true },
     });
@@ -77,52 +80,53 @@ export class PrismaDealRepository implements DealRepository {
     toPosition: number,
     patch: DealMovePatch,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const deal = await tx.deal.findUniqueOrThrow({ where: { id: dealId } });
-      const fromStageId = deal.stageId;
+    // Roda dentro da transação do request (this.prisma.db) — atômico sem
+    // abrir uma transação aninhada (Prisma não suporta).
+    const db = this.prisma.db;
+    const deal = await db.deal.findUniqueOrThrow({ where: { id: dealId } });
+    const fromStageId = deal.stageId;
 
-      // Coluna destino sem o deal em movimento, na ordem atual.
-      const target = await tx.deal.findMany({
-        where: { stageId: toStageId, id: { not: dealId } },
+    // Coluna destino sem o deal em movimento, na ordem atual.
+    const target = await db.deal.findMany({
+      where: { stageId: toStageId, id: { not: dealId } },
+      orderBy: { position: 'asc' },
+      select: { id: true },
+    });
+    const clamped = Math.max(0, Math.min(toPosition, target.length));
+    const orderedIds = [
+      ...target.slice(0, clamped).map((d) => d.id),
+      dealId,
+      ...target.slice(clamped).map((d) => d.id),
+    ];
+
+    // Atualiza o deal em movimento (stage + patch) e reindexa a coluna destino.
+    await db.deal.update({
+      where: { id: dealId },
+      data: { stageId: toStageId, ...patch },
+    });
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        db.deal.update({ where: { id }, data: { position: index } }),
+      ),
+    );
+
+    // Se mudou de coluna, reindexa a coluna de origem (fecha o buraco).
+    if (fromStageId !== toStageId) {
+      const from = await db.deal.findMany({
+        where: { stageId: fromStageId },
         orderBy: { position: 'asc' },
         select: { id: true },
       });
-      const clamped = Math.max(0, Math.min(toPosition, target.length));
-      const orderedIds = [
-        ...target.slice(0, clamped).map((d) => d.id),
-        dealId,
-        ...target.slice(clamped).map((d) => d.id),
-      ];
-
-      // Atualiza o deal em movimento (stage + patch) e reindexa a coluna destino.
-      await tx.deal.update({
-        where: { id: dealId },
-        data: { stageId: toStageId, ...patch },
-      });
       await Promise.all(
-        orderedIds.map((id, index) =>
-          tx.deal.update({ where: { id }, data: { position: index } }),
+        from.map((d, index) =>
+          db.deal.update({ where: { id: d.id }, data: { position: index } }),
         ),
       );
+    }
 
-      // Se mudou de coluna, reindexa a coluna de origem (fecha o buraco).
-      if (fromStageId !== toStageId) {
-        const from = await tx.deal.findMany({
-          where: { stageId: fromStageId },
-          orderBy: { position: 'asc' },
-          select: { id: true },
-        });
-        await Promise.all(
-          from.map((d, index) =>
-            tx.deal.update({ where: { id: d.id }, data: { position: index } }),
-          ),
-        );
-      }
-
-      return tx.deal.findUniqueOrThrow({
-        where: { id: dealId },
-        include: withClient,
-      });
+    return db.deal.findUniqueOrThrow({
+      where: { id: dealId },
+      include: withClient,
     });
   }
 }

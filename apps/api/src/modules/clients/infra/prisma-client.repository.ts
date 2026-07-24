@@ -11,11 +11,11 @@ export class PrismaClientRepository implements ClientRepository {
   constructor(private prisma: PrismaService) {}
 
   create(data: Prisma.ClientUncheckedCreateInput) {
-    return this.prisma.client.create({ data });
+    return this.prisma.db.client.create({ data });
   }
 
   findById(id: string, ownerId: string) {
-    return this.prisma.client.findFirst({ where: { id, ownerId } });
+    return this.prisma.db.client.findFirst({ where: { id, ownerId } });
   }
 
   async findManyAndCount(filter: ClientListFilter) {
@@ -34,24 +34,24 @@ export class PrismaClientRepository implements ClientRepository {
           }
         : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.client.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.client.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.client.count({ where }),
+      this.prisma.db.client.count({ where }),
     ]);
     return { data, total };
   }
 
   update(id: string, ownerId: string, data: Prisma.ClientUpdateInput) {
     // updateMany garante o filtro por ownerId; retorna o registro atualizado.
-    return this.prisma.client
+    return this.prisma.db.client
       .updateMany({ where: { id, ownerId }, data })
       .then(() =>
-        this.prisma.client.findFirstOrThrow({ where: { id, ownerId } }),
+        this.prisma.db.client.findFirstOrThrow({ where: { id, ownerId } }),
       );
   }
 
@@ -60,7 +60,7 @@ export class PrismaClientRepository implements ClientRepository {
   }
 
   async existsByDocument(ownerId: string, document: string, exceptId?: string) {
-    const found = await this.prisma.client.findFirst({
+    const found = await this.prisma.db.client.findFirst({
       where: {
         ownerId,
         document,

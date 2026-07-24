@@ -23,11 +23,14 @@ export class PrismaTaskRepository implements TaskRepository {
   constructor(private prisma: PrismaService) {}
 
   create(data: Prisma.TaskUncheckedCreateInput) {
-    return this.prisma.task.create({ data, include: withProject });
+    return this.prisma.db.task.create({ data, include: withProject });
   }
 
   findById(id: string) {
-    return this.prisma.task.findUnique({ where: { id }, include: withProject });
+    return this.prisma.db.task.findUnique({
+      where: { id },
+      include: withProject,
+    });
   }
 
   async findManyAndCount(filter: TaskListFilter) {
@@ -41,8 +44,8 @@ export class PrismaTaskRepository implements TaskRepository {
       ...(filter.priority ? { priority: filter.priority } : {}),
       ...(filter.dueBefore ? { dueDate: { lte: filter.dueBefore } } : {}),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.task.findMany({
+    const [data, total] = await Promise.all([
+      this.prisma.db.task.findMany({
         where,
         include: withProject,
         // prazo mais próximo primeiro; nulls por último (Prisma põe null no fim em asc)
@@ -54,13 +57,13 @@ export class PrismaTaskRepository implements TaskRepository {
         skip: filter.skip,
         take: filter.take,
       }),
-      this.prisma.task.count({ where }),
+      this.prisma.db.task.count({ where }),
     ]);
     return { data, total };
   }
 
   findAllForBoard(projectId: string) {
-    return this.prisma.task.findMany({
+    return this.prisma.db.task.findMany({
       where: { projectId },
       include: withProject,
       orderBy: [{ status: 'asc' }, { position: 'asc' }],
@@ -68,7 +71,7 @@ export class PrismaTaskRepository implements TaskRepository {
   }
 
   findAllForBoardByOwner(ownerId: string) {
-    return this.prisma.task.findMany({
+    return this.prisma.db.task.findMany({
       where: { project: { client: { ownerId } } },
       include: withProject,
       // prazo mais próximo primeiro; nulls por último (Prisma põe null no fim em asc)
@@ -82,7 +85,7 @@ export class PrismaTaskRepository implements TaskRepository {
   }
 
   update(id: string, data: Prisma.TaskUpdateInput) {
-    return this.prisma.task.update({
+    return this.prisma.db.task.update({
       where: { id },
       data,
       include: withProject,
@@ -90,11 +93,11 @@ export class PrismaTaskRepository implements TaskRepository {
   }
 
   async delete(id: string) {
-    await this.prisma.task.delete({ where: { id } });
+    await this.prisma.db.task.delete({ where: { id } });
   }
 
   async maxPositionInStatus(projectId: string, status: TaskStatus) {
-    const r = await this.prisma.task.aggregate({
+    const r = await this.prisma.db.task.aggregate({
       where: { projectId, status },
       _max: { position: true },
     });
@@ -107,50 +110,51 @@ export class PrismaTaskRepository implements TaskRepository {
     toPosition: number,
     patch: TaskMovePatch,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const task = await tx.task.findUniqueOrThrow({ where: { id: taskId } });
-      const { projectId } = task;
-      const fromStatus = task.status;
+    // Roda dentro da transação do request (this.prisma.db) — atômico sem
+    // abrir uma transação aninhada (Prisma não suporta).
+    const db = this.prisma.db;
+    const task = await db.task.findUniqueOrThrow({ where: { id: taskId } });
+    const { projectId } = task;
+    const fromStatus = task.status;
 
-      const target = await tx.task.findMany({
-        where: { projectId, status: toStatus, id: { not: taskId } },
+    const target = await db.task.findMany({
+      where: { projectId, status: toStatus, id: { not: taskId } },
+      orderBy: { position: 'asc' },
+      select: { id: true },
+    });
+    const clamped = Math.max(0, Math.min(toPosition, target.length));
+    const orderedIds = [
+      ...target.slice(0, clamped).map((t) => t.id),
+      taskId,
+      ...target.slice(clamped).map((t) => t.id),
+    ];
+
+    await db.task.update({
+      where: { id: taskId },
+      data: { status: toStatus, ...patch },
+    });
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        db.task.update({ where: { id }, data: { position: index } }),
+      ),
+    );
+
+    if (fromStatus !== toStatus) {
+      const from = await db.task.findMany({
+        where: { projectId, status: fromStatus },
         orderBy: { position: 'asc' },
         select: { id: true },
       });
-      const clamped = Math.max(0, Math.min(toPosition, target.length));
-      const orderedIds = [
-        ...target.slice(0, clamped).map((t) => t.id),
-        taskId,
-        ...target.slice(clamped).map((t) => t.id),
-      ];
-
-      await tx.task.update({
-        where: { id: taskId },
-        data: { status: toStatus, ...patch },
-      });
       await Promise.all(
-        orderedIds.map((id, index) =>
-          tx.task.update({ where: { id }, data: { position: index } }),
+        from.map((t, index) =>
+          db.task.update({ where: { id: t.id }, data: { position: index } }),
         ),
       );
+    }
 
-      if (fromStatus !== toStatus) {
-        const from = await tx.task.findMany({
-          where: { projectId, status: fromStatus },
-          orderBy: { position: 'asc' },
-          select: { id: true },
-        });
-        await Promise.all(
-          from.map((t, index) =>
-            tx.task.update({ where: { id: t.id }, data: { position: index } }),
-          ),
-        );
-      }
-
-      return tx.task.findUniqueOrThrow({
-        where: { id: taskId },
-        include: withProject,
-      });
+    return db.task.findUniqueOrThrow({
+      where: { id: taskId },
+      include: withProject,
     });
   }
 }
