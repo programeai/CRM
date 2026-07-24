@@ -1,4 +1,4 @@
-# CRM Solarz — Instruções do projeto
+# CRM ProgrameAi — Instruções do projeto
 
 ## Idioma das mensagens
 
