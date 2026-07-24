@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
-import {
-  DndContext, DragOverlay, PointerSensor, closestCorners,
-  useSensor, useSensors, type DragEndEvent, type DragStartEvent,
-} from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { Plus } from 'lucide-react';
+import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +27,8 @@ const PRIORITY_FILTER_ITEMS: Record<TaskPriority | 'ALL', string> = {
   ALL: 'Todas as prioridades',
   ...TASK_PRIORITY_LABELS,
 };
+
+const getTaskId = (t: Task) => t.id;
 
 /** Ordena dentro da coluna: prazo mais próximo primeiro (sem prazo por último), depois prioridade e recência. */
 function compareTasks(a: Task, b: Task) {
@@ -65,9 +65,6 @@ export default function MinhasDemandasPage() {
 
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const filtered = useMemo(() => {
     const search = clientSearch.trim().toLowerCase();
@@ -91,6 +88,30 @@ export default function MinhasDemandasPage() {
     return map;
   }, [filtered]);
 
+  const columns = useMemo(
+    () => TASK_STATUS_ORDER.map((status) => ({ id: status, items: byStatus.get(status) ?? [] })),
+    [byStatus],
+  );
+
+  const { activeId, getColumnItems, dndContextProps } = useKanbanDnd<Task>({
+    columns,
+    getId: getTaskId,
+    onDrop: ({ id, fromColumnId, toColumnId }) => {
+      if (fromColumnId === toColumnId) return false; // aqui o arraste só muda de coluna (status)
+      const status = toColumnId as TaskStatus;
+      const current = (tasks ?? []).find((t) => t.id === id);
+      if (!current) return false;
+      // posição = fim da coluna de status desse projeto (o backend reindexa por-projeto).
+      const position = (tasks ?? []).filter(
+        (t) => t.projectId === current.projectId && t.status === status && t.id !== current.id,
+      ).length;
+      moveTask.mutate({ id, body: { status, position } });
+      return true;
+    },
+  });
+
+  const activeTask = activeId ? (tasks ?? []).find((t) => t.id === activeId) ?? null : null;
+
   const openEditTask = (task: Task) => {
     setEditingTask(task);
     setTaskFormOpen(true);
@@ -100,35 +121,6 @@ export default function MinhasDemandasPage() {
     setEditingTask(undefined);
     setTaskFormOpen(true);
   };
-
-  /** Resolve o status destino a partir do `over` (coluna ou card). */
-  function resolveStatus(overId: string): TaskStatus | null {
-    const asColumn = TASK_STATUS_ORDER.find((s) => s === overId);
-    if (asColumn) return asColumn;
-    const overTask = (tasks ?? []).find((t) => t.id === overId);
-    return overTask?.status ?? null;
-  }
-
-  function handleDragStart(e: DragStartEvent) {
-    setActiveTask((tasks ?? []).find((t) => t.id === e.active.id) ?? null);
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    setActiveTask(null);
-    const { active, over } = e;
-    if (!over) return;
-    const status = resolveStatus(String(over.id));
-    if (!status) return;
-    const current = (tasks ?? []).find((t) => t.id === active.id);
-    if (!current || current.status === status) return; // só muda status
-
-    // posição = fim da coluna de status desse projeto (o backend reindexa por-projeto).
-    const position = (tasks ?? []).filter(
-      (t) => t.projectId === current.projectId && t.status === status && t.id !== current.id,
-    ).length;
-
-    moveTask.mutate({ id: String(active.id), body: { status, position } });
-  }
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -185,15 +177,10 @@ export default function MinhasDemandasPage() {
           ))}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext {...dndContextProps}>
           <div className="flex min-h-0 min-w-0 flex-1 gap-4 overflow-x-auto">
             {TASK_STATUS_ORDER.map((status) => {
-              const statusTasks = byStatus.get(status) ?? [];
+              const statusTasks = getColumnItems(status);
               return (
                 <KanbanColumn key={status} status={status} tasks={statusTasks}>
                   {statusTasks.map((task) => (
