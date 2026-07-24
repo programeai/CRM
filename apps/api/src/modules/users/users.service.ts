@@ -67,6 +67,9 @@ export class UsersService {
   updatePassword(id: string, passwordHash: string) {
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
+  updateProfile(id: string, data: { name: string; email: string }) {
+    return this.prisma.user.update({ where: { id }, data });
+  }
 
   // --- Tokens de redefinição de senha ---
 

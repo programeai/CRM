@@ -178,6 +178,20 @@ export class AuthService {
     return safe;
   }
 
+  /**
+   * Atualiza os dados cadastrais (nome e e-mail) do próprio usuário.
+   * Como `email` é único, valida conflito com outra conta antes de gravar.
+   */
+  async updateProfile(userId: string, data: { name: string; email: string }) {
+    const existing = await this.users.findByEmail(data.email);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('Já existe uma conta com este e-mail.');
+    }
+    const user = await this.users.updateProfile(userId, data);
+    const { passwordHash, refreshTokenHash, ...safe } = user;
+    return safe;
+  }
+
   async logout(userId: string) {
     await this.users.setRefreshTokenHash(userId, null);
   }

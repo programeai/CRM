@@ -56,6 +56,14 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.me`
 
+### PATCH /auth/me
+- **Propósito:** Atualizar os dados cadastrais (nome e e-mail) do próprio usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** `{ name: string (2–120), email: string (e-mail) }`
+- **Resposta:** `200 { id, name, email, createdAt }` (sem `passwordHash`/`refreshTokenHash`).
+- **Erros:** `409 Já existe uma conta com este e-mail.` (e-mail já usado por outra conta); `400` (validação); `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.updateMe`
+
 ### POST /auth/logout
 - **Propósito:** Encerrar a sessão: revoga o refresh token persistido e limpa o cookie.
 - **Auth:** Bearer (access token).

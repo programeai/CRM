@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthService } from './oauth/oauth.service';
@@ -123,6 +125,14 @@ export class AuthController {
   @Get('me')
   me(@Req() req: Request & { user: { sub: string } }) {
     return this.auth.me(req.user.sub);
+  }
+
+  @Patch('me')
+  updateMe(
+    @Req() req: Request & { user: { sub: string } },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.auth.updateProfile(req.user.sub, dto);
   }
 
   @Post('logout')
