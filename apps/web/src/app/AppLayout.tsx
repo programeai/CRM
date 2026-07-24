@@ -53,12 +53,12 @@ export default function AppLayout() {
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <div className="flex h-8 items-center px-2 text-lg font-semibold group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <SidebarHeader className="p-0">
+          <div className="flex h-14 items-center overflow-hidden border-b px-4 text-base font-semibold whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
             <span className="group-data-[collapsible=icon]:hidden">
               CRM ProgrameAi
             </span>
-            <span className="hidden text-base group-data-[collapsible=icon]:inline">
+            <span className="hidden group-data-[collapsible=icon]:inline">
               CRM
             </span>
           </div>
@@ -90,7 +90,7 @@ export default function AppLayout() {
 
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-4">
-          <SidebarTrigger />
+          <SidebarTrigger className="size-9 [&_svg]:size-6 [&_svg]:stroke-[1.5]" />
           <div className="ml-auto flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger
