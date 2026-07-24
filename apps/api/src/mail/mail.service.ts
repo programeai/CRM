@@ -62,7 +62,7 @@ export class MailService {
       await this.getTransporter().sendMail({
         from: this.from,
         to,
-        subject: 'Redefinição de senha — CRM Solarz',
+        subject: 'Redefinição de senha no CRM ProgrameAi',
         text: [
           'Recebemos um pedido para redefinir a sua senha.',
           '',
