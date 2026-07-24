@@ -64,4 +64,39 @@ export class UsersService {
       data: { refreshTokenHash },
     });
   }
+  updatePassword(id: string, passwordHash: string) {
+    return this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
+  // --- Tokens de redefinição de senha ---
+
+  createPasswordResetToken(data: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }) {
+    return this.prisma.passwordResetToken.create({ data });
+  }
+
+  /** Busca um token de reset pelo hash, incluindo o usuário. Não valida validade/uso. */
+  findResetTokenByHash(tokenHash: string) {
+    return this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+  }
+
+  markResetTokenUsed(id: string, usedAt: Date) {
+    return this.prisma.passwordResetToken.update({
+      where: { id },
+      data: { usedAt },
+    });
+  }
+
+  /** Remove os tokens de reset ainda não usados de um usuário (invalida pendentes). */
+  deletePendingResetTokens(userId: string) {
+    return this.prisma.passwordResetToken.deleteMany({
+      where: { userId, usedAt: null },
+    });
+  }
 }

@@ -17,6 +17,8 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 import { Public } from './public.decorator';
@@ -79,6 +81,23 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.auth.requestPasswordReset(dto.email);
+    // Resposta genérica (anti-enumeração): não revela se o e-mail existe.
+    return { ok: true };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.auth.resetPassword(dto.token, dto.password);
+    return { ok: true };
+  }
+
+  @Public()
   @Post('refresh')
   async refresh(
     @Req() req: Request,
@@ -131,10 +150,7 @@ export class AuthController {
   /** Início do fluxo: gera o `state` anti-CSRF e redireciona ao provedor. */
   @Public()
   @Get('oauth/:provider')
-  oauthStart(
-    @Param('provider') providerSlug: string,
-    @Res() res: Response,
-  ) {
+  oauthStart(@Param('provider') providerSlug: string, @Res() res: Response) {
     const provider = this.oauth.resolveProvider(providerSlug);
     if (!this.oauth.isEnabled(provider)) {
       return res.redirect(this.frontendError('oauth_indisponivel'));

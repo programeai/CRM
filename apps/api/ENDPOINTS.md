@@ -24,6 +24,22 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Erros:** `401 Credenciais inválidas`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.login`
 
+### POST /auth/forgot-password
+- **Propósito:** Iniciar a redefinição de senha: gera um token de uso único (validade 1h), persiste apenas o hash e envia por e-mail (SMTP) o link `{FRONTEND_URL}/redefinir-senha?token=…`. Sem SMTP configurado, o link é logado no console (ver `MailService`).
+- **Auth:** Pública (`@Public()`). Rate limit: 3 req/min.
+- **Body:** `{ email: string (e-mail) }`
+- **Resposta:** `201 { ok: true }` — resposta genérica (anti-enumeração): idêntica se o e-mail existe, não existe ou é de conta só-OAuth (sem senha).
+- **Erros:** `400` (validação do e-mail).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.forgotPassword`
+
+### POST /auth/reset-password
+- **Propósito:** Concluir a redefinição: valida o token, grava a nova senha (argon2) e revoga a sessão vigente (refresh token) forçando novo login.
+- **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
+- **Body:** `{ token: string, password: string (mín. 6) }`
+- **Resposta:** `201 { ok: true }`.
+- **Erros:** `410 Link de redefinição inválido. Solicite um novo.` / `410 Este link de redefinição já foi utilizado. Solicite um novo.` / `410 Este link de redefinição expirou. Solicite um novo.`; `400` (validação da senha).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.resetPassword`
+
 ### POST /auth/refresh
 - **Propósito:** Renovar o access token a partir do refresh token em cookie, rotacionando o refresh.
 - **Auth:** Pública (`@Public()`); exige o cookie `refresh_token` válido.
