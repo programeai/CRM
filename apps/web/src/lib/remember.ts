@@ -6,8 +6,8 @@
 // consegue reverter. Serve apenas para não guardar a senha em texto puro.
 
 const STORAGE_KEY = 'crm.remember';
-const KEY_MATERIAL = 'crm-solarz::lembrar-de-mim::v1';
-const SALT = new TextEncoder().encode('crm-solarz-remember-salt');
+const KEY_MATERIAL = 'crm-programeai::lembrar-de-mim::v1';
+const SALT = new TextEncoder().encode('crm-programeai-remember-salt');
 const IV_BYTES = 12;
 
 type StoredCredentials = { email: string; pw: string };

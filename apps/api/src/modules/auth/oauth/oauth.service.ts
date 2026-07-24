@@ -140,7 +140,7 @@ export class OAuthService {
     const headers = {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'crm-solarz',
+      'User-Agent': 'crm-programeai',
     };
     const res = await fetch('https://api.github.com/user', { headers });
     if (!res.ok) {
