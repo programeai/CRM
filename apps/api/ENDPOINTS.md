@@ -460,6 +460,30 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Erros:** `404 Projeto não encontrado.` (quando `projectId` é informado e não pertence ao usuário), `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.board`
 
+### GET /tasks/tags
+- **Propósito:** Listar as tags existentes do usuário autenticado (agregadas de todas as suas tarefas), com a contagem de uso de cada uma. Alimenta o autocomplete do seletor de tags. Não há catálogo próprio de tags: elas vivem como `String[]` por tarefa.
+- **Auth:** Bearer (access token).
+- **Body:** —
+- **Resposta:** `200 { tag: string; count: number }[]` (ordenado por `count desc`, depois alfabético pt-BR).
+- **Erros:** `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.listTags`
+
+### GET /tasks/tags/usage
+- **Propósito:** Listar as tarefas do usuário autenticado que usam determinada tag. Usado pelo modal de confirmação de exclusão para mostrar onde a tag está em uso.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `tag` obrigatório).
+- **Resposta:** `200 { id: string; title: string; project: { id: string; name: string } }[]` (ordenado por `title asc`).
+- **Erros:** `400 Tag inválida.` (tag vazia), `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.tagUsage`
+
+### DELETE /tasks/tags
+- **Propósito:** Excluir uma tag globalmente, removendo-a de todas as tarefas do usuário autenticado.
+- **Auth:** Bearer (access token).
+- **Body:** — (query: `tag` obrigatório).
+- **Resposta:** `200 { removed: number }` (quantidade de tarefas afetadas).
+- **Erros:** `400 Tag inválida.` (tag vazia), `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.deleteTag`
+
 ### POST /tasks
 - **Propósito:** Criar uma tarefa em um projeto do usuário autenticado, no fim da coluna de status (`position` sequencial).
 - **Auth:** Bearer (access token).
