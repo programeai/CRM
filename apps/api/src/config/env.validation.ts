@@ -32,4 +32,11 @@ export const envValidationSchema = Joi.object({
   SMTP_USER: Joi.string().allow('').default(''),
   SMTP_PASSWORD: Joi.string().allow('').default(''),
   MAIL_FROM: Joi.string().allow('').default(''),
+  // Billing (Stripe) — opcional: só é usado na instância SaaS hospedada pelo
+  // owner. Na autohospedagem, BILLING_ENABLED fica false e o Stripe nunca
+  // é inicializado (ver StripeService).
+  BILLING_ENABLED: Joi.boolean().default(false),
+  STRIPE_SECRET_KEY: Joi.string().allow('').default(''),
+  STRIPE_WEBHOOK_SECRET: Joi.string().allow('').default(''),
+  STRIPE_PRICE_ID: Joi.string().allow('').default(''),
 });
