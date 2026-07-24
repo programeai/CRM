@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useMe } from "@/features/perfil/api/hooks";
+import { PerfilDialog } from "@/features/perfil/PerfilDialog";
 import { useSubscription } from "@/features/billing/useSubscription";
 import { NAV_GROUPS } from "./nav";
 
@@ -46,6 +47,8 @@ export default function AppLayout() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const isDark = mounted && resolvedTheme === "dark";
+
+  const [perfilOpen, setPerfilOpen] = useState(false);
 
   const { data: me } = useMe();
   const userLabel = me?.name ?? "Minha conta";
@@ -152,7 +155,7 @@ export default function AppLayout() {
                   )}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/perfil")}>
+                <DropdownMenuItem onClick={() => setPerfilOpen(true)}>
                   <UserRound />
                   Perfil
                 </DropdownMenuItem>
@@ -196,6 +199,8 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </SidebarInset>
+
+      <PerfilDialog open={perfilOpen} onOpenChange={setPerfilOpen} />
     </SidebarProvider>
   );
 }
