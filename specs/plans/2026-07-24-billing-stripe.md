@@ -4,7 +4,7 @@ author: claude
 source_prd: standalone
 git_commit: 5c0b82a2ec57c27e3ba9ca35eb84121a95494139
 branch: main
-status: approved
+status: implemented
 tags: [spec, billing, stripe, subscription, nestjs, rls]
 ---
 
@@ -183,10 +183,10 @@ Adicionar `BillingModule`.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api prisma migrate dev --name add_subscription` — aplica a migration
-- [ ] `pnpm --filter api prisma validate` — schema válido
-- [ ] `pnpm --filter api build` — compila com o `StripeService` e o `stripe` instalado
-- [ ] `grep -q "Subscription" apps/api/prisma/schema.prisma`
+- [x] `pnpm --filter api prisma migrate dev --name add_subscription` — aplica a migration (ambiente não-interativo: migration criada manualmente a partir de `prisma migrate diff` + aplicada com `prisma migrate deploy`, após baseline dos históricos existentes com `prisma migrate resolve --applied`)
+- [x] `pnpm --filter api prisma validate` — schema válido
+- [x] `pnpm --filter api build` — compila com o `StripeService` e o `stripe` instalado
+- [x] `grep -q "Subscription" apps/api/prisma/schema.prisma`
 
 #### Manual Verification
 - [ ] Com `BILLING_ENABLED=false`, subir a API não instancia Stripe e não emite erro
@@ -280,9 +280,9 @@ Documentar `POST /billing/checkout`, `POST /billing/portal`, `GET /billing/statu
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api build` — compila
-- [ ] `pnpm --filter api lint` — sem erros (se houver script lint)
-- [ ] `grep -q "/billing/checkout" apps/api/ENDPOINTS.md`
+- [x] `pnpm --filter api build` — compila
+- [x] `pnpm --filter api lint` — sem erros (se houver script lint)
+- [x] `grep -q "/billing/checkout" apps/api/ENDPOINTS.md`
 
 #### Manual Verification
 - [ ] Com Stripe de teste configurado, `POST /billing/checkout` retorna URL de Checkout válida
@@ -345,9 +345,9 @@ Documentar `POST /billing/webhook` (público, consumido pelo Stripe).
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api build` — compila com `RawBodyRequest`/`rawBody`
-- [ ] `grep -q "rawBody: true" apps/api/src/main.ts`
-- [ ] `grep -q "/billing/webhook" apps/api/ENDPOINTS.md`
+- [x] `pnpm --filter api build` — compila com `RawBodyRequest`/`rawBody`
+- [x] `grep -q "rawBody: true" apps/api/src/main.ts`
+- [x] `grep -q "/billing/webhook" apps/api/ENDPOINTS.md`
 
 #### Manual Verification
 - [ ] `stripe listen --forward-to localhost:3000/api/v1/billing/webhook` + `stripe trigger checkout.session.completed` → linha em `Subscription` atualizada
@@ -410,8 +410,8 @@ Registrar o `BillingGuard` como `APP_GUARD` **após** o `JwtAuthGuard` (ordem im
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api build` — compila
-- [ ] `pnpm --filter api test` — suíte existente continua verde (se houver)
+- [x] `pnpm --filter api build` — compila
+- [x] `pnpm --filter api test` — suíte existente continua verde (99/99)
 
 #### Manual Verification
 - [ ] `BILLING_ENABLED=false`: qualquer rota do CRM responde normalmente (sem gate)
@@ -462,8 +462,8 @@ Registrar a rota de paywall e o item de "Assinatura" nas configurações. Exibir
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter web build` — compila
-- [ ] `pnpm --filter web lint` — sem erros (se houver)
+- [x] `pnpm --filter web build` — compila
+- [x] `pnpm --filter web lint` — sem erros novos (só warnings pré-existentes em outros arquivos)
 
 #### Manual Verification
 - [ ] Billing off: nenhuma UI de billing aparece; app funciona igual a hoje
