@@ -10,10 +10,11 @@ import type {
 } from './types';
 
 // --- Projects ---
-export function useProjects(params: ListProjectsParams) {
+export function useProjects(params: ListProjectsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.projects.list(params),
     queryFn: () => projectsApi.list(params),
+    enabled: options?.enabled ?? true,
   });
 }
 export function useProjectsByClient(clientId: string) {

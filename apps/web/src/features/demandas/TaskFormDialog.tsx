@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,16 +9,19 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Spinner } from '@/components/ui/spinner';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { TASK_PRIORITY_LABELS, translateTaskPriority } from '@/lib/labels';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { extractApiMessage } from './lib/api-error';
-import { useCreateTask, useUpdateTask } from './api/hooks';
+import { useCreateTask, useProjects, useUpdateTask } from './api/hooks';
 import { ChecklistEditor } from './components/ChecklistEditor';
 import type { Task, TaskPriority } from './api/types';
 
 const schema = z.object({
+  projectId: z.string().uuid('Selecione um projeto.'),
   title: z.string().min(2, 'O título deve ter no mínimo 2 caracteres.'),
   description: z.string().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
@@ -41,17 +44,35 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
   const createTask = useCreateTask();
   const updateTask = useUpdateTask(task?.id ?? '');
 
+  /** Só é preciso escolher o projeto ao criar a partir da listagem geral (sem projeto de origem). */
+  const needsProjectSelect = !isEdit && !defaultProjectId;
+  const [projectSearch, setProjectSearch] = useState('');
+  const [projectSelectOpen, setProjectSelectOpen] = useState(false);
+  const debouncedProjectSearch = useDebouncedValue(projectSearch, 300);
+  const { data: projectsPage } = useProjects(
+    { search: debouncedProjectSearch || undefined, limit: 50 },
+    { enabled: open && needsProjectSelect },
+  );
+  const projectChoices = (projectsPage?.data ?? []).map((p) => ({
+    id: p.id,
+    label: `${p.client.name} · ${p.name}`,
+  }));
+  /** Mapa id→rótulo que o Select usa para exibir o projeto escolhido no gatilho (senão mostra o id). */
+  const projectItems = Object.fromEntries(projectChoices.map((p) => [p.id, p.label]));
+
   const { register, handleSubmit, control, reset, formState: { errors, isSubmitting } } =
     useForm<Values>({
       resolver: zodResolver(schema),
-      defaultValues: { title: '', priority: 'MEDIUM', tags: [], checklist: [] },
+      defaultValues: { projectId: defaultProjectId ?? '', title: '', priority: 'MEDIUM', tags: [], checklist: [] },
     });
 
   useEffect(() => {
     if (!open) return;
+    setProjectSearch('');
     reset(
       task
         ? {
+            projectId: task.projectId,
             title: task.title,
             description: task.description ?? '',
             priority: task.priority,
@@ -59,9 +80,9 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
             tags: task.tags,
             checklist: task.checklist ?? [],
           }
-        : { title: '', priority: 'MEDIUM', tags: [], checklist: [] },
+        : { projectId: defaultProjectId ?? '', title: '', priority: 'MEDIUM', tags: [], checklist: [] },
     );
-  }, [open, task, reset]);
+  }, [open, task, defaultProjectId, reset]);
 
   const onSubmit = async (v: Values) => {
     const body = {
@@ -77,7 +98,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
         await updateTask.mutateAsync(body);
         toast.success('Tarefa atualizada.');
       } else {
-        await createTask.mutateAsync({ ...body, projectId: defaultProjectId });
+        await createTask.mutateAsync({ ...body, projectId: v.projectId });
         toast.success('Tarefa criada.');
       }
       onOpenChange(false);
@@ -104,6 +125,42 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
             onSubmit={handleSubmit(onSubmit)}
             id="task-form"
           >
+            {needsProjectSelect && (
+              <Field className="sm:col-span-2" data-invalid={!!errors.projectId}>
+                <FieldLabel required>Projeto</FieldLabel>
+                <Controller
+                  control={control}
+                  name="projectId"
+                  render={({ field }) => (
+                    <Select<string>
+                      items={projectItems}
+                      open={projectSelectOpen}
+                      onOpenChange={setProjectSelectOpen}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    >
+                      <SelectTrigger />
+                      <SelectContent>
+                        <div className="p-2">
+                          <SearchInput
+                            placeholder="Buscar projeto…"
+                            value={projectSearch}
+                            onValueChange={setProjectSearch}
+                          />
+                        </div>
+                        {projectChoices.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.projectId && <FieldError>{errors.projectId.message}</FieldError>}
+              </Field>
+            )}
+
             <Field className="sm:col-span-2" data-invalid={!!errors.title}>
               <FieldLabel htmlFor="title" required>Título</FieldLabel>
               <Input id="title" aria-invalid={!!errors.title} {...register('title')} />

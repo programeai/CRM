@@ -3,6 +3,8 @@ import {
   DndContext, DragOverlay, PointerSensor, closestCorners,
   useSensor, useSensors, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -94,6 +96,11 @@ export default function MinhasDemandasPage() {
     setTaskFormOpen(true);
   };
 
+  const openCreateTask = () => {
+    setEditingTask(undefined);
+    setTaskFormOpen(true);
+  };
+
   /** Resolve o status destino a partir do `over` (coluna ou card). */
   function resolveStatus(overId: string): TaskStatus | null {
     const asColumn = TASK_STATUS_ORDER.find((s) => s === overId);
@@ -127,6 +134,10 @@ export default function MinhasDemandasPage() {
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-heading text-2xl font-semibold">Minhas demandas</h1>
+        <Button onClick={openCreateTask}>
+          <Plus data-icon="inline-start" />
+          Nova tarefa
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
