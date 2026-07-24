@@ -32,6 +32,19 @@ export interface TaskMovePatch {
   completedAt?: Date | null;
 }
 
+/** Uma tag do dono e em quantas tarefas ela é usada. */
+export interface TagUsage {
+  tag: string;
+  count: number;
+}
+
+/** Referência mínima de uma tarefa que usa determinada tag (para o modal de exclusão). */
+export interface TaskTagRef {
+  id: string;
+  title: string;
+  project: { id: string; name: string };
+}
+
 export interface TaskRepository {
   create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithProject>;
   findById(id: string): Promise<TaskWithProject | null>;
@@ -44,6 +57,12 @@ export interface TaskRepository {
   findAllForBoardByOwner(ownerId: string): Promise<TaskWithProject[]>;
   update(id: string, data: Prisma.TaskUpdateInput): Promise<TaskWithProject>;
   delete(id: string): Promise<void>;
+  /** Tags distintas do dono (agregadas de todas as tarefas) com contagem de uso. */
+  listOwnerTags(ownerId: string): Promise<TagUsage[]>;
+  /** Tarefas do dono que usam a tag informada — alimenta o modal de exclusão. */
+  findByTag(ownerId: string, tag: string): Promise<TaskTagRef[]>;
+  /** Remove a tag de todas as tarefas do dono; retorna quantas foram afetadas. */
+  removeTagFromAll(ownerId: string, tag: string): Promise<number>;
   /** Maior `position` na coluna status do projeto (ou -1 se vazia). */
   maxPositionInStatus(projectId: string, status: TaskStatus): Promise<number>;
   /** Move a task p/ (status, position) reindexando as colunas afetadas em transação. */

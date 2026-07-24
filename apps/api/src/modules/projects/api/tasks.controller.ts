@@ -33,6 +33,25 @@ export class TasksController {
     return this.tasks.board(ownerId, projectId);
   }
 
+  // Rotas de tags declaradas antes de `:id` para não serem capturadas por ele.
+  @Get('tags') listTags(@CurrentUserId() ownerId: string) {
+    return this.tasks.listTags(ownerId);
+  }
+
+  @Get('tags/usage') tagUsage(
+    @CurrentUserId() ownerId: string,
+    @Query('tag') tag: string,
+  ) {
+    return this.tasks.tagUsage(ownerId, tag);
+  }
+
+  @Delete('tags') deleteTag(
+    @CurrentUserId() ownerId: string,
+    @Query('tag') tag: string,
+  ) {
+    return this.tasks.deleteTag(ownerId, tag);
+  }
+
   @Post() create(@CurrentUserId() ownerId: string, @Body() dto: CreateTaskDto) {
     return this.tasks.create(ownerId, dto);
   }
