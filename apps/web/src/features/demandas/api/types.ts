@@ -65,7 +65,13 @@ export interface CreateTaskBody {
   tags?: string[];
   checklist?: ChecklistItem[];
 }
-export type UpdateTaskBody = Partial<Omit<CreateTaskBody, 'projectId' | 'status'>>;
+export type UpdateTaskBody = Partial<
+  Omit<CreateTaskBody, 'projectId' | 'status' | 'description' | 'dueDate'>
+> & {
+  /** `null` limpa o campo no backend; `undefined`/ausente preserva. */
+  description?: string | null;
+  dueDate?: string | null;
+};
 export interface MoveTaskBody {
   status: TaskStatus;
   position: number;
