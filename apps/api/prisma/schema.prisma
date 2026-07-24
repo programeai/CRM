@@ -16,9 +16,11 @@ model User {
   email            String         @unique
   passwordHash     String? // opcional: contas criadas via OAuth não têm senha
   refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
+  stripeCustomerId String?        @unique // billing (SaaS hospedado) — ausente na autohospedagem
   createdAt        DateTime       @default(now())
   oauthAccounts    OAuthAccount[]
   passwordResetTokens PasswordResetToken[]
+  subscription     Subscription?
 }
 
 enum OAuthProvider {
@@ -53,6 +55,22 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// Assinatura SaaS (billing hospedado, via Stripe) — 1 por owner. Espelho local
+// do estado da assinatura no Stripe, sincronizado pelo webhook; usado só para
+// o gate de acesso (BillingGuard). Tem RLS por ownerId (ver migration).
+model Subscription {
+  id                   String             @id @default(uuid())
+  ownerId              String             @unique
+  owner                User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId String?            @unique
+  status               SubscriptionStatus @default(TRIALING)
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 }
 
 model Client {
@@ -300,6 +318,14 @@ model Activity {
 }
 
 // --- enums necessários (inferidos dos comentários do SPEC.md §4) ---
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
 enum PersonType {
   INDIVIDUAL
   COMPANY
