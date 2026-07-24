@@ -1,12 +1,8 @@
 import type { ContractStatus, PaymentStatus } from '../api/types';
 
-const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-
-/** Formata um Decimal serializado (string) ou number como moeda pt-BR; '—' se nulo. */
-export function formatMoney(value?: string | number | null): string {
-  if (value == null || value === '') return '—';
-  return currency.format(Number(value));
-}
+// Formatador de moeda canônico vive em `@/lib/format` (reúso transversal);
+// reexportado aqui para não quebrar os imports existentes da feature.
+export { formatMoney } from '@/lib/format';
 
 export const CONTRACT_STATUS_BADGE: Record<
   ContractStatus,

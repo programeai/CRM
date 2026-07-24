@@ -80,3 +80,14 @@ export function formatDateTime(value?: string | Date | null): string {
   if (!value) return '';
   return dateTimeFmt.format(new Date(value));
 }
+
+const currencyFmt = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+});
+
+/** Formata um Decimal serializado (string) ou number como moeda pt-BR; '—' se nulo. */
+export function formatMoney(value?: string | number | null): string {
+  if (value == null || value === '') return '—';
+  return currencyFmt.format(Number(value));
+}
