@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -32,19 +32,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
+import { useMe } from "@/features/perfil/api/hooks";
 import { NAV_GROUPS } from "./nav";
 
 export default function AppLayout() {
   const { logout } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { resolvedTheme, setTheme } = useTheme();
   // Evita mismatch de hidratação: só lemos o tema resolvido após montar.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const isDark = mounted && resolvedTheme === "dark";
 
-  // Rótulo do usuário: sem endpoint /auth/me ainda; genérico por ora.
-  const userLabel = "Minha conta";
+  const { data: me } = useMe();
+  const userLabel = me?.name ?? "Minha conta";
   const userInitial = userLabel.charAt(0).toUpperCase();
 
   const isActive = (to: string, end?: boolean) =>
@@ -128,10 +130,21 @@ export default function AppLayout() {
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="max-w-48 truncate">
-                  {userLabel}
+                <DropdownMenuLabel className="flex max-w-56 flex-col gap-0.5">
+                  <span className="truncate text-sm font-medium">
+                    {userLabel}
+                  </span>
+                  {me?.email && (
+                    <span className="truncate text-xs font-normal text-muted-foreground">
+                      {me.email}
+                    </span>
+                  )}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/perfil")}>
+                  <UserRound />
+                  Perfil
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   closeOnClick={false}
                   onClick={() => setTheme(isDark ? "light" : "dark")}
