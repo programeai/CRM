@@ -21,7 +21,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions } from '@/lib/clients-lookup';
+import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProposal, useUpdateProposal } from './api/hooks';
 import { ItemsEditor } from './components/ItemsEditor';
 import type { Proposal, ServiceType } from './api/types';
@@ -118,6 +118,7 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
     ...createdClients,
     ...(clientOptions ?? []).filter((c) => !createdClients.some((n) => n.id === c.id)),
   ];
+  const clientItems = buildClientItems(clientChoices, proposal?.client);
 
   const handleClientCreated = (client: Client) => {
     setCreatedClients((prev) =>
@@ -179,6 +180,7 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
                     name="clientId"
                     render={({ field }) => (
                       <Select<string>
+                        items={clientItems}
                         open={selectOpen}
                         onOpenChange={setSelectOpen}
                         value={field.value}

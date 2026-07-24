@@ -22,7 +22,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions } from '@/lib/clients-lookup';
+import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateDeal, useUpdateDeal } from './api/hooks';
 import type { Deal, ServiceType } from './api/types';
 
@@ -94,6 +94,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
     ...createdClients,
     ...(clientOptions ?? []).filter((c) => !createdClients.some((n) => n.id === c.id)),
   ];
+  const clientItems = buildClientItems(clientChoices, deal?.client);
 
   const handleClientCreated = (client: Client) => {
     setCreatedClients((prev) =>
@@ -162,6 +163,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
                   name="clientId"
                   render={({ field }) => (
                     <Select<string>
+                      items={clientItems}
                       open={selectOpen}
                       onOpenChange={setSelectOpen}
                       value={field.value}

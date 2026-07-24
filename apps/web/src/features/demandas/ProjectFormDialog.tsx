@@ -21,7 +21,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions } from '@/lib/clients-lookup';
+import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProject, useUpdateProject } from './api/hooks';
 import type { Project, ProjectStatus, ServiceType } from './api/types';
 
@@ -83,6 +83,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
     ...createdClients,
     ...(clientOptions ?? []).filter((c) => !createdClients.some((n) => n.id === c.id)),
   ];
+  const clientItems = buildClientItems(clientChoices, project?.client);
 
   const handleClientCreated = (client: Client) => {
     setCreatedClients((prev) =>
@@ -151,6 +152,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
                   name="clientId"
                   render={({ field }) => (
                     <Select<string>
+                      items={clientItems}
                       open={selectOpen}
                       onOpenChange={setSelectOpen}
                       value={field.value}
