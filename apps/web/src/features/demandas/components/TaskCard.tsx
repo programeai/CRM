@@ -34,7 +34,10 @@ export function TaskCard({ task, onClick, showProject = false }: Props) {
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-medium">{task.title}</span>
-        <Badge variant={TASK_PRIORITY_BADGE[task.priority]}>
+        <Badge
+          variant={TASK_PRIORITY_BADGE[task.priority]}
+          className="shrink-0 rounded px-1.5 py-0 text-[0.625rem] font-medium leading-4"
+        >
           {translateTaskPriority(task.priority)}
         </Badge>
       </div>
