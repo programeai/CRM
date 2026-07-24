@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/empty';
 import { SectionTabs, type SectionTabItem } from '@/components/ui/section-tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useGoBack } from '@/hooks/use-go-back';
 import { translateClientStatus } from '@/lib/labels';
 import { useClient, useArchiveClient } from './api/hooks';
 import { ClientFormDialog } from './ClientFormDialog';
@@ -32,6 +33,7 @@ const STATUS_BADGE: Record<
 export default function ClienteDetalheLayout() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack('/clientes');
   const { data: client, isLoading, isError } = useClient(id);
   const archiveClient = useArchiveClient();
 
@@ -79,7 +81,7 @@ export default function ClienteDetalheLayout() {
           </EmptyMedia>
           <EmptyTitle>Cliente não encontrado.</EmptyTitle>
           <EmptyDescription>
-            <Button variant="link" onClick={() => navigate('/clientes')}>
+            <Button variant="link" onClick={goBack}>
               Voltar para clientes
             </Button>
           </EmptyDescription>
@@ -95,10 +97,10 @@ export default function ClienteDetalheLayout() {
           variant="ghost"
           size="sm"
           className="w-fit px-0 text-muted-foreground"
-          onClick={() => navigate('/clientes')}
+          onClick={goBack}
         >
           <ArrowLeft data-icon="inline-start" />
-          Clientes
+          Voltar
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">

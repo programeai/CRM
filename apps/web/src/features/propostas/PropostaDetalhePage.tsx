@@ -24,6 +24,7 @@ import {
   Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
+import { useGoBack } from '@/hooks/use-go-back';
 import { translateProposalStatus, translateServiceType } from '@/lib/labels';
 import { formatDate, formatDateTime } from '@/lib/format';
 import {
@@ -49,6 +50,7 @@ const STATUS_BADGE: Record<ProposalStatus, 'default' | 'secondary' | 'outline' |
 export default function PropostaDetalhePage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack('/propostas');
   const { data: proposal, isLoading, isError } = useProposal(id);
   const { data: versions } = useProposalVersions(id);
 
@@ -136,7 +138,7 @@ export default function PropostaDetalhePage() {
           </EmptyMedia>
           <EmptyTitle>Proposta não encontrada.</EmptyTitle>
           <EmptyDescription>
-            <Button variant="link" onClick={() => navigate('/propostas')}>
+            <Button variant="link" onClick={goBack}>
               Voltar para propostas
             </Button>
           </EmptyDescription>
@@ -156,10 +158,10 @@ export default function PropostaDetalhePage() {
           variant="ghost"
           size="sm"
           className="w-fit px-0 text-muted-foreground"
-          onClick={() => navigate('/propostas')}
+          onClick={goBack}
         >
           <ArrowLeft data-icon="inline-start" />
-          Propostas
+          Voltar
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">

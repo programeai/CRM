@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { toast } from 'sonner';
 import { ArrowLeft, FileX, Pencil, Pause, Play, Ban, Wallet, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
+import { useGoBack } from '@/hooks/use-go-back';
 import { translateBillingType, translateContractStatus, translatePaymentStatus } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useContract, useContractAction, useCancelPayment, useRevertPayment } from './api/hooks';
@@ -36,7 +37,7 @@ import { extractApiMessage } from './lib/api-error';
 
 export default function ContratoDetalhePage() {
   const { id = '' } = useParams();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/financeiro/contratos');
   const { data: contract, isLoading, isError } = useContract(id);
 
   const pause = useContractAction('pause');
@@ -127,7 +128,7 @@ export default function ContratoDetalhePage() {
           </EmptyMedia>
           <EmptyTitle>Contrato não encontrado.</EmptyTitle>
           <EmptyDescription>
-            <Button variant="link" onClick={() => navigate('/financeiro/contratos')}>
+            <Button variant="link" onClick={goBack}>
               Voltar para contratos
             </Button>
           </EmptyDescription>
@@ -159,10 +160,10 @@ export default function ContratoDetalhePage() {
           variant="ghost"
           size="sm"
           className="w-fit px-0 text-muted-foreground"
-          onClick={() => navigate('/financeiro/contratos')}
+          onClick={goBack}
         >
           <ArrowLeft data-icon="inline-start" />
-          Contratos
+          Voltar
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">

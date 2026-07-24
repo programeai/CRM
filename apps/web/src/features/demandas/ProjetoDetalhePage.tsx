@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/empty';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TableLink } from '@/components/ui/table-link';
+import { useGoBack } from '@/hooks/use-go-back';
 import { translateProjectStatus, translateServiceType } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useBoard, useDeleteProject, useMoveTask, useProject } from './api/hooks';
@@ -29,6 +30,7 @@ import type { Task, TaskStatus } from './api/types';
 export default function ProjetoDetalhePage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack('/projetos');
   const { data: project, isLoading: loadingProject, isError } = useProject(id);
   const { data: tasks, isLoading: loadingTasks } = useBoard(id);
   const moveTask = useMoveTask(id);
@@ -126,7 +128,7 @@ export default function ProjetoDetalhePage() {
           </EmptyMedia>
           <EmptyTitle>Projeto não encontrado.</EmptyTitle>
           <EmptyDescription>
-            <Button variant="link" onClick={() => navigate('/projetos')}>
+            <Button variant="link" onClick={goBack}>
               Voltar para projetos
             </Button>
           </EmptyDescription>
@@ -142,10 +144,10 @@ export default function ProjetoDetalhePage() {
           variant="ghost"
           size="sm"
           className="w-fit px-0 text-muted-foreground"
-          onClick={() => navigate('/projetos')}
+          onClick={goBack}
         >
           <ArrowLeft data-icon="inline-start" />
-          Projetos
+          Voltar
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
