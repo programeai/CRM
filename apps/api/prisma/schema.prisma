@@ -18,6 +18,7 @@ model User {
   refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
   createdAt        DateTime       @default(now())
   oauthAccounts    OAuthAccount[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 enum OAuthProvider {
@@ -36,6 +37,21 @@ model OAuthAccount {
   createdAt         DateTime      @default(now())
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Token de redefinição de senha. Guardamos apenas o hash (sha256) do token bruto
+// enviado no link do e-mail; o token tem alta entropia (32 bytes aleatórios), então
+// sha256 basta e permite busca indexada. Fica fora do RLS (ligado a User).
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique // sha256 do token bruto enviado no link
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
   @@index([userId])
 }
 
