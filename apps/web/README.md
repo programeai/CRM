@@ -1,32 +1,21 @@
-# React + TypeScript + Vite
+# apps/web — CRM ProgrameAi (frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+UI do CRM ProgrameAi: React + Vite + Tailwind v4 + shadcn (Base UI),
+React Router e TanStack Query. Consome a API em `apps/api`.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Rodar em desenvolvimento
+```bash
+pnpm --filter web dev           # http://localhost:5173
 ```
+Requer a API rodando (ver [README raiz](../../README.md)).
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Variáveis de ambiente
+Copie `cp apps/web/.env.example apps/web/.env` e ajuste:
+
+- `VITE_API_URL` — base da API (padrão `http://localhost:3000/api/v1`).
+- `VITE_TURNSTILE_SITE_KEY` — site key do Cloudflare Turnstile (captcha do
+  registro). Em branco desativa o captcha.
+
+## Mais
+- Setup completo do monorepo: [README raiz](../../README.md).
+- Regras de arquitetura e de UI do frontend: [CLAUDE.md](./CLAUDE.md).
