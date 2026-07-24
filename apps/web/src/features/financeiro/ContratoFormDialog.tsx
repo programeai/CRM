@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Spinner } from '@/components/ui/spinner';
 import { MoneyInput } from '@/components/ui/money-input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -306,10 +307,10 @@ export function ContratoFormDialog({
                         <SelectTrigger />
                         <SelectContent>
                           <div className="p-2">
-                            <Input
+                            <SearchInput
                               placeholder="Buscar cliente…"
                               value={clientSearch}
-                              onChange={(e) => setClientSearch(e.target.value)}
+                              onValueChange={setClientSearch}
                             />
                           </div>
                           {clientChoices.map((c) => (

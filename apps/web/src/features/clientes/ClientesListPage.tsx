@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -124,12 +124,12 @@ export default function ClientesListPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Input
+        <SearchInput
           className="max-w-xs"
           placeholder="Buscar por nome ou documento…"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+          onValueChange={(value) => {
+            setSearch(value);
             resetToFirstPage();
           }}
         />

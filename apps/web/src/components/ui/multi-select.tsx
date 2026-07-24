@@ -3,7 +3,7 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
+import { SearchInput } from "@/components/ui/search-input"
 import { PopoverContent } from "@/components/ui/popover"
 
 export interface MultiSelectOption {
@@ -103,10 +103,10 @@ export function MultiSelect({
         className={cn("w-(--anchor-width) min-w-56 p-0", contentClassName)}
       >
         <div className="p-2">
-          <Input
+          <SearchInput
             autoFocus
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onValueChange={setSearch}
             placeholder={searchPlaceholder}
           />
         </div>

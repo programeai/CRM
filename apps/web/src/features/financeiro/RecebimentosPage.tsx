@@ -3,7 +3,7 @@ import { Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from '@/components/ui/calendar';
 import {
@@ -210,11 +210,11 @@ export default function RecebimentosPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Input
+        <SearchInput
           className="max-w-xs"
-          placeholder="Buscar por cliente…"
+          placeholder="Buscar por cliente ou contrato…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onValueChange={setSearch}
         />
         <DateRangePicker
           className="ml-auto"
@@ -355,12 +355,9 @@ export default function RecebimentosPage() {
                       {payment.contract ? translateBillingType(payment.contract.billingType) : '—'}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className={overdue ? 'text-destructive' : undefined}>
-                          {formatDate(payment.dueDate) || '—'}
-                        </span>
-                        {overdue && <Badge variant="destructive">Vencida</Badge>}
-                      </div>
+                      <span className={overdue ? 'text-destructive' : undefined}>
+                        {formatDate(payment.dueDate) || '—'}
+                      </span>
                     </TableCell>
                     <TableCell>{formatMoney(payment.amount)}</TableCell>
                     <TableCell>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColumnFilter } from '@/components/ui/column-filter';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -121,12 +121,12 @@ export default function PropostasListPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Input
+        <SearchInput
           className="max-w-xs"
           placeholder="Buscar por cliente ou número…"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
+          onValueChange={(value) => {
+            setSearch(value);
             resetToFirstPage();
           }}
         />
