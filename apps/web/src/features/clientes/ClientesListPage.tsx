@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import {
   CLIENT_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -109,7 +110,6 @@ export default function ClientesListPage() {
   });
 
   const total = data?.meta.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   const resetToFirstPage = () => setPage(1);
 
@@ -206,32 +206,14 @@ export default function ClientesListPage() {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {total} {total === 1 ? 'cliente' : 'clientes'}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            Anterior
-          </Button>
-          <span>
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            Próxima
-          </Button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        pageSize={LIMIT}
+        total={total}
+        onPageChange={setPage}
+        labelSingular="cliente"
+        labelPlural="clientes"
+      />
 
       <ClientFormDialog open={formOpen} onOpenChange={setFormOpen} />
     </div>

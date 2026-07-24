@@ -18,6 +18,7 @@ import {
 import { TableLink } from '@/components/ui/table-link';
 import { SortButton, type SortDirection } from '@/components/ui/sort-button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 import {
   BILLING_TYPE_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -33,7 +34,7 @@ import { isOverdue } from './lib/overdue';
 import { BaixaDialog } from './components/BaixaDialog';
 import type { BillingType, Payment, PaymentSortField, PaymentStatus } from './api/types';
 
-const LIMIT = 50;
+const LIMIT = 25;
 
 /** Presets de status por card — clicar aplica o conjunto como filtro da listagem. */
 const CARD_PRESETS = {
@@ -144,17 +145,22 @@ export default function RecebimentosPage() {
     by: null,
     dir: 'asc',
   });
+  const [page, setPage] = useState(1);
   const [baixaTarget, setBaixaTarget] = useState<Payment | null>(null);
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  const resetToFirstPage = () => setPage(1);
+
   /** Clica na coluna: ativa a ordenação por ela; se já ativa, inverte a direção. */
-  const toggleSort = (field: PaymentSortField) =>
+  const toggleSort = (field: PaymentSortField) => {
     setSort((prev) =>
       prev.by === field
         ? { by: field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
         : { by: field, dir: 'asc' },
     );
+    resetToFirstPage();
+  };
   const sortDirOf = (field: PaymentSortField): SortDirection | null =>
     sort.by === field ? sort.dir : null;
 
@@ -167,6 +173,7 @@ export default function RecebimentosPage() {
   };
 
   const { data, isLoading, isError } = usePayments({
+    page,
     limit: LIMIT,
     status: statusFilter.length ? statusFilter : undefined,
     sortBy: sort.by ?? undefined,
@@ -178,14 +185,17 @@ export default function RecebimentosPage() {
   const { data: summary } = usePaymentsSummary(sharedFilters);
 
   const payments: Payment[] = data?.data ?? [];
+  const total = data?.meta.total ?? 0;
 
   /** O radio de coluna representa 1 status; conjuntos maiores (ex.: A receber) exibem "Todos". */
   const columnStatus: PaymentStatus | 'ALL' =
     statusFilter.length === 1 ? statusFilter[0] : 'ALL';
 
   /** Aplica um preset de card como filtro; clicar no card ativo limpa o filtro. */
-  const toggleCard = (preset: PaymentStatus[]) =>
+  const toggleCard = (preset: PaymentStatus[]) => {
     setStatusFilter((prev) => (sameStatusSet(prev, preset) ? [] : preset));
+    resetToFirstPage();
+  };
 
   const isCardActive = (preset: PaymentStatus[]) => sameStatusSet(statusFilter, preset);
 
@@ -214,12 +224,18 @@ export default function RecebimentosPage() {
           className="max-w-xs"
           placeholder="Buscar por cliente ou contrato…"
           value={search}
-          onValueChange={setSearch}
+          onValueChange={(value) => {
+            setSearch(value);
+            resetToFirstPage();
+          }}
         />
         <DateRangePicker
           className="ml-auto"
           value={dueRange}
-          onChange={setDueRange}
+          onChange={(range) => {
+            setDueRange(range);
+            resetToFirstPage();
+          }}
           placeholder="Vencimento"
         />
       </div>
@@ -288,7 +304,10 @@ export default function RecebimentosPage() {
                   label="Regime"
                   name="billing-type-filter"
                   value={billingType}
-                  onValueChange={setBillingType}
+                  onValueChange={(value) => {
+                    setBillingType(value);
+                    resetToFirstPage();
+                  }}
                   options={Object.keys(BILLING_TYPE_LABELS) as BillingType[]}
                   translate={translateBillingType}
                 />
@@ -312,7 +331,10 @@ export default function RecebimentosPage() {
                   label="Status"
                   name="status-filter"
                   value={columnStatus}
-                  onValueChange={(v) => setStatusFilter(v === 'ALL' ? [] : [v])}
+                  onValueChange={(v) => {
+                    setStatusFilter(v === 'ALL' ? [] : [v]);
+                    resetToFirstPage();
+                  }}
                   options={Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[]}
                   translate={translatePaymentStatus}
                   sortDirection={sortDirOf('status')}
@@ -386,6 +408,15 @@ export default function RecebimentosPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Pagination
+        page={page}
+        pageSize={LIMIT}
+        total={total}
+        onPageChange={setPage}
+        labelSingular="cobrança"
+        labelPlural="cobranças"
+      />
 
       {baixaTarget && (
         <BaixaDialog
