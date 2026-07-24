@@ -24,4 +24,12 @@ export const envValidationSchema = Joi.object({
   GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),
   // Captcha (Cloudflare Turnstile) — opcional: em branco desativa a verificação.
   TURNSTILE_SECRET_KEY: Joi.string().allow('').default(''),
+  // SMTP para envio de e-mail (ex.: redefinição de senha) — opcional: sem
+  // SMTP_HOST o envio é desativado e o link é apenas logado (ver MailService).
+  SMTP_HOST: Joi.string().allow('').default(''),
+  SMTP_PORT: Joi.number().port().default(587),
+  SMTP_SECURE: Joi.boolean().truthy('true').falsy('false').default(false),
+  SMTP_USER: Joi.string().allow('').default(''),
+  SMTP_PASSWORD: Joi.string().allow('').default(''),
+  MAIL_FROM: Joi.string().allow('').default(''),
 });
