@@ -15,7 +15,9 @@ import { ProposalsModule } from './modules/proposals/proposals.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { BillingGuard } from './modules/billing/billing.guard';
 import { envValidationSchema } from './config/env.validation';
 
 @Module({
@@ -37,10 +39,13 @@ import { envValidationSchema } from './config/env.validation';
     ProjectsModule,
     FinanceModule,
     DashboardModule,
+    BillingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Após o JwtAuthGuard: precisa de req.user para identificar o owner.
+    { provide: APP_GUARD, useClass: BillingGuard },
     { provide: APP_INTERCEPTOR, useClass: OwnerContextInterceptor },
   ],
 })
