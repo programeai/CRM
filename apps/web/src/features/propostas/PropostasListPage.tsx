@@ -175,7 +175,11 @@ export default function PropostasListPage() {
                       {proposal.number} · v{proposal.version}
                     </TableLink>
                   </TableCell>
-                  <TableCell>{proposal.client.name}</TableCell>
+                  <TableCell>
+                    <TableLink to={`/clientes/${proposal.client.id}`}>
+                      {proposal.client.name}
+                    </TableLink>
+                  </TableCell>
                   <TableCell>{translateServiceType(proposal.serviceType)}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_BADGE[proposal.status]}>

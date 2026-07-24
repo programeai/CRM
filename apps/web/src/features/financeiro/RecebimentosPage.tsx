@@ -193,10 +193,10 @@ export default function RecebimentosPage() {
   const porCliente =
     isCardActive(CARD_PRESETS.emAtraso)
       ? Object.values(
-          payments.reduce<Record<string, { name: string; total: number }>>((acc, p) => {
+          payments.reduce<Record<string, { id: string; name: string; total: number }>>((acc, p) => {
             const id = p.contract?.client.id ?? '—';
             const name = p.contract?.client.name ?? '—';
-            acc[id] ??= { name, total: 0 };
+            acc[id] ??= { id, name, total: 0 };
             acc[id].total += Number(p.amount);
             return acc;
           }, {}),
@@ -251,8 +251,12 @@ export default function RecebimentosPage() {
           <h2 className="font-heading text-sm font-medium">Inadimplência por cliente</h2>
           <ul className="flex flex-col gap-1">
             {porCliente.map((c) => (
-              <li key={c.name} className="flex items-center justify-between text-sm">
-                <span>{c.name}</span>
+              <li key={c.id} className="flex items-center justify-between text-sm">
+                {c.id === '—' ? (
+                  <span>{c.name}</span>
+                ) : (
+                  <TableLink to={`/clientes/${c.id}`}>{c.name}</TableLink>
+                )}
                 <span className="font-medium text-destructive">{formatMoney(c.total)}</span>
               </li>
             ))}

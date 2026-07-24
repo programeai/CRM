@@ -160,7 +160,11 @@ export default function ProjetosListPage() {
                   <TableCell>
                     <TableLink to={`/projetos/${project.id}`}>{project.name}</TableLink>
                   </TableCell>
-                  <TableCell>{project.client.name}</TableCell>
+                  <TableCell>
+                    <TableLink to={`/clientes/${project.client.id}`}>
+                      {project.client.name}
+                    </TableLink>
+                  </TableCell>
                   <TableCell>{translateServiceType(project.serviceType)}</TableCell>
                   <TableCell>
                     <Badge variant={PROJECT_STATUS_BADGE[project.status]}>

@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { TableLink } from '@/components/ui/table-link';
 import { translateBillingType, translateContractStatus, translatePaymentStatus } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useContract, useContractAction, useCancelPayment, useRevertPayment } from './api/hooks';
@@ -171,7 +172,11 @@ export default function ContratoDetalhePage() {
                 {translateContractStatus(contract.status)}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{contract.client.name}</p>
+            <p className="text-sm text-muted-foreground">
+              <TableLink to={`/clientes/${contract.client.id}`}>
+                {contract.client.name}
+              </TableLink>
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!readOnly && (

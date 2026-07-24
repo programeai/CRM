@@ -171,7 +171,11 @@ export default function PropostaDetalhePage() {
                 {translateProposalStatus(proposal.status)}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{proposal.client.name}</p>
+            <p className="text-sm text-muted-foreground">
+              <TableLink to={`/clientes/${proposal.client.id}`}>
+                {proposal.client.name}
+              </TableLink>
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isDraft && (

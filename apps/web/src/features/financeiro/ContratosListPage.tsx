@@ -161,7 +161,11 @@ export default function ContratosListPage() {
                       {contract.description}
                     </TableLink>
                   </TableCell>
-                  <TableCell>{contract.client.name}</TableCell>
+                  <TableCell>
+                    <TableLink to={`/clientes/${contract.client.id}`}>
+                      {contract.client.name}
+                    </TableLink>
+                  </TableCell>
                   <TableCell>{translateBillingType(contract.billingType)}</TableCell>
                   <TableCell>
                     <Badge variant={CONTRACT_STATUS_BADGE[contract.status]}>
