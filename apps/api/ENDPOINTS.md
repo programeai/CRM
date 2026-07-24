@@ -509,9 +509,9 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 ## Payments
 
 ### GET /payments
-- **Propósito:** Listar cobranças do usuário autenticado, paginado, com busca opcional por nome do cliente (`search`) e filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
+- **Propósito:** Listar cobranças do usuário autenticado, paginado, com busca opcional por nome do cliente ou descrição do contrato (`search`) e filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
 - **Auth:** Bearer (access token).
-- **Body:** — (query: `page`, `limit`, `search?` (nome do cliente, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`, `sortBy?`, `sortDir?`). O `status` aceita um único valor (`?status=PAID`) **ou** vários (`?status=PENDING&status=OVERDUE`) — o resultado inclui qualquer um dos status informados. `sortBy` ∈ `status | client | contract | dueDate | amount`; `sortDir` ∈ `asc | desc` (padrão `asc`).
+- **Body:** — (query: `page`, `limit`, `search?` (nome do cliente ou descrição do contrato, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`, `sortBy?`, `sortDir?`). O `status` aceita um único valor (`?status=PAID`) **ou** vários (`?status=PENDING&status=OVERDUE`) — o resultado inclui qualquer um dos status informados. `sortBy` ∈ `status | client | contract | dueDate | amount`; `sortDir` ∈ `asc | desc` (padrão `asc`).
 - **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`). Ordenação padrão (sem `sortBy`): status por prioridade (Vencido → Pendente → Pago → Cancelado), depois cliente, contrato e vencimento. Com `sortBy`, ordena pela coluna escolhida usando cliente/contrato/vencimento como desempate.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.list`

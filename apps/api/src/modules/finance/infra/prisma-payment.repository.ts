@@ -38,14 +38,18 @@ export class PrismaPaymentRepository implements PaymentRepository {
   ): Prisma.PaymentWhereInput {
     return {
       contract: {
-        client: {
-          ownerId: filter.ownerId,
-          ...(filter.search
-            ? { name: { contains: filter.search, mode: 'insensitive' } }
-            : {}),
-        },
+        client: { ownerId: filter.ownerId },
         ...(filter.clientId ? { clientId: filter.clientId } : {}),
         ...(filter.billingType ? { billingType: filter.billingType } : {}),
+        // Busca por nome do cliente OU descrição do contrato.
+        ...(filter.search
+          ? {
+              OR: [
+                { description: { contains: filter.search, mode: 'insensitive' } },
+                { client: { name: { contains: filter.search, mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
       },
       ...(filter.contractId ? { contractId: filter.contractId } : {}),
       ...(filter.status?.length ? { status: { in: filter.status } } : {}),
@@ -124,7 +128,9 @@ export class PrismaPaymentRepository implements PaymentRepository {
   ): Promise<string[]> {
     const conds: Prisma.Sql[] = [Prisma.sql`cl."ownerId" = ${filter.ownerId}`];
     if (filter.search)
-      conds.push(Prisma.sql`cl.name ILIKE ${`%${filter.search}%`}`);
+      conds.push(
+        Prisma.sql`(cl.name ILIKE ${`%${filter.search}%`} OR c.description ILIKE ${`%${filter.search}%`})`,
+      );
     if (filter.clientId)
       conds.push(Prisma.sql`c."clientId" = ${filter.clientId}`);
     if (filter.billingType)
