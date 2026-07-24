@@ -191,7 +191,10 @@ export default function ClientesListPage() {
                   </TableCell>
                   <TableCell>{formatDocument(client.document) || '—'}</TableCell>
                   <TableCell>
-                    <Badge variant={STATUS_BADGE[client.status]}>
+                    <Badge
+                      variant={STATUS_BADGE[client.status]}
+                      className={client.status === 'LOST' ? 'text-white' : undefined}
+                    >
                       {translateClientStatus(client.status)}
                     </Badge>
                   </TableCell>

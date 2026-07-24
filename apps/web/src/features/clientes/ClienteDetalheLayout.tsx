@@ -145,7 +145,10 @@ export default function ClienteDetalheLayout() {
               <h1 className="font-heading text-2xl font-semibold">
                 {client.name}
               </h1>
-              <Badge variant={STATUS_BADGE[client.status]}>
+              <Badge
+                variant={STATUS_BADGE[client.status]}
+                className={client.status === 'LOST' ? 'text-white' : undefined}
+              >
                 {translateClientStatus(client.status)}
               </Badge>
             </div>
