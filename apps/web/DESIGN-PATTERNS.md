@@ -1,4 +1,4 @@
-# Padrões de design — CRM Solarz
+# Padrões de design — CRM ProgrameAi
 
 > Regras e padrões de UI portados do **Ecomerce-menager** e adaptados ao stack do CRM
 > (`@base-ui/react` + shadcn v4, React 19, Tailwind v4). Esta é a **fonte de verdade**
@@ -24,7 +24,7 @@
 
 ## 1. Princípios de marca e tema
 
-- **Laranja Solarz (`--primary`, `#fe5b00`) é acento**, não fundo. Use-o só para
+- **Teal ProgrameAi (`--primary`, `#0E7C7B`) é acento**, não fundo. Use-o só para
   ações primárias, foco, seleção e destaque de estado ativo. Fundos são neutros
   cinza-frio (claro) / navy (escuro).
 - **Nunca use cor hard-coded.** Sempre tokens do tema: `bg-background`,

@@ -49,8 +49,8 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Marca Solarz: fundos brancos e neutros cinza-frios (padrão Stripe/shadcn),
-   com o laranja da marca (#fe5b00) usado só como acento — sem tingir os fundos. */
+/* Marca ProgrameAi: fundos brancos e neutros cinza-frios (padrão Stripe/shadcn),
+   com o teal da marca (#0E7C7B) usado só como acento, sem tingir os fundos. */
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.2064 0.0388 265.55);
@@ -58,7 +58,7 @@
     --card-foreground: oklch(0.2064 0.0388 265.55);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.2064 0.0388 265.55);
-    --primary: oklch(0.6806 0.2142 39.87);
+    --primary: oklch(0.532 0.087 194);
     --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.9679 0.0027 264.54);
     --secondary-foreground: oklch(0.2438 0.0507 265.31);
@@ -69,8 +69,8 @@
     --destructive: oklch(0.5883 0.2159 24.32);
     --border: oklch(0.9278 0.0058 264.53);
     --input: oklch(0.9196 0.0064 264.53);
-    --ring: oklch(0.6806 0.2142 39.87);
-    --chart-1: oklch(0.6806 0.2142 39.87);
+    --ring: oklch(0.532 0.087 194);
+    --chart-1: oklch(0.532 0.087 194);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
@@ -78,15 +78,15 @@
     --radius: 0.625rem;
     --sidebar: oklch(1 0 0);
     --sidebar-foreground: oklch(0.2064 0.0388 265.55);
-    --sidebar-primary: oklch(0.6806 0.2142 39.87);
+    --sidebar-primary: oklch(0.532 0.087 194);
     --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.9599 0.0034 264.54);
     --sidebar-accent-foreground: oklch(0.2438 0.0507 265.31);
     --sidebar-border: oklch(0.9278 0.0058 264.53);
-    --sidebar-ring: oklch(0.6806 0.2142 39.87);
+    --sidebar-ring: oklch(0.532 0.087 194);
 }
 
-/* Navy profundo como base, off-white quente no texto e o mesmo laranja da
+/* Navy profundo como base, off-white quente no texto e o mesmo teal da
    marca como acento, um pouco mais claro para o escuro. */
 .dark {
     --background: oklch(0.1782 0.0275 265.95);
@@ -95,7 +95,7 @@
     --card-foreground: oklch(0.9698 0.0034 56.39);
     --popover: oklch(0.2085 0.0338 265.86);
     --popover-foreground: oklch(0.9698 0.0034 56.39);
-    --primary: oklch(0.6885 0.2083 41.13);
+    --primary: oklch(0.62 0.105 190);
     --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.2718 0.0335 266.31);
     --secondary-foreground: oklch(0.9698 0.0034 56.39);
@@ -106,20 +106,20 @@
     --destructive: oklch(0.5380 0.1843 22.82);
     --border: oklch(0.2812 0.0351 266.29);
     --input: oklch(0.2997 0.0384 266.26);
-    --ring: oklch(0.6885 0.2083 41.13);
-    --chart-1: oklch(0.6885 0.2083 41.13);
+    --ring: oklch(0.62 0.105 190);
+    --chart-1: oklch(0.62 0.105 190);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --sidebar: oklch(0.1782 0.0275 265.95);
     --sidebar-foreground: oklch(0.9698 0.0034 56.39);
-    --sidebar-primary: oklch(0.6885 0.2083 41.13);
+    --sidebar-primary: oklch(0.62 0.105 190);
     --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.2905 0.0368 266.27);
     --sidebar-accent-foreground: oklch(0.9698 0.0034 56.39);
     --sidebar-border: oklch(0.2812 0.0351 266.29);
-    --sidebar-ring: oklch(0.6885 0.2083 41.13);
+    --sidebar-ring: oklch(0.62 0.105 190);
 }
 
 @layer base {
@@ -155,7 +155,7 @@
     }
 }
 
-/* Seleção de texto usa o laranja da marca (--primary), acompanhando claro/escuro. */
+/* Seleção de texto usa o teal da marca (--primary), acompanhando claro/escuro. */
 ::selection {
   background-color: color-mix(in oklch, var(--primary) 85%, transparent);
   color: var(--primary-foreground);
