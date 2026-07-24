@@ -1,6 +1,11 @@
 import { CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/ui/tag-badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { translateTaskPriority } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { isOverdue } from '../lib/overdue';
@@ -39,13 +44,25 @@ export function TaskCard({ task, onClick, showProject = false }: Props) {
         </span>
       )}
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {task.dueDate && (
-          <span className={`flex items-center gap-1 ${overdue ? 'text-destructive' : ''}`}>
-            <CalendarClock className="size-3" />
-            {formatDate(task.dueDate)}
-          </span>
-        )}
-        {overdue && <Badge variant="destructive">Atrasada</Badge>}
+        {task.dueDate &&
+          (overdue ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="flex items-center gap-1 text-destructive" />
+                }
+              >
+                <CalendarClock className="size-3" />
+                {formatDate(task.dueDate)}
+              </TooltipTrigger>
+              <TooltipContent>Tarefa atrasada</TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="flex items-center gap-1">
+              <CalendarClock className="size-3" />
+              {formatDate(task.dueDate)}
+            </span>
+          ))}
         {checklistTotal > 0 && (
           <span>
             {checklistDone}/{checklistTotal}
