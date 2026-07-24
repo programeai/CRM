@@ -51,4 +51,7 @@ export const queryKeys = {
     finance: (month?: string) => ['dashboard', 'finance', month ?? 'current'] as const,
   },
   clientOptions: (search: string) => ['client-options', search] as const,
+  auth: {
+    oauthProviders: ['auth', 'oauth-providers'] as const,
+  },
 } as const;

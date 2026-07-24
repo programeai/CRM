@@ -7,6 +7,12 @@ type AuthCtx = {
   isAuthenticated: boolean;
   loading: boolean;
   login: (e: string, p: string) => Promise<void>;
+  register: (
+    name: string,
+    e: string,
+    p: string,
+    captchaToken?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
 };
 const Ctx = createContext<AuthCtx>(null!);
@@ -35,12 +41,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(data.accessToken);
     setAuth(true);
   };
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    captchaToken?: string,
+  ) => {
+    const { data } = await api.post('/auth/register', {
+      name,
+      email,
+      password,
+      captchaToken,
+    });
+    setAccessToken(data.accessToken);
+    setAuth(true);
+  };
   const logout = async () => {
     await api.post('/auth/logout').catch(() => {});
     setAccessToken(null);
     setAuth(false);
   };
   return (
-    <Ctx.Provider value={{ isAuthenticated, loading, login, logout }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ isAuthenticated, loading, login, register, logout }}>
+      {children}
+    </Ctx.Provider>
   );
 }

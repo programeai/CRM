@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router';
 import ProtectedRoute from '@/app/ProtectedRoute';
 import AppLayout from '@/app/AppLayout';
 import LoginPage from '@/features/auth/LoginPage';
+import RegisterPage from '@/features/auth/RegisterPage';
 import ClientesListPage from '@/features/clientes/ClientesListPage';
 import ClienteDetalheLayout from '@/features/clientes/ClienteDetalheLayout';
 import DadosTab from '@/features/clientes/tabs/DadosTab';
@@ -24,6 +25,7 @@ import ContratosDoClienteTab from '@/features/financeiro/ContratosDoClienteTab';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/registrar', element: <RegisterPage /> },
   {
     element: <ProtectedRoute />,
     children: [
