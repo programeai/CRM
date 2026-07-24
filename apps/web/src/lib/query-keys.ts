@@ -50,6 +50,9 @@ export const queryKeys = {
     summary: ['dashboard', 'summary'] as const,
     finance: (month?: string) => ['dashboard', 'finance', month ?? 'current'] as const,
   },
+  billing: {
+    status: ['billing', 'status'] as const,
+  },
   clientOptions: (search: string) => ['client-options', search] as const,
   auth: {
     oauthProviders: ['auth', 'oauth-providers'] as const,

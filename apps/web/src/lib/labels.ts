@@ -108,6 +108,15 @@ export const PAYMENT_METHOD_LABELS = {
 } as const;
 export const translatePaymentMethod = make(PAYMENT_METHOD_LABELS);
 
+export const SUBSCRIPTION_STATUS_LABELS = {
+  TRIALING: 'Em teste',
+  ACTIVE: 'Ativa',
+  PAST_DUE: 'Pagamento atrasado',
+  CANCELED: 'Cancelada',
+  INCOMPLETE: 'Incompleta',
+} as const;
+export const translateSubscriptionStatus = make(SUBSCRIPTION_STATUS_LABELS);
+
 export const ACTIVITY_TYPE_LABELS = {
   NOTE: 'Anotação',
   CALL: 'Ligação',

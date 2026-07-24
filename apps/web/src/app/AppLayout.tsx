@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun, UserRound } from "lucide-react";
+import { CreditCard, LogOut, Moon, Sun, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useMe } from "@/features/perfil/api/hooks";
+import { useSubscription } from "@/features/billing/useSubscription";
 import { NAV_GROUPS } from "./nav";
 
 export default function AppLayout() {
@@ -48,6 +49,9 @@ export default function AppLayout() {
   const { data: me } = useMe();
   const userLabel = me?.name ?? "Minha conta";
   const userInitial = userLabel.charAt(0).toUpperCase();
+
+  // Billing só aparece na instância SaaS hospedada (billingEnabled=true).
+  const { billingEnabled, isTrialing, daysLeftInTrial } = useSubscription();
 
   const isActive = (to: string, end?: boolean) =>
     end || to === "/" ? pathname === to : pathname.startsWith(to);
@@ -145,6 +149,12 @@ export default function AppLayout() {
                   <UserRound />
                   Perfil
                 </DropdownMenuItem>
+                {billingEnabled && (
+                  <DropdownMenuItem onClick={() => navigate("/assinatura")}>
+                    <CreditCard />
+                    Assinatura
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   closeOnClick={false}
                   onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -161,6 +171,20 @@ export default function AppLayout() {
             </DropdownMenu>
           </div>
         </header>
+        {billingEnabled && isTrialing && daysLeftInTrial != null && (
+          <button
+            type="button"
+            onClick={() => navigate("/assinatura")}
+            className="flex w-full items-center justify-center gap-2 border-b bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/15"
+          >
+            <CreditCard className="size-4" />
+            {daysLeftInTrial > 0
+              ? `Você está em período de teste — ${daysLeftInTrial} ${
+                  daysLeftInTrial === 1 ? "dia restante" : "dias restantes"
+                }. Assine agora.`
+              : "Seu período de teste terminou. Assine para continuar."}
+          </button>
+        )}
         <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>
