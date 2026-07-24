@@ -3,7 +3,7 @@
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada.
 >
-> **Última atualização:** 2026-07-21
+> **Última atualização:** 2026-07-23
 
 ## Visão
 
@@ -18,10 +18,10 @@ quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Sing
 | 0 | Fundação (monorepo, infra, auth, layout base) | ✅ concluída | [research](specs/research/2026-07-20-fase-0-fundacao.md) · [plan](specs/plans/2026-07-20-fase-0-fundacao.md) |
 | 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | ✅ concluída | [research](specs/research/2026-07-21-fase-1-clientes.md) · [plan](specs/plans/2026-07-21-fase-1-clientes.md) |
 | 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | ✅ concluída | [research](specs/research/2026-07-21-fase-2-pipeline.md) · [plan](specs/plans/2026-07-21-fase-2-pipeline.md) |
-| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | 🔜 próxima | — |
-| 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ⬜ não iniciada | — |
-| 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ⬜ não iniciada | — |
-| 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ⬜ não iniciada | — |
+| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | ✅ concluída | [research](specs/research/2026-07-23-fase-3-propostas.md) · [plan](specs/plans/2026-07-23-fase-3-propostas.md) |
+| 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ✅ concluída | [research](specs/research/2026-07-23-fase-4-demandas.md) · [plan](specs/plans/2026-07-23-fase-4-demandas.md) |
+| 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ concluída | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
+| 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
 
@@ -101,57 +101,67 @@ para a Fase 4 (Demandas), quando o módulo de Projetos existir. Ver [plano da Fa
 
 ---
 
-## Fase 3 — Propostas ⬜
+## Fase 3 — Propostas ✅
 
 Documento comercial com itens, versões e ciclo de status. Ver [SPEC.md](SPEC.md) §3.3.
 
-- [ ] CRUD: `GET/POST /proposals`, `GET/PATCH /proposals/:id`
-- [ ] Ações: `send`, `accept`, `reject`, `new-version`
-- [ ] Itens com cálculo de total **no backend** (desconto incluído); nunca float
-- [ ] Ciclo de status com transições validadas (422 em transição inválida)
-- [ ] Versionamento (v2, v3…); só a versão mais recente é editável
-- [ ] Expiração automática (cron) ao passar `validUntil`
-- [ ] Proposta aceita sugere criar Projeto e Contrato
+- [x] CRUD: `GET/POST /proposals`, `GET/PATCH /proposals/:id`
+- [x] Ações: `send`, `accept`, `reject`, `new-version`
+- [x] Itens com cálculo de total **no backend** (desconto incluído); nunca float
+- [x] Ciclo de status com transições validadas (422 em transição inválida)
+- [x] Versionamento (v2, v3…); só a versão mais recente é editável
+- [x] Expiração automática (cron `ProposalsExpirationJob`) ao passar `validUntil`
+- [x] Proposta aceita sugere criar Projeto e Contrato
 
 ---
 
-## Fase 4 — Demandas ⬜
+## Fase 4 — Demandas ✅
 
 Organização do trabalho após a venda. Ver [SPEC.md](SPEC.md) §3.4.
 
-- [ ] Projetos: `GET/POST /projects`, `GET/PATCH /projects/:id`
-- [ ] Tarefas: `GET/POST /tasks` (filtros), `GET/PATCH/DELETE /tasks/:id`, `PATCH /tasks/:id/move`
-- [ ] Kanban por projeto (dnd-kit); checklist de subtarefas
-- [ ] Visão "Minhas demandas" cruzando projetos, com filtros (prioridade, prazo, cliente)
-- [ ] Destaque de demandas atrasadas
+- [x] Projetos: `GET/POST /projects`, `GET/PATCH /projects/:id`
+- [x] Tarefas: `GET/POST /tasks` (filtros), `GET/PATCH/DELETE /tasks/:id`, `PATCH /tasks/:id/move`
+- [x] Kanban por projeto (dnd-kit); checklist de subtarefas
+- [x] Visão "Minhas demandas" cruzando projetos, com filtros (prioridade, prazo, cliente)
+- [x] Destaque de demandas atrasadas
 
 ---
 
-## Fase 5 — Financeiro ⬜
+## Fase 5 — Financeiro ✅
 
 Controle de receitas por contrato (3 regimes). Ver [SPEC.md](SPEC.md) §3.6. **Fase mais densa — testes de regra críticos.**
 
-- [ ] Contratos: `GET/POST /contracts`, `GET/PATCH /contracts/:id`, `pause`/`resume`/`cancel`
-- [ ] Regimes: mensalidade (`RECURRING`), entrada + parcelas (`INSTALLMENTS`), à vista (`ONE_TIME`)
-- [ ] Cobranças (Payments): `GET /payments`, `PATCH /payments/:id`, `pay`/`revert`/`cancel`
-- [ ] Geração de agenda de parcelas na criação do contrato
-- [ ] Cron diário: gera mensalidade 30 dias antes (idempotente) + marca `OVERDUE`
-- [ ] Agenda de recebimentos, contratos por cliente, visão de inadimplência
-- [ ] Baixa manual com valor/forma; estorno (nunca excluir cobrança paga)
+- [x] Contratos: `GET/POST /contracts`, `GET/PATCH /contracts/:id`, `pause`/`resume`/`cancel`
+- [x] Regimes: mensalidade (`RECURRING`), entrada + parcelas (`INSTALLMENTS`), à vista (`ONE_TIME`)
+- [x] Cobranças (Payments): `GET /payments`, `PATCH /payments/:id`, `pay`/`revert`/`cancel`
+- [x] Geração de agenda de parcelas na criação do contrato
+- [x] Cron diário (`FinanceBillingJob`): gera mensalidade 30 dias antes (idempotente) + marca `OVERDUE`
+- [x] Agenda de recebimentos, contratos por cliente, visão de inadimplência
+- [x] Baixa manual com valor/forma; estorno (nunca excluir cobrança paga)
 
 ---
 
-## Fase 6 — Dashboard ⬜
+## Fase 6 — Dashboard ✅
 
 Métricas e polimento final. Ver [SPEC.md](SPEC.md) §3.7.
 
-- [ ] `GET /dashboard/summary` + `GET /dashboard/finance`
-- [ ] Funil (oportunidades por estágio e valor em negociação)
-- [ ] Propostas em aberto, aceitas no mês, taxa de conversão (90 dias)
-- [ ] Demandas em andamento/atrasadas/próximas entregas
-- [ ] Próximas ações (follow-ups agendados)
-- [ ] Financeiro: MRR, previsto × recebido no mês, total em atraso, próximos vencimentos
-- [ ] Polimento geral + seed de demonstração
+**Backend** (`apps/api/src/modules/dashboard/`)
+- [x] `GET /dashboard/summary` + `GET /dashboard/finance` (só leitura; posse via `client.ownerId`)
+- [x] Funil (oportunidades por estágio e valor em negociação)
+- [x] Propostas em aberto, aceitas no mês, taxa de conversão (90 dias)
+- [x] Demandas em andamento/atrasadas/próximas entregas (7 dias)
+- [x] Próximas ações (follow-ups agendados)
+- [x] Financeiro: MRR, previsto × recebido no mês, total em atraso, próximos vencimentos (7 dias)
+- [x] Testes unitários do service (janelas de tempo em UTC, funil, taxa de conversão)
+- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
+
+**Frontend** (`apps/web/src/features/dashboard/`)
+- [x] Página em seções (Comercial / Financeiro / Operação) com `StatCard` do design system
+- [x] Funil em barras (sem lib de gráfico — tokens de tema) + listas de próximos itens clicáveis
+- [x] Trocar `PlaceholderPage` da rota `/`
+
+**Deferido:** seed de demonstração e polimento geral adicional ficam como refinamento futuro
+(o dashboard já opera de ponta a ponta com os dados reais das fases 1–5).
 
 ---
 
