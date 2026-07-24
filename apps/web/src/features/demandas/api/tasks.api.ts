@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import type {
-  CreateTaskBody, ListTasksParams, MoveTaskBody, Paginated, Task, UpdateTaskBody,
+  CreateTaskBody, ListTasksParams, MoveTaskBody, Paginated, TagUsage, Task,
+  TaskTagRef, UpdateTaskBody,
 } from './types';
 
 export const tasksApi = {
@@ -17,4 +18,9 @@ export const tasksApi = {
   move: (id: string, body: MoveTaskBody) =>
     api.patch<Task>(`/tasks/${id}/move`, body).then((r) => r.data),
   remove: (id: string) => api.delete(`/tasks/${id}`).then((r) => r.data),
+  listTags: () => api.get<TagUsage[]>('/tasks/tags').then((r) => r.data),
+  tagUsage: (tag: string) =>
+    api.get<TaskTagRef[]>('/tasks/tags/usage', { params: { tag } }).then((r) => r.data),
+  deleteTag: (tag: string) =>
+    api.delete<{ removed: number }>('/tasks/tags', { params: { tag } }).then((r) => r.data),
 };

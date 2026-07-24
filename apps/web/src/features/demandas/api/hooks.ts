@@ -102,6 +102,31 @@ export function useDeleteTask() {
   });
 }
 
+// --- Tags (agregadas das demandas do dono) ---
+/** Tags existentes com contagem de uso, para o autocomplete do seletor. */
+export function useTaskTags() {
+  return useQuery({
+    queryKey: queryKeys.tasks.tags,
+    queryFn: () => tasksApi.listTags(),
+  });
+}
+/** Demandas que usam uma tag — carregado sob demanda no modal de exclusão. */
+export function useTaskTagUsage(tag: string | null) {
+  return useQuery({
+    queryKey: queryKeys.tasks.tagUsage(tag ?? ''),
+    queryFn: () => tasksApi.tagUsage(tag as string),
+    enabled: !!tag,
+  });
+}
+/** Exclui uma tag globalmente (remove de todas as demandas do dono). */
+export function useDeleteTag() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tag: string) => tasksApi.deleteTag(tag),
+    onSuccess: () => invalidateTasks(qc), // invalida ['tasks'] → cobre board e a lista de tags
+  });
+}
+
 /** Move com optimistic update no board do projeto; reverte em erro e reconcilia no settle. */
 export function useMoveTask(projectId: string) {
   const qc = useQueryClient();
