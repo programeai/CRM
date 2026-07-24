@@ -8,6 +8,14 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 
 ## Auth
 
+### POST /auth/register
+- **Propósito:** Autocadastro de usuário: cria a conta e já autentica, emitindo access token e refresh token.
+- **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
+- **Body:** `{ name: string (2–120), email: string (e-mail), password: string (mín. 6), captchaToken?: string }` — `captchaToken` (Cloudflare Turnstile) é obrigatório quando `TURNSTILE_SECRET_KEY` está configurado.
+- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
+- **Erros:** `409 Já existe uma conta com este e-mail.`; `400 Confirme que você não é um robô.` / `400 Falha na verificação do captcha. Tente novamente.` (captcha); `400` (validação).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.register`
+
 ### POST /auth/login
 - **Propósito:** Autenticar por e-mail e senha, emitindo um access token e um refresh token.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
@@ -39,6 +47,30 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 - **Resposta:** `200 { ok: true }` + `Set-Cookie` limpando `refresh_token`.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.logout`
+
+### GET /auth/oauth/providers
+- **Propósito:** Informar quais provedores OAuth estão configurados, para a UI exibir só os botões que funcionam.
+- **Auth:** Pública (`@Public()`).
+- **Body:** —
+- **Resposta:** `200 { google: boolean, github: boolean }` (true quando as duas credenciais do provedor estão presentes).
+- **Erros:** —
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.oauthProviders`
+
+### GET /auth/oauth/:provider
+- **Propósito:** Iniciar o login/cadastro OAuth: gera o `state` anti-CSRF (cookie `oauth_state`) e redireciona ao provedor. `:provider` ∈ `google | github`.
+- **Auth:** Pública (`@Public()`).
+- **Body:** —
+- **Resposta:** `302` para a tela de consentimento do provedor.
+- **Erros:** `400` (provedor não suportado); `302 → {FRONTEND_URL}/login?error=oauth_indisponivel` (provedor sem credenciais).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.oauthStart`
+
+### GET /auth/oauth/:provider/callback
+- **Propósito:** Retorno do provedor: valida o `state`, troca o `code` por perfil, entra ou cadastra (vínculo por e-mail verificado) e volta ao frontend. Emite o refresh token em cookie; o access token é obtido pelo frontend via `POST /auth/refresh`.
+- **Auth:** Pública (`@Public()`); exige o cookie `oauth_state` conferindo com o `state` da query.
+- **Query:** `code: string`, `state: string`
+- **Resposta:** `302 → {FRONTEND_URL}` (autenticado) + cookie `httpOnly` `refresh_token`.
+- **Erros:** `302 → {FRONTEND_URL}/login?error=oauth` (state inválido, falha na troca, ou e-mail não verificado).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.oauthCallback`
 
 ---
 
