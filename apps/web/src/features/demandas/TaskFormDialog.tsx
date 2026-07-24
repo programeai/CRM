@@ -18,7 +18,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { extractApiMessage } from './lib/api-error';
 import { useCreateTask, useProjects, useUpdateTask } from './api/hooks';
 import { TaskChecklist } from './components/TaskChecklist';
-import { TagsInput } from './components/TagsInput';
+import { TagSelect } from './components/TagSelect';
 import type { ChecklistItem, Task, TaskPriority, UpdateTaskBody } from './api/types';
 
 interface FormState {
@@ -344,7 +344,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
 
               <Field>
                 <FieldLabel>Tags</FieldLabel>
-                <TagsInput
+                <TagSelect
                   value={form.tags}
                   onChange={(tags) => setField({ tags }, { tags })}
                 />
