@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { proposalsApi } from './proposals.api';
-import { clientsLookupApi } from './clients-lookup.api';
 import type { CreateProposalBody, ListProposalsParams, UpdateProposalBody } from './types';
 
 export function useProposals(params: ListProposalsParams) {
@@ -30,13 +29,6 @@ export function useProposalVersions(id: string) {
     enabled: !!id,
   });
 }
-export function useClientOptions(search: string) {
-  return useQuery({
-    queryKey: queryKeys.clientOptions(search),
-    queryFn: () => clientsLookupApi.search(search),
-  });
-}
-
 function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
 }

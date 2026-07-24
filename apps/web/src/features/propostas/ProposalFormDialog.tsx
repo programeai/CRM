@@ -20,7 +20,8 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions, useCreateProposal, useUpdateProposal } from './api/hooks';
+import { useClientOptions } from '@/lib/clients-lookup';
+import { useCreateProposal, useUpdateProposal } from './api/hooks';
 import { ItemsEditor } from './components/ItemsEditor';
 import type { Proposal, ServiceType } from './api/types';
 

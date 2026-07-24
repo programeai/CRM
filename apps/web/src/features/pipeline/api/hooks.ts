@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { queryKeys } from '@/lib/query-keys';
 import { dealsApi } from './deals.api';
 import { stagesApi } from './stages.api';
-import { clientsLookupApi } from './clients-lookup.api';
 import { reindexBoard } from '../lib/reindex-board';
 import type {
   CreateDealBody,
@@ -28,13 +27,6 @@ export function useDealsByClient(clientId: string) {
     queryFn: () => dealsApi.listByClient(clientId),
   });
 }
-export function useClientOptions(search: string) {
-  return useQuery({
-    queryKey: queryKeys.clientOptions(search),
-    queryFn: () => clientsLookupApi.search(search),
-  });
-}
-
 // --- Deal mutations ---
 function invalidateDeals(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.deals.all });

@@ -30,7 +30,8 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions, useCreateContract, useUpdateContract } from './api/hooks';
+import { useClientOptions } from '@/lib/clients-lookup';
+import { useCreateContract, useUpdateContract } from './api/hooks';
 import type { BillingType, Contract, CreateContractBody } from './api/types';
 
 const schema = z

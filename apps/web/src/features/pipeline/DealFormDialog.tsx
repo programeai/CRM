@@ -21,7 +21,8 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
-import { useClientOptions, useCreateDeal, useUpdateDeal } from './api/hooks';
+import { useClientOptions } from '@/lib/clients-lookup';
+import { useCreateDeal, useUpdateDeal } from './api/hooks';
 import type { Deal, ServiceType } from './api/types';
 
 const schema = z.object({

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { contractsApi } from './contracts.api';
 import { paymentsApi } from './payments.api';
-import { clientsLookupApi } from './clients-lookup.api';
 import type {
   CreateContractBody,
   ListContractsParams,
@@ -34,13 +33,6 @@ export function useContract(id: string) {
     enabled: !!id,
   });
 }
-export function useClientOptions(search: string) {
-  return useQuery({
-    queryKey: queryKeys.clientOptions(search),
-    queryFn: () => clientsLookupApi.search(search),
-  });
-}
-
 /** Baixar/estornar uma cobrança muda o saldo do contrato: invalida as duas raízes. */
 function invalidateFinance(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.contracts.all });

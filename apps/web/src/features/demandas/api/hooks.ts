@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { queryKeys } from '@/lib/query-keys';
 import { projectsApi } from './projects.api';
 import { tasksApi } from './tasks.api';
-import { clientsLookupApi } from './clients-lookup.api';
 import { reindexBoard } from '../lib/reindex-board';
 import type {
   CreateProjectBody, CreateTaskBody, ListProjectsParams, ListTasksParams,
@@ -30,13 +29,6 @@ export function useProject(id: string) {
     enabled: !!id,
   });
 }
-export function useClientOptions(search: string) {
-  return useQuery({
-    queryKey: queryKeys.clientOptions(search),
-    queryFn: () => clientsLookupApi.search(search),
-  });
-}
-
 function invalidateProjects(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.projects.all });
 }
