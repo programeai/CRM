@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
+  TagUsage,
   TaskListFilter,
   TaskMovePatch,
   TaskRepository,
+  TaskTagRef,
 } from '../domain/task.repository';
 
 const withProject = {
@@ -94,6 +96,54 @@ export class PrismaTaskRepository implements TaskRepository {
 
   async delete(id: string) {
     await this.prisma.db.task.delete({ where: { id } });
+  }
+
+  async listOwnerTags(ownerId: string): Promise<TagUsage[]> {
+    // Tags são um String[] por tarefa (sem catálogo próprio); a fonte de verdade
+    // das "tags existentes" é a agregação distinta sobre todas as tarefas do dono.
+    const rows = await this.prisma.db.task.findMany({
+      where: { project: { client: { ownerId } } },
+      select: { tags: true },
+    });
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      for (const tag of row.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'pt-BR'));
+  }
+
+  findByTag(ownerId: string, tag: string): Promise<TaskTagRef[]> {
+    return this.prisma.db.task.findMany({
+      where: { project: { client: { ownerId } }, tags: { has: tag } },
+      select: {
+        id: true,
+        title: true,
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+
+  async removeTagFromAll(ownerId: string, tag: string): Promise<number> {
+    // Postgres não remove elemento de array em updateMany; carrega as afetadas e
+    // reescreve cada array sem a tag. Roda na transação do request (this.prisma.db).
+    const affected = await this.prisma.db.task.findMany({
+      where: { project: { client: { ownerId } }, tags: { has: tag } },
+      select: { id: true, tags: true },
+    });
+    await Promise.all(
+      affected.map((t) =>
+        this.prisma.db.task.update({
+          where: { id: t.id },
+          data: { tags: t.tags.filter((x) => x !== tag) },
+        }),
+      ),
+    );
+    return affected.length;
   }
 
   async maxPositionInStatus(projectId: string, status: TaskStatus) {
