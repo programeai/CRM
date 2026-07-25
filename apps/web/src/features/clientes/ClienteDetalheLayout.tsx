@@ -16,6 +16,7 @@ import { SectionTabs, type SectionTabItem } from '@/components/ui/section-tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useGoBack } from '@/hooks/use-go-back';
 import { translateClientStatus } from '@/lib/labels';
+import { formatPhone } from '@/lib/format';
 import { useClient, useArchiveClient } from './api/hooks';
 import { ClientFormDialog } from './ClientFormDialog';
 import type { ClientStatus } from './api/types';
@@ -149,9 +150,18 @@ export default function ClienteDetalheLayout() {
                 {translateClientStatus(client.status)}
               </Badge>
             </div>
-            {client.tradeName && (
-              <p className="text-sm text-muted-foreground">{client.tradeName}</p>
-            )}
+            {(() => {
+              const subtitle = [
+                client.tradeName,
+                client.email,
+                formatPhone(client.phone),
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return subtitle ? (
+                <p className="text-sm text-muted-foreground">{subtitle}</p>
+              ) : null;
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setEditOpen(true)}>
