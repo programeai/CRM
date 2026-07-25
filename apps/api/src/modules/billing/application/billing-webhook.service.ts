@@ -53,7 +53,11 @@ export class BillingWebhookService {
         break;
       }
       default:
-        this.logger.debug(`Evento ignorado: ${event.type}`);
+        this.logger.debug({
+          evento: 'billing.webhook_ignorado',
+          msg: 'Evento do Stripe sem tratamento nesta versão.',
+          tipoStripe: event.type,
+        });
     }
   }
 

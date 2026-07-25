@@ -24,8 +24,20 @@ export class FinanceBillingJob {
     const now = new Date();
     const generated = await this.generateMonthly(now);
     const overdue = await this.payments.markOverdue(now);
-    if (generated > 0) this.logger.log(`Mensalidades geradas: ${generated}`);
-    if (overdue > 0) this.logger.log(`Cobranças vencidas: ${overdue}`);
+    if (generated > 0) {
+      this.logger.log({
+        evento: 'financeiro.mensalidades_geradas',
+        msg: 'Mensalidades geradas pela rotina diária.',
+        quantidade: generated,
+      });
+    }
+    if (overdue > 0) {
+      this.logger.log({
+        evento: 'financeiro.cobrancas_vencidas',
+        msg: 'Cobranças marcadas como vencidas pela rotina diária.',
+        quantidade: overdue,
+      });
+    }
   }
 
   /** Gera as mensalidades cujo vencimento cai na janela (now, now+30d], se ainda não existirem. */

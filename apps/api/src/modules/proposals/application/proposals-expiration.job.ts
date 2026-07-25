@@ -16,6 +16,12 @@ export class ProposalsExpirationJob {
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async run(): Promise<void> {
     const count = await this.repo.expireOverdue(new Date());
-    if (count > 0) this.logger.log(`Propostas expiradas: ${count}`);
+    if (count > 0) {
+      this.logger.log({
+        evento: 'propostas.expiradas',
+        msg: 'Propostas expiradas pela rotina diária.',
+        quantidade: count,
+      });
+    }
   }
 }
