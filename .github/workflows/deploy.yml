@@ -1,0 +1,186 @@
+name: CI/CD - Build e Deploy na VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Evita dois deploys simultâneos sobrescrevendo o mesmo diretório na VPS.
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Portão de qualidade: build de verdade das duas apps antes de publicar imagem.
+  # ---------------------------------------------------------------------------
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm --filter api exec prisma generate
+
+      - name: Build da API
+        run: pnpm --filter api build
+
+      - name: Build do front
+        run: pnpm --filter web build
+
+      - name: Testes da API
+        run: pnpm --filter api test
+
+  # ---------------------------------------------------------------------------
+  # Build/push das duas imagens e deploy na VPS.
+  # ---------------------------------------------------------------------------
+  build-and-deploy:
+    needs: verificar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build e push da imagem da API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:${{ github.sha }}
+          cache-from: type=gha,scope=crm-api
+          cache-to: type=gha,mode=max,scope=crm-api
+
+      # As VITE_* são embutidas no bundle em build-time: entram como build-args.
+      - name: Build e push da imagem do front
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:${{ github.sha }}
+          cache-from: type=gha,scope=crm-web
+          cache-to: type=gha,mode=max,scope=crm-web
+          build-args: |
+            VITE_API_URL=/api/v1
+            VITE_TURNSTILE_SITE_KEY=${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+
+      - name: Criar diretório de deploy na VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: mkdir -p ~/programeai/prod/crm
+
+      - name: Copiar docker-compose para a VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "docker-compose.prod.yml"
+          target: "~/programeai/prod/crm"
+
+      - name: Deploy na VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          # Passa os segredos por env (nunca interpola direto no script).
+          envs: DOCKERHUB_USERNAME,CRM_DOMAIN,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,APP_DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,TURNSTILE_SECRET_KEY,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASSWORD,MAIL_FROM,BILLING_ENABLED,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_PRICE_ID
+          script: |
+            set -e
+            cd ~/programeai/prod/crm
+
+            # Gera o .env consumido pelo docker-compose.prod.yml
+            umask 077
+            cat > .env <<EOF
+            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+            CRM_DOMAIN=${CRM_DOMAIN}
+            POSTGRES_USER=${POSTGRES_USER}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            POSTGRES_DB=${POSTGRES_DB}
+            APP_DB_PASSWORD=${APP_DB_PASSWORD}
+            JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+            JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+            GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+            TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+            SMTP_HOST=${SMTP_HOST}
+            SMTP_PORT=${SMTP_PORT}
+            SMTP_SECURE=${SMTP_SECURE}
+            SMTP_USER=${SMTP_USER}
+            SMTP_PASSWORD=${SMTP_PASSWORD}
+            MAIL_FROM=${MAIL_FROM}
+            BILLING_ENABLED=${BILLING_ENABLED}
+            STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+            STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+            STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
+            EOF
+
+            # Puxa as imagens novas e reinicia os serviços
+            docker compose -f docker-compose.prod.yml pull api web
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Limpa imagens antigas sem uso
+            docker image prune -af
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          BILLING_ENABLED: ${{ secrets.BILLING_ENABLED }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
