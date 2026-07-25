@@ -2,8 +2,11 @@
 # Traefik já existente (rede externa "traefik-proxy", entrypoint "websecure",
 # certresolver "factis_resolver" — o único resolver ACME do /opt/traefik).
 #
-# As imagens vêm do Docker Hub e as variáveis do arquivo .env que o GitHub
-# Actions gera no diretório de deploy (ver .github/workflows/deploy.yml).
+# As imagens vêm do Docker Hub (publicadas pelo workflow de build) e as
+# variáveis do arquivo .env que o workflow de deploy gera no diretório de deploy
+# (ver .github/workflows/build.yml e .github/workflows/deploy.yml).
+# IMAGE_TAG é escolhida no disparo do deploy: `latest` ou o SHA de um commit
+# (rollback). O default local é `latest`.
 # Este arquivo NÃO faz build: para desenvolvimento use `pnpm dev` +
 # docker-compose.yml (só o Postgres local).
 #
@@ -14,7 +17,7 @@ name: crm
 services:
   # Front (bundle do Vite servido por nginx). Recebe tudo que não é /api.
   web:
-    image: ${DOCKERHUB_USERNAME}/crm-web:latest
+    image: ${DOCKERHUB_USERNAME}/crm-web:${IMAGE_TAG:-latest}
     container_name: crm-web
     restart: unless-stopped
     depends_on:
@@ -44,7 +47,7 @@ services:
   # não há CORS nem cookie cross-site. O router usa prioridade 10 contra a 1 do
   # front, garantindo que /api chegue aqui e todo o resto no nginx.
   api:
-    image: ${DOCKERHUB_USERNAME}/crm-api:latest
+    image: ${DOCKERHUB_USERNAME}/crm-api:${IMAGE_TAG:-latest}
     container_name: crm-api
     restart: unless-stopped
     depends_on:
