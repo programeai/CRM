@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Globe, MessageCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import { ColumnFilter } from '@/components/ui/column-filter';
@@ -22,11 +22,26 @@ import {
   translateClientStatus,
   translateLeadSource,
 } from '@/lib/labels';
-import { formatDocument, formatPhone, formatDate } from '@/lib/format';
+import { formatDocument, formatPhone, formatDate, onlyDigits } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useClients } from './api/hooks';
-import type { ClientStatus, LeadSource } from './api/types';
+import type { Client, ClientStatus, LeadSource } from './api/types';
 import { ClientFormDialog } from './ClientFormDialog';
+
+/** Normaliza a URL do site garantindo o protocolo antes de abrir em nova aba. */
+function toSiteUrl(website: string): string {
+  return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+}
+
+/**
+ * Monta o link do WhatsApp a partir do telefone. Prefixa o DDI 55 (Brasil)
+ * quando o número não inclui código de país (10–11 dígitos).
+ */
+function toWhatsAppUrl(phone: string): string {
+  const digits = onlyDigits(phone);
+  const withCountry = digits.length <= 11 ? `55${digits}` : digits;
+  return `https://wa.me/${withCountry}`;
+}
 
 const STATUS_BADGE: Record<
   ClientStatus,
@@ -99,6 +114,7 @@ export default function ClientesListPage() {
   const [source, setSource] = useState<LeadSource | 'ALL'>('ALL');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const debounced = useDebouncedValue(search, 300);
   const { data, isLoading } = useClients({
@@ -168,13 +184,14 @@ export default function ClientesListPage() {
                 />
               </TableHead>
               <TableHead>Criado em</TableHead>
+              <TableHead className="w-px text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 5 }).map((__, j) => (
+                  {Array.from({ length: 6 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-5 w-full" />
                     </TableCell>
@@ -203,10 +220,57 @@ export default function ClientesListPage() {
                   </TableCell>
                   <TableCell>{translateLeadSource(client.source) || '—'}</TableCell>
                   <TableCell>{formatDate(client.createdAt)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {client.website && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Abrir site"
+                          aria-label="Abrir site"
+                          onClick={() =>
+                            window.open(
+                              toSiteUrl(client.website!),
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
+                          }
+                        >
+                          <Globe />
+                        </Button>
+                      )}
+                      {client.phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Abrir WhatsApp"
+                          aria-label="Abrir WhatsApp"
+                          onClick={() =>
+                            window.open(
+                              toWhatsAppUrl(client.phone!),
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
+                          }
+                        >
+                          <MessageCircle />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="Editar cliente"
+                        aria-label="Editar cliente"
+                        onClick={() => setEditingClient(client)}
+                      >
+                        <Pencil />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableEmpty colSpan={5}>Nenhum cliente encontrado.</TableEmpty>
+              <TableEmpty colSpan={6}>Nenhum cliente encontrado.</TableEmpty>
             )}
           </TableBody>
         </Table>
@@ -222,6 +286,14 @@ export default function ClientesListPage() {
       />
 
       <ClientFormDialog open={formOpen} onOpenChange={setFormOpen} />
+
+      {editingClient && (
+        <ClientFormDialog
+          open
+          onOpenChange={(open) => !open && setEditingClient(null)}
+          client={editingClient}
+        />
+      )}
     </div>
   );
 }
