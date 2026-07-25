@@ -70,23 +70,44 @@ Opcionais (podem ficar em branco): OAuth (`GOOGLE_*`, `GITHUB_*`), captcha
 
 ## Pipeline
 
-`.github/workflows/deploy.yml`, disparado por push na `main` ou manualmente:
+São **dois workflows separados**: build automático, deploy no botão. Push na
+`main` publica imagem mas não muda nada em produção.
+
+### 1. Build — `.github/workflows/build.yml`
+
+Automático a cada push na `main` (ou manual). Dois jobs:
 
 1. **verificar** — `pnpm install --frozen-lockfile`, `prisma generate`, build da
    API, build do front e testes da API. Nada é publicado se isso falhar.
-2. **build-and-deploy** — build e push de `crm-api` e `crm-web` para o Docker Hub
-   (tags `latest` e `<sha>`, cache do GitHub Actions por imagem), escrita do
-   `.env` em `~/programeai/prod/crm` a partir dos secrets, `docker compose pull`
-   + `up -d` e `docker image prune -af`.
+2. **publicar** — build e push de `crm-api` e `crm-web` para o Docker Hub, com as
+   tags `latest` e `<sha do commit>` e cache do GitHub Actions por imagem.
+
+O resumo da execução mostra o SHA publicado — é o valor a colar no deploy.
+
+### 2. Deploy — `.github/workflows/deploy.yml`
+
+**Só manual:** Actions → *Deploy na VPS* → *Run workflow*. Recebe um input:
+
+| Input | Valor |
+| --- | --- |
+| `tag` | `latest` (default, última imagem da `main`) ou o SHA completo de um commit |
+
+O workflow confere se a tag existe no Docker Hub (falha rápido em SHA digitado
+errado ou build ainda em andamento), copia o compose, escreve o `.env` em
+`~/programeai/prod/crm` a partir dos secrets e roda `pull` + `up -d` +
+`docker image prune -af`.
+
+Quando a `tag` é um SHA, o checkout usa **aquele commit** — o compose vai junto
+com a imagem, senão um rollback subiria imagem antiga com compose novo.
 
 A VPS não compila nada — só puxa imagem pronta.
 
 ### Variáveis de build vs. runtime
 
 As `VITE_*` são embutidas no bundle **em build-time**. Trocar
-`VITE_TURNSTILE_SITE_KEY` exige **rodar o workflow de novo**; reiniciar o
-container não muda o bundle. Todo o resto (JWT, SMTP, OAuth, Stripe, banco) é
-runtime e basta um novo `up -d`.
+`VITE_TURNSTILE_SITE_KEY` exige **rodar o workflow de build de novo** (e depois o
+deploy); reiniciar o container não muda o bundle. Todo o resto (JWT, SMTP, OAuth,
+Stripe, banco) é runtime e basta um novo deploy.
 
 ## O que acontece a cada start da API
 
@@ -141,17 +162,22 @@ via `exec -T`. O volume `crm_pgdata` sobrevive a `down`/`up`; **não** rode
 
 ### Rollback
 
-As imagens são tagueadas com o SHA do commit. Para voltar uma versão, edite o
-`.env` da VPS ou rode com a tag anterior:
+Toda imagem é tagueada com o SHA do commit, então voltar uma versão é rodar o
+workflow **Deploy na VPS** com `tag` = SHA do commit bom. Nada de `docker tag` na
+mão: o `IMAGE_TAG` no `.env` da VPS passa a apontar para aquela imagem, e o
+compose usado é o daquele commit.
+
+Migrations **não** são revertidas automaticamente — se o deploy problemático
+aplicou migration, avalie o `down` manual antes de voltar a imagem.
+
+Se precisar mesmo agir direto na VPS (GitHub fora do ar, por exemplo):
 
 ```bash
-docker pull SEU_USUARIO/crm-api:<sha-anterior>
-docker tag SEU_USUARIO/crm-api:<sha-anterior> SEU_USUARIO/crm-api:latest
-docker compose -f docker-compose.prod.yml up -d api
+cd ~/programeai/prod/crm
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<sha-anterior>/' .env
+docker compose -f docker-compose.prod.yml pull api web
+docker compose -f docker-compose.prod.yml up -d
 ```
-
-Migrations não são revertidas automaticamente — se o deploy problemático aplicou
-migration, avalie o `down` manual antes de voltar a imagem.
 
 ## Desenvolvimento local
 
