@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ClsModule } from 'nestjs-cls';
+import type { Request } from 'express';
 import { PrismaModule } from './prisma/prisma.module';
 import { OwnerContextInterceptor } from './prisma/owner-context.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
@@ -20,6 +21,8 @@ import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { BillingGuard } from './modules/billing/billing.guard';
 import { envValidationSchema } from './config/env.validation';
+import { AllExceptionsFilter } from './shared/logging/all-exceptions.filter';
+import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middleware';
 
 @Module({
   imports: [
@@ -29,7 +32,19 @@ import { envValidationSchema } from './config/env.validation';
     }),
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 100 }] }),
     ScheduleModule.forRoot(),
-    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
+    // generateId + idGenerator: o id do contexto CLS é o mesmo `x-request-id`
+    // que o `contextoDaRequisicao` (middleware Express, roda antes) colocou na
+    // requisição e devolveu na resposta. É o que amarra as linhas de log de um
+    // acesso, do log de acesso até o último log de service.
+    ClsModule.forRoot({
+      global: true,
+      middleware: {
+        mount: true,
+        generateId: true,
+        idGenerator: (req: Request) =>
+          req.headers[CABECALHO_REQUEST_ID]?.toString() ?? '',
+      },
+    }),
     PrismaModule,
     AuthModule,
     ClientsModule,
@@ -44,6 +59,8 @@ import { envValidationSchema } from './config/env.validation';
     HealthModule,
   ],
   providers: [
+    // Registra e responde qualquer exceção que chegue à borda HTTP (ver o filtro).
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Após o JwtAuthGuard: precisa de req.user para identificar o owner.
