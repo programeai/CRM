@@ -61,6 +61,23 @@ Regras:
 - Cada endpoint declara **para que serve** (Propósito), quem pode chamar (Auth) e o shape de entrada/saída e os erros esperados.
 - Idioma pt-BR.
 
+## Log estruturado (obrigatório)
+
+Os containers do CRM são coletados pela stack de observabilidade da VPS (Alloy → Loki → Grafana), que espera **uma linha JSON por evento** no stdout. Regras:
+
+- **Nunca use `console.log`.** Em services/controllers use o `Logger` do Nest (`new Logger(Classe.name)`), que já escreve JSON via `JsonLogger`; em código transversal sem DI, use `registrarLog` de `shared/logging/log.ts`.
+- **Todo log passa um objeto com `evento`** — nome curto, estável e em pt-BR, no formato `substantivo.acao_no_passado` (`contrato.ativado`, `email.envio_falhou`). Renomear um evento existente quebra a contagem histórica no Grafana.
+- `msg` é o texto humano; qualquer outro campo é contexto filtrável (`contratoId`, `quantidade`, `ms`). Nada de interpolar contexto dentro da string.
+- **Nunca logue segredo** — senha, hash, token, cookie, `authorization`. Chaves com esses nomes são redigidas automaticamente, mas o texto de `msg` não é: o Grafana é publicado na internet e a linha vive 30 dias.
+- `requestId` e `contexto` entram sozinhos — não os repasse à mão.
+
+```ts
+this.logger.log({ evento: 'contrato.ativado', msg: 'Contrato ativado.', contratoId: id });   // correto
+this.logger.log(`Contrato ${id} ativado`);                                                   // errado
+```
+
+Detalhes, eventos existentes e consultas prontas em [`docs/observabilidade.md`](../../docs/observabilidade.md).
+
 ## Autenticação
 
 - JWT de acesso via header `Authorization: Bearer` (validado por `JwtAuthGuard`, global). Refresh token em cookie `httpOnly` no path `/api/v1/auth`, com hash (argon2) persistido para permitir revogação/logout real.
