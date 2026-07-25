@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { passwordResetEmail } from './templates/password-reset.template';
 
 /**
  * Envio de e-mail via SMTP (Nodemailer). Segue o mesmo padrão de "serviço
@@ -63,26 +64,20 @@ export class MailService {
       return;
     }
 
+    const { subject, text, html } = passwordResetEmail({
+      resetUrl,
+      appUrl:
+        this.config.get<string>('FRONTEND_URL') ||
+        'https://crm.programeai.com.br',
+    });
+
     try {
       await this.getTransporter().sendMail({
         from: this.from,
         to,
-        subject: 'Redefinição de senha no CRM ProgrameAi',
-        text: [
-          'Recebemos um pedido para redefinir a sua senha.',
-          '',
-          `Abra o link abaixo para cadastrar uma nova senha (válido por 1 hora):`,
-          resetUrl,
-          '',
-          'Se você não fez essa solicitação, ignore este e-mail.',
-        ].join('\n'),
-        html: [
-          '<p>Recebemos um pedido para redefinir a sua senha.</p>',
-          '<p>Clique no botão abaixo para cadastrar uma nova senha (válido por 1 hora):</p>',
-          `<p><a href="${resetUrl}">Redefinir senha</a></p>`,
-          `<p>Ou copie e cole este endereço no navegador:<br>${resetUrl}</p>`,
-          '<p>Se você não fez essa solicitação, ignore este e-mail.</p>',
-        ].join(''),
+        subject,
+        text,
+        html,
       });
     } catch (err) {
       this.logger.error(
