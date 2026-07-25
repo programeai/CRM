@@ -22,12 +22,20 @@ import {
   translateContractStatus,
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
+import { enumFilter, numberFilter, useUrlFilters } from '@/hooks/use-url-filters';
 import { useContracts } from './api/hooks';
 import { CONTRACT_STATUS_BADGE } from './lib/finance-format';
 import { ContratoFormDialog } from './ContratoFormDialog';
 import type { BillingType, ContractStatus } from './api/types';
 
 const LIMIT = 20;
+
+/** Filtros da listagem persistidos na URL (sobrevivem à ida/volta de uma tela de detalhe). */
+const CONTRATOS_FILTERS = {
+  status: enumFilter(Object.keys(CONTRACT_STATUS_LABELS) as ContractStatus[], 'ALL' as const),
+  billingType: enumFilter(Object.keys(BILLING_TYPE_LABELS) as BillingType[], 'ALL' as const),
+  page: numberFilter(1),
+};
 
 /** Cabeçalho de coluna com filtro de opção única (mesmo padrão de `PropostasListPage`). */
 function ColumnRadioFilter<T extends string>({
@@ -79,9 +87,8 @@ function ColumnRadioFilter<T extends string>({
 }
 
 export default function ContratosListPage() {
-  const [status, setStatus] = useState<ContractStatus | 'ALL'>('ALL');
-  const [billingType, setBillingType] = useState<BillingType | 'ALL'>('ALL');
-  const [page, setPage] = useState(1);
+  const { values, set } = useUrlFilters(CONTRATOS_FILTERS);
+  const { status, billingType, page } = values;
   const [formOpen, setFormOpen] = useState(false);
 
   const { data, isLoading, isError } = useContracts({
@@ -92,8 +99,6 @@ export default function ContratosListPage() {
   });
 
   const total = data?.meta.total ?? 0;
-
-  const resetToFirstPage = () => setPage(1);
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,10 +121,7 @@ export default function ContratosListPage() {
                   label="Regime"
                   name="billing-type-filter"
                   value={billingType}
-                  onValueChange={(v) => {
-                    setBillingType(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ billingType: v, page: 1 })}
                   options={Object.keys(BILLING_TYPE_LABELS) as BillingType[]}
                   translate={translateBillingType}
                 />
@@ -129,10 +131,7 @@ export default function ContratosListPage() {
                   label="Status"
                   name="status-filter"
                   value={status}
-                  onValueChange={(v) => {
-                    setStatus(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ status: v, page: 1 })}
                   options={Object.keys(CONTRACT_STATUS_LABELS) as ContractStatus[]}
                   translate={translateContractStatus}
                 />
@@ -186,7 +185,7 @@ export default function ContratosListPage() {
         page={page}
         pageSize={LIMIT}
         total={total}
-        onPageChange={setPage}
+        onPageChange={(p) => set({ page: p })}
         labelSingular="contrato"
         labelPlural="contratos"
       />

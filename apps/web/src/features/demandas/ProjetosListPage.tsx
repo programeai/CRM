@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
@@ -23,12 +23,25 @@ import {
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import {
+  enumFilter,
+  numberFilter,
+  stringFilter,
+  useUrlFilters,
+} from '@/hooks/use-url-filters';
 import { useProjects } from './api/hooks';
 import { PROJECT_STATUS_BADGE } from './lib/project-format';
 import { ProjectFormDialog } from './ProjectFormDialog';
 import type { ProjectStatus } from './api/types';
 
 const LIMIT = 20;
+
+/** Filtros da listagem persistidos na URL (sobrevivem à ida/volta de uma tela de detalhe). */
+const PROJETOS_FILTERS = {
+  search: stringFilter(),
+  status: enumFilter(Object.keys(PROJECT_STATUS_LABELS) as ProjectStatus[], 'ALL' as const),
+  page: numberFilter(1),
+};
 
 /** Cabeçalho de coluna com filtro de opção única (mesmo padrão de `PropostasListPage`). */
 function ColumnRadioFilter<T extends string>({
@@ -80,22 +93,24 @@ function ColumnRadioFilter<T extends string>({
 }
 
 export default function ProjetosListPage() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ProjectStatus | 'ALL'>('ALL');
-  const [page, setPage] = useState(1);
+  const { values, set } = useUrlFilters(PROJETOS_FILTERS);
+  const { status, page } = values;
   const [formOpen, setFormOpen] = useState(false);
 
+  const [search, setSearch] = useState(values.search);
   const debounced = useDebouncedValue(search, 300);
+  useEffect(() => {
+    if (debounced !== values.search) set({ search: debounced, page: 1 });
+  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { data, isLoading } = useProjects({
     page,
     limit: LIMIT,
-    search: debounced || undefined,
+    search: values.search || undefined,
     status: status === 'ALL' ? undefined : status,
   });
 
   const total = data?.meta.total ?? 0;
-
-  const resetToFirstPage = () => setPage(1);
 
   return (
     <div className="flex flex-col gap-4">
@@ -112,10 +127,7 @@ export default function ProjetosListPage() {
           className="max-w-xs"
           placeholder="Buscar por nome…"
           value={search}
-          onValueChange={(value) => {
-            setSearch(value);
-            resetToFirstPage();
-          }}
+          onValueChange={setSearch}
         />
       </div>
 
@@ -131,10 +143,7 @@ export default function ProjetosListPage() {
                   label="Status"
                   name="status-filter"
                   value={status}
-                  onValueChange={(v) => {
-                    setStatus(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ status: v, page: 1 })}
                   options={Object.keys(PROJECT_STATUS_LABELS) as ProjectStatus[]}
                   translate={translateProjectStatus}
                 />
@@ -186,7 +195,7 @@ export default function ProjetosListPage() {
         page={page}
         pageSize={LIMIT}
         total={total}
-        onPageChange={setPage}
+        onPageChange={(p) => set({ page: p })}
         labelSingular="projeto"
         labelPlural="projetos"
       />

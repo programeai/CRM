@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Globe, MessageCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
@@ -24,6 +24,12 @@ import {
 } from '@/lib/labels';
 import { formatDocument, formatPhone, formatDate, onlyDigits } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import {
+  enumFilter,
+  numberFilter,
+  stringFilter,
+  useUrlFilters,
+} from '@/hooks/use-url-filters';
 import { useClients } from './api/hooks';
 import type { Client, ClientStatus, LeadSource } from './api/types';
 import { ClientFormDialog } from './ClientFormDialog';
@@ -54,6 +60,14 @@ const STATUS_BADGE: Record<
 };
 
 const LIMIT = 20;
+
+/** Filtros da listagem persistidos na URL (sobrevivem à ida/volta de uma tela de detalhe). */
+const CLIENTES_FILTERS = {
+  search: stringFilter(),
+  status: enumFilter(Object.keys(CLIENT_STATUS_LABELS) as ClientStatus[], 'ALL' as const),
+  source: enumFilter(Object.keys(LEAD_SOURCE_LABELS) as LeadSource[], 'ALL' as const),
+  page: numberFilter(1),
+};
 
 /**
  * Cabeçalho de coluna com filtro de opção única (padrão do design system): o
@@ -109,25 +123,28 @@ function ColumnRadioFilter<T extends string>({
 }
 
 export default function ClientesListPage() {
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<ClientStatus | 'ALL'>('ALL');
-  const [source, setSource] = useState<LeadSource | 'ALL'>('ALL');
-  const [page, setPage] = useState(1);
+  const { values, set } = useUrlFilters(CLIENTES_FILTERS);
+  const { status, source, page } = values;
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
+  // A busca mantém estado local para digitação responsiva; o valor com debounce
+  // é o que é escrito na URL (e alimenta a query), evitando reescrever a cada tecla.
+  const [search, setSearch] = useState(values.search);
   const debounced = useDebouncedValue(search, 300);
+  useEffect(() => {
+    if (debounced !== values.search) set({ search: debounced, page: 1 });
+  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { data, isLoading } = useClients({
     page,
     limit: LIMIT,
-    search: debounced || undefined,
+    search: values.search || undefined,
     status: status === 'ALL' ? undefined : status,
     source: source === 'ALL' ? undefined : source,
   });
 
   const total = data?.meta.total ?? 0;
-
-  const resetToFirstPage = () => setPage(1);
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,10 +161,7 @@ export default function ClientesListPage() {
           className="max-w-xs"
           placeholder="Buscar por nome ou documento…"
           value={search}
-          onValueChange={(value) => {
-            setSearch(value);
-            resetToFirstPage();
-          }}
+          onValueChange={setSearch}
         />
       </div>
 
@@ -162,10 +176,7 @@ export default function ClientesListPage() {
                   label="Status"
                   name="status-filter"
                   value={status}
-                  onValueChange={(v) => {
-                    setStatus(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ status: v, page: 1 })}
                   options={Object.keys(CLIENT_STATUS_LABELS) as ClientStatus[]}
                   translate={translateClientStatus}
                 />
@@ -175,10 +186,7 @@ export default function ClientesListPage() {
                   label="Origem"
                   name="source-filter"
                   value={source}
-                  onValueChange={(v) => {
-                    setSource(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ source: v, page: 1 })}
                   options={Object.keys(LEAD_SOURCE_LABELS) as LeadSource[]}
                   translate={translateLeadSource}
                 />
@@ -280,7 +288,7 @@ export default function ClientesListPage() {
         page={page}
         pageSize={LIMIT}
         total={total}
-        onPageChange={setPage}
+        onPageChange={(p) => set({ page: p })}
         labelSingular="cliente"
         labelPlural="clientes"
       />
