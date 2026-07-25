@@ -75,14 +75,38 @@ São **dois workflows separados**: build automático, deploy no botão. Push na
 
 ### 1. Build — `.github/workflows/build.yml`
 
-Automático a cada push na `main` (ou manual). Dois jobs:
+Automático a cada push na `main` (ou manual). Job único, para não pagar setup
+duas vezes — minutos de Actions são cobrados **por job, arredondados para cima**.
 
-1. **verificar** — `pnpm install --frozen-lockfile`, `prisma generate`, build da
-   API, build do front e testes da API. Nada é publicado se isso falhar.
-2. **publicar** — build e push de `crm-api` e `crm-web` para o Docker Hub, com as
-   tags `latest` e `<sha do commit>` e cache do GitHub Actions por imagem.
+Ordem dos steps: detectar apps afetados → testes da API (portão) → build e push
+de `crm-api` / `crm-web` no Docker Hub, com as tags `latest` e `<sha do commit>` e
+cache do Actions por imagem.
 
-O resumo da execução mostra o SHA publicado — é o valor a colar no deploy.
+O portão de qualidade é só `pnpm --filter api test`. Compilar API e front aqui
+seria trabalho duplicado: os Dockerfiles já rodam `nest build` e
+`tsc -b && vite build`, e build que falha não publica imagem nenhuma.
+
+**O build é seletivo — nem todo push reconstrói tudo:**
+
+| Commit toca | Resultado |
+| --- | --- |
+| só `*.md`, `docs/`, `specs/`, `.claude/`, `.agents/`, `.github/`, `.env.example`, compose | **nenhum runner é alocado** (`paths-ignore`) — zero minutos |
+| só `apps/web/**` | reconstrói apenas `crm-web` |
+| só `apps/api/**` | reconstrói apenas `crm-api` (só aqui os testes rodam) |
+| raiz compartilhada (`pnpm-lock.yaml`, `package.json`, `.dockerignore`) ou caminho desconhecido | reconstrói as duas |
+| force-push / branch nova / `workflow_dispatch` | reconstrói as duas |
+
+A imagem **não** reconstruída ainda recebe a tag do sha novo, apontando para o
+mesmo manifest do `latest` (`docker buildx imagetools create` — cópia de ponteiro
+no registry, segundos, sem rebuild). Isso preserva a garantia que o rollback
+usa: **todo sha que passou pelo build tem as duas imagens**.
+
+Consequência a ter em mente: sha de commit que o `paths-ignore` barrou (um commit
+só de docs, por exemplo) **não** tem imagem. Rollback nesse sha falha no step de
+conferência do deploy, com erro explícito — use o sha do último commit de código.
+
+O resumo da execução mostra o SHA publicado e o que foi reconstruído ou
+reaproveitado — é o valor a colar no deploy.
 
 ### 2. Deploy — `.github/workflows/deploy.yml`
 
