@@ -52,9 +52,14 @@ export class MailService {
    */
   async sendPasswordReset(to: string, resetUrl: string): Promise<void> {
     if (!this.isEnabled()) {
-      this.logger.warn(
-        `SMTP desabilitado — link de redefinição para ${to}: ${resetUrl}`,
-      );
+      this.logger.warn({
+        evento: 'email.smtp_desabilitado',
+        msg: 'SMTP desabilitado — e-mail de redefinição não enviado.',
+        destinatario: to,
+        // O link carrega o token de redefinição: fora de desenvolvimento ele não
+        // entra no log (o Grafana é publicado e a linha vive 30 dias).
+        ...(process.env.NODE_ENV === 'production' ? {} : { resetUrl }),
+      });
       return;
     }
 
@@ -81,7 +86,11 @@ export class MailService {
       });
     } catch (err) {
       this.logger.error(
-        `Falha ao enviar e-mail de redefinição para ${to}`,
+        {
+          evento: 'email.envio_falhou',
+          msg: 'Falha ao enviar e-mail de redefinição de senha.',
+          destinatario: to,
+        },
         err instanceof Error ? err.stack : undefined,
       );
     }

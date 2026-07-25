@@ -19,9 +19,10 @@ export class StripeService {
     this.enabled = billingEnabled && key.length > 0;
     this.stripe = this.enabled ? new Stripe(key) : null;
     if (billingEnabled && !this.enabled) {
-      this.logger.warn(
-        'BILLING_ENABLED=true mas STRIPE_SECRET_KEY ausente — billing inativo.',
-      );
+      this.logger.warn({
+        evento: 'billing.configuracao_incompleta',
+        msg: 'BILLING_ENABLED=true mas STRIPE_SECRET_KEY ausente — billing inativo.',
+      });
     }
   }
 
