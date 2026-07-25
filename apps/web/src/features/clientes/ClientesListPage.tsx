@@ -22,7 +22,7 @@ import {
   translateClientStatus,
   translateLeadSource,
 } from '@/lib/labels';
-import { formatDocument, formatDate } from '@/lib/format';
+import { formatDocument, formatPhone, formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useClients } from './api/hooks';
 import type { ClientStatus, LeadSource } from './api/types';
@@ -140,7 +140,7 @@ export default function ClientesListPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Documento</TableHead>
+              <TableHead>Telefone</TableHead>
               <TableHead>
                 <ColumnRadioFilter
                   label="Status"
@@ -188,8 +188,14 @@ export default function ClientesListPage() {
                     <TableLink to={`/clientes/${client.id}`}>
                       {client.name}
                     </TableLink>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {client.email || '—'}
+                      {formatDocument(client.document) ? (
+                        <> · {formatDocument(client.document)}</>
+                      ) : null}
+                    </div>
                   </TableCell>
-                  <TableCell>{formatDocument(client.document) || '—'}</TableCell>
+                  <TableCell>{formatPhone(client.phone) || '—'}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_BADGE[client.status]}>
                       {translateClientStatus(client.status)}
