@@ -94,7 +94,17 @@ seria trabalho duplicado: os Dockerfiles já rodam `nest build` e
 | só `apps/web/**` | reconstrói apenas `crm-web` |
 | só `apps/api/**` | reconstrói apenas `crm-api` (só aqui os testes rodam) |
 | raiz compartilhada (`pnpm-lock.yaml`, `package.json`, `.dockerignore`) ou caminho desconhecido | reconstrói as duas |
-| force-push / branch nova / `workflow_dispatch` | reconstrói as duas |
+| force-push / branch nova | reconstrói as duas (sem base para comparar) |
+
+No dispatch manual não existe commit base para diff, então quem roda escolhe no
+input `reconstruir`: `ambas` (default), `api` ou `web`. Serve para o caso do
+"Variáveis de build vs. runtime" abaixo — trocar uma `VITE_*` exige rebuild só do
+front, e `reconstruir: web` faz isso pagando metade dos minutos.
+
+> **Primeira execução:** com o registry vazio, rode uma vez em `ambas` (dispatch
+> manual) para semear `crm-api:latest` e `crm-web:latest`. O build seletivo
+> depende do `latest` existir para tagear a imagem que ele não reconstrói; até lá
+> esse step só emite `::warning::` e o sha fica sem uma das imagens.
 
 A imagem **não** reconstruída ainda recebe a tag do sha novo, apontando para o
 mesmo manifest do `latest` (`docker buildx imagetools create` — cópia de ponteiro

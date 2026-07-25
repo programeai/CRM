@@ -34,10 +34,11 @@ on:
       - NOTICE
   workflow_dispatch:
     inputs:
-      forcar:
-        description: "Reconstruir as duas imagens, ignorando a detecção de mudanças"
-        type: boolean
-        default: true
+      reconstruir:
+        description: "Quais imagens reconstruir (dispatch manual não tem diff para detectar)"
+        type: choice
+        default: ambas
+        options: [ambas, api, web]
 
 # Um build por ref; se vier push novo no meio, o anterior é descartado.
 concurrency:
@@ -70,26 +71,32 @@ jobs:
         env:
           BASE: ${{ github.event.before }}
           SHA: ${{ github.sha }}
-          FORCAR: ${{ inputs.forcar }}
+          RECONSTRUIR: ${{ inputs.reconstruir }}
         run: |
           api=false
           web=false
           motivo=""
 
-          tudo=false
-          if [ "${{ github.event_name }}" != "push" ] || [ "$FORCAR" = "true" ]; then
-            tudo=true
-            motivo="disparo manual"
+          decidido=false
+          if [ "${{ github.event_name }}" != "push" ]; then
+            # Dispatch manual não tem commit base para comparar: quem roda escolhe.
+            # Útil para rebuildar só o front quando uma VITE_* muda (elas são
+            # embutidas no bundle em build-time) sem pagar o build da API.
+            decidido=true
+            case "$RECONSTRUIR" in
+              api) api=true;             motivo="disparo manual (só a API)" ;;
+              web) web=true;             motivo="disparo manual (só o front)" ;;
+              *)   api=true; web=true;   motivo="disparo manual (ambas)" ;;
+            esac
           elif [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             # Branch nova ou force-push: o commit base não existe mais no grafo.
-            tudo=true
+            decidido=true
+            api=true
+            web=true
             motivo="commit base indisponível (force-push?)"
           fi
 
-          if [ "$tudo" = true ]; then
-            api=true
-            web=true
-          else
+          if [ "$decidido" = false ]; then
             arquivos="$(git diff --name-only "$BASE" "$SHA")"
             echo "Arquivos no push:"
             echo "$arquivos" | sed 's/^/  /'
