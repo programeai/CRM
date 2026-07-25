@@ -4,6 +4,11 @@ Referência de todas as rotas HTTP, consumível por IA. **Fonte de verdade viva:
 
 Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos.
 
+**Vale para todas as rotas:** a resposta traz o cabeçalho `x-request-id` (o valor
+recebido na requisição, se houver, senão um UUID novo). É a chave para puxar a
+requisição inteira no Grafana — ver [`docs/observabilidade.md`](../../docs/observabilidade.md).
+Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do servidor.' }`.
+
 ---
 
 ## Health

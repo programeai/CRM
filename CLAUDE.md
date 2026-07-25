@@ -29,6 +29,10 @@ Nenhum identificador técnico (enum, status, tipo de serviço) aparece cru na in
 - **Frontend:** React + Vite, organizado por camadas pragmáticas (`app` / `features` / `components` / `lib`). Detalhes em `apps/web/CLAUDE.md`.
 - **Persistência:** PostgreSQL via **Prisma** (`apps/api/prisma/schema.prisma` é a fonte de verdade do modelo de dados).
 
+## Observabilidade
+
+Os logs vão para a stack central da VPS (Alloy → Loki → Grafana), que exige **uma linha JSON por evento** no stdout. Todo log de código novo nasce estruturado, com `evento` estável em pt-BR e sem segredo nenhum — regras em `apps/api/CLAUDE.md` → "Log estruturado" e em `docs/observabilidade.md`. `console.log` é proibido.
+
 ## Ferramentas do monorepo
 
 - Gerenciador: **pnpm workspaces** (`pnpm-workspace.yaml` → `apps/*`).

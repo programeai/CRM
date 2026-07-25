@@ -131,6 +131,11 @@ primeira conta é criada em `https://crm.programeai.com.br/registro`.
 
 ## Operação
 
+Log do dia a dia é no **Grafana** (`https://grafana.programeai.com.br`), não por
+SSH: `{stack="crm"}` traz o projeto inteiro e `{stack="crm", level="error"}` só os
+erros. Ver [observabilidade.md](observabilidade.md) — inclui como usar o
+`x-request-id` para puxar uma requisição inteira.
+
 ```bash
 cd ~/programeai/prod/crm
 
