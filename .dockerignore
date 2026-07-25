@@ -1,0 +1,45 @@
+# Contexto de build das imagens (apps/api/Dockerfile e apps/web/Dockerfile).
+# O que é reinstalado/regerado dentro da imagem não deve subir no contexto.
+
+# Dependências e artefatos de build
+node_modules
+apps/*/node_modules
+dist
+apps/*/dist
+build
+.pnpm-store
+
+# Git / CI
+.git
+.github
+.gitignore
+
+# Ambiente e segredos — nunca vão para a imagem (injetados via compose/env).
+# Padrões recursivos: `apps/api/.env` e `apps/web/.env` existem localmente e um
+# `.env` solto só casaria com a raiz do contexto.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Ferramentas de dev, docs e testes
+.claude
+.agents
+docs
+specs
+apps/api/test
+README.md
+CONTRIBUTING.md
+CLAUDE.md
+apps/*/CLAUDE.md
+SPEC.md
+ROADMAP.md
+APRESENTACAO-PRODUTO.md
+apps/api/ENDPOINTS.md
+apps/web/DESIGN-PATTERNS.md
+
+# Artefatos locais
+*.tsbuildinfo
+*.log
+.DS_Store
+docker-compose.yml
+docker-compose.prod.yml
