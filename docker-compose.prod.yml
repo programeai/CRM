@@ -11,8 +11,19 @@
 # docker-compose.yml (só o Postgres local).
 #
 # Nome do projeto Compose: isola redes/volumes numa VPS compartilhada (em vez de
-# depender do nome da pasta de deploy).
+# depender do nome da pasta de deploy). É também o label `stack` no Grafana —
+# `{stack="crm"}` é a consulta que traz este projeto inteiro (ver
+# docs/observabilidade.md).
 name: crm
+
+# Rotação do log local de todo container deste projeto. O coletor da stack de
+# observabilidade (Alloy) já empurra as linhas para o Loki; o arquivo no host é
+# só a última milha — e sem limite o json-file cresce até encher o disco da VPS.
+x-log-rotacionado: &log-rotacionado
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
 
 services:
   # Front (bundle do Vite servido por nginx). Recebe tudo que não é /api.
@@ -22,6 +33,7 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    logging: *log-rotacionado
     networks:
       - traefik
     healthcheck:
@@ -89,6 +101,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+    logging: *log-rotacionado
     networks:
       - traefik
       - interna
@@ -123,6 +136,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - crm_pgdata:/var/lib/postgresql/data
+    logging: *log-rotacionado
     networks:
       - interna
     healthcheck:
