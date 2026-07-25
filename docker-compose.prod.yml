@@ -1,29 +1,142 @@
+# Deploy de produção na VPS compartilhada. Roteamento e TLS ficam a cargo do
+# Traefik já existente (rede externa "traefik-proxy", entrypoint "websecure",
+# certresolver "factis_resolver" — o único resolver ACME do /opt/traefik).
+#
+# As imagens vêm do Docker Hub e as variáveis do arquivo .env que o GitHub
+# Actions gera no diretório de deploy (ver .github/workflows/deploy.yml).
+# Este arquivo NÃO faz build: para desenvolvimento use `pnpm dev` +
+# docker-compose.yml (só o Postgres local).
+#
+# Nome do projeto Compose: isola redes/volumes numa VPS compartilhada (em vez de
+# depender do nome da pasta de deploy).
+name: crm
+
 services:
+  # Front (bundle do Vite servido por nginx). Recebe tudo que não é /api.
+  web:
+    image: ${DOCKERHUB_USERNAME}/crm-web:latest
+    container_name: crm-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.crm-web.rule=Host(`${CRM_DOMAIN}`)
+      - traefik.http.routers.crm-web.entrypoints=websecure
+      - traefik.http.routers.crm-web.tls=true
+      - traefik.http.routers.crm-web.tls.certresolver=factis_resolver
+      # Prioridade explícita nos DOIS routers: sem ela o Traefik usa o tamanho
+      # da regra como prioridade, e um número fixo só na API poderia ficar
+      # abaixo do default do front — que então engoliria /api.
+      - traefik.http.routers.crm-web.priority=1
+      - traefik.http.services.crm-web.loadbalancer.server.port=80
+
+  # API (NestJS). Mesmo host do front, sob o prefixo /api — mesma origem, então
+  # não há CORS nem cookie cross-site. O router usa prioridade 10 contra a 1 do
+  # front, garantindo que /api chegue aqui e todo o resto no nginx.
+  api:
+    image: ${DOCKERHUB_USERNAME}/crm-api:latest
+    container_name: crm-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Único ponto de verdade das credenciais: as URLs são montadas a partir
+      # das variáveis do Postgres, apontando para o serviço interno "postgres".
+      # DATABASE_URL = crm_user (dono do schema; roda migrations, bypassa RLS).
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      # APP_DATABASE_URL = crm_app (NOSUPERUSER/NOBYPASSRLS; conexão da app).
+      APP_DATABASE_URL: postgresql://crm_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      # Lida pelo entrypoint para alinhar a senha da role crm_app no banco
+      # (a migration a cria com senha de desenvolvimento).
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      # Front e API compartilham a origem: FRONTEND_URL (CORS + link de
+      # redefinição de senha) e API_URL (redirect_uri do OAuth) são o mesmo host.
+      FRONTEND_URL: https://${CRM_DOMAIN}
+      API_URL: https://${CRM_DOMAIN}
+      COOKIE_DOMAIN: ${CRM_DOMAIN}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      BILLING_ENABLED: ${BILLING_ENABLED:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID}
+    networks:
+      - traefik
+      - interna
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Cobre migrations + ALTER ROLE do entrypoint antes do primeiro check.
+      start_period: 60s
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-proxy
+      - traefik.http.routers.crm-api.rule=Host(`${CRM_DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.crm-api.entrypoints=websecure
+      - traefik.http.routers.crm-api.tls=true
+      - traefik.http.routers.crm-api.tls.certresolver=factis_resolver
+      - traefik.http.routers.crm-api.priority=10
+      - traefik.http.services.crm-api.loadbalancer.server.port=3000
+
   postgres:
     image: postgres:16-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    volumes: [postgres_data:/var/lib/postgresql/data]
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+    networks:
+      - interna
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-  api:
-    build: { context: ., dockerfile: apps/api/Dockerfile }
-    env_file: .env
-    depends_on:
-      postgres: { condition: service_healthy }
-    ports: ["3000:3000"]
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL}
-    depends_on: [api]
-    ports: ["8080:80"]
+      retries: 10
+
 volumes:
-  postgres_data:
+  crm_pgdata:
+
+networks:
+  # Rede compartilhada com o Traefik (criada fora deste compose). Na VPS ela se
+  # chama "traefik-proxy"; mantemos o alias local "traefik" apontando pra ela.
+  traefik:
+    external: true
+    name: traefik-proxy
+  # Rede privada api <-> postgres (não exposta ao Traefik nem ao host).
+  interna:
+    driver: bridge
