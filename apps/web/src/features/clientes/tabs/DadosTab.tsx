@@ -7,13 +7,43 @@ import {
 import { formatDocument, formatPhone } from '@/lib/format';
 import type { Client } from '../api/types';
 
-function Row({ label, value }: { label: string; value?: string | null }) {
+function Row({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value?: string | null;
+  href?: string | null;
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{value || '—'}</dd>
+      <dd className="text-sm">
+        {value ? (
+          href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {value}
+            </a>
+          ) : (
+            value
+          )
+        ) : (
+          '—'
+        )}
+      </dd>
     </div>
   );
+}
+
+function toWebsiteUrl(website?: string | null): string | null {
+  if (!website) return null;
+  return /^https?:\/\//i.test(website) ? website : `https://${website}`;
 }
 
 function Section({
@@ -59,7 +89,11 @@ export default function DadosTab() {
       <Section title="Contato">
         <Row label="E-mail" value={client.email} />
         <Row label="Telefone" value={formatPhone(client.phone)} />
-        <Row label="Website" value={client.website} />
+        <Row
+          label="Website"
+          value={client.website}
+          href={toWebsiteUrl(client.website)}
+        />
       </Section>
 
       <Section title="Endereço">
