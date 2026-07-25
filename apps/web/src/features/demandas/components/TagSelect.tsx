@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { Check, ChevronDown, Plus, Tag, Trash2, X } from 'lucide-react';
 import {
   AlertDialog,
@@ -11,7 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PopoverContent } from '@/components/ui/popover';
 import { SearchInput } from '@/components/ui/search-input';
 import { Spinner } from '@/components/ui/spinner';
 import { TagBadge } from '@/components/ui/tag-badge';
@@ -23,6 +24,17 @@ import { useDeleteTag, useTaskTags, useTaskTagUsage } from '../api/hooks';
 interface Props {
   value: string[];
   onChange: (next: string[]) => void;
+  /**
+   * Pede a exclusão global de uma tag. A confirmação NÃO pode ser renderizada
+   * aqui: este componente vive dentro do `DialogContent` do modal de demanda,
+   * que é desmontado quando soterrado por outro modal. O pai renderiza o
+   * `TagDeleteDialog` como irmão do `Dialog` (ver `TaskFormDialog`).
+   */
+  onRequestDeleteTag: (tag: string) => void;
+  /** Ao remontar (modal voltando ao topo), foca o gatilho do seletor. */
+  autoFocus?: boolean;
+  /** Avisa o pai que o foco automático já foi aplicado (para ele resetar o flag). */
+  onAutoFocused?: () => void;
 }
 
 interface Option {
@@ -37,16 +49,40 @@ interface Option {
  * Seletor de tags com busca e criação inline. As tags existentes vêm da
  * agregação das demandas do dono (`useTaskTags`); digitar uma que não existe e
  * confirmar com Enter a cadastra na hora (fica salva quando a demanda é salva).
- * Cada tag existente pode ser excluída globalmente pela lixeira, com um modal de
- * confirmação que mostra em quais demandas ela está em uso.
+ * A lixeira em cada tag existente dispara `onRequestDeleteTag` — a confirmação
+ * é responsabilidade do pai.
  */
-export function TagSelect({ value, onChange }: Props) {
+export function TagSelect({
+  value,
+  onChange,
+  onRequestDeleteTag,
+  autoFocus,
+  onAutoFocused,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const { data: tags } = useTaskTags();
-  const deleteTag = useDeleteTag();
+
+  // Ao remontar com `autoFocus` (modal reaberto após a confirmação), devolve o
+  // foco ao gatilho. Duplo rAF: garante rodar depois que o próprio Dialog
+  // reassenta o foco inicial ao voltar ao topo da pilha.
+  useEffect(() => {
+    if (!autoFocus) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        triggerRef.current?.focus();
+        onAutoFocused?.();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const options = useMemo<Option[]>(() => {
     const map = new Map<string, Option>();
@@ -89,25 +125,7 @@ export function TagSelect({ value, onChange }: Props) {
 
   const openDelete = (tag: string) => {
     setOpen(false);
-    setPendingDelete(tag);
-  };
-
-  const confirmDelete = () => {
-    const tag = pendingDelete;
-    if (!tag) return;
-    deleteTag.mutate(tag, {
-      onSuccess: ({ removed }) => {
-        if (value.includes(tag)) remove(tag);
-        setPendingDelete(null);
-        toast.success(
-          removed > 0
-            ? `Tag "${tag}" excluída de ${removed} ${removed === 1 ? 'demanda' : 'demandas'}.`
-            : `Tag "${tag}" excluída.`,
-        );
-      },
-      onError: (error) =>
-        toast.error(extractApiMessage(error, 'Falha ao excluir a tag.')),
-    });
+    onRequestDeleteTag(tag);
   };
 
   return (
@@ -134,23 +152,24 @@ export function TagSelect({ value, onChange }: Props) {
         </div>
       )}
 
-      <Popover
+      <PopoverPrimitive.Root
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
           if (!next) setSearch('');
         }}
       >
-        <PopoverTrigger
+        <PopoverPrimitive.Trigger
+          ref={triggerRef}
           className={cn(
-            'flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2.5 text-sm text-muted-foreground transition-colors outline-none select-none',
+            'flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2.5 text-sm text-muted-foreground transition-colors outline-none select-none dark:bg-input/30',
             'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
           )}
         >
           <Tag className="size-4 shrink-0" />
           <span className="flex-1 text-left">Buscar ou criar tag…</span>
           <ChevronDown className="size-4 shrink-0" />
-        </PopoverTrigger>
+        </PopoverPrimitive.Trigger>
         <PopoverContent align="start" className="w-(--anchor-width) min-w-64 p-0">
           <div className="p-2">
             <SearchInput
@@ -235,31 +254,45 @@ export function TagSelect({ value, onChange }: Props) {
             )}
           </div>
         </PopoverContent>
-      </Popover>
-
-      <DeleteTagDialog
-        tag={pendingDelete}
-        onOpenChange={(o) => !o && setPendingDelete(null)}
-        onConfirm={confirmDelete}
-        pending={deleteTag.isPending}
-      />
+      </PopoverPrimitive.Root>
     </div>
   );
 }
 
-interface DeleteTagDialogProps {
+interface TagDeleteDialogProps {
+  /** Tag a excluir; `null` mantém o diálogo fechado. */
   tag: string | null;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-  pending: boolean;
+  /** Chamado após a exclusão bem-sucedida (para o pai tirar a tag da seleção). */
+  onDeleted: (tag: string) => void;
 }
 
 /**
- * Confirmação de exclusão global de uma tag. Carrega sob demanda em quais
- * demandas a tag está em uso e as lista, para o usuário decidir com contexto.
+ * Confirmação de exclusão global de uma tag. Deve ser renderizado como IRMÃO do
+ * modal que contém o `TagSelect` (não dentro dele) — assim sobrevive ao
+ * soterramento e o modal de baixo reabre intacto ao fechar. Carrega sob demanda
+ * em quais demandas a tag está em uso e as lista.
  */
-function DeleteTagDialog({ tag, onOpenChange, onConfirm, pending }: DeleteTagDialogProps) {
+export function TagDeleteDialog({ tag, onOpenChange, onDeleted }: TagDeleteDialogProps) {
   const { data: usage, isLoading } = useTaskTagUsage(tag);
+  const deleteTag = useDeleteTag();
+
+  const confirm = () => {
+    if (!tag) return;
+    deleteTag.mutate(tag, {
+      onSuccess: ({ removed }) => {
+        onDeleted(tag);
+        onOpenChange(false);
+        toast.success(
+          removed > 0
+            ? `Tag "${tag}" excluída de ${removed} ${removed === 1 ? 'demanda' : 'demandas'}.`
+            : `Tag "${tag}" excluída.`,
+        );
+      },
+      onError: (error) =>
+        toast.error(extractApiMessage(error, 'Falha ao excluir a tag.')),
+    });
+  };
 
   return (
     <AlertDialog open={!!tag} onOpenChange={onOpenChange}>
@@ -298,8 +331,8 @@ function DeleteTagDialog({ tag, onOpenChange, onConfirm, pending }: DeleteTagDia
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
-            {pending ? 'Excluindo…' : 'Excluir tag'}
+          <Button variant="destructive" onClick={confirm} disabled={deleteTag.isPending}>
+            {deleteTag.isPending ? 'Excluindo…' : 'Excluir tag'}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

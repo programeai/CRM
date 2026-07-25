@@ -18,7 +18,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { extractApiMessage } from './lib/api-error';
 import { useCreateTask, useProjects, useUpdateTask } from './api/hooks';
 import { TaskChecklist } from './components/TaskChecklist';
-import { TagSelect } from './components/TagSelect';
+import { TagDeleteDialog, TagSelect } from './components/TagSelect';
 import type { ChecklistItem, Task, TaskPriority, UpdateTaskBody } from './api/types';
 
 interface FormState {
@@ -86,10 +86,20 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState('');
 
+  /**
+   * Exclusão global de tag: a confirmação é renderizada como IRMÃO deste Dialog
+   * (não dentro dele) para sobreviver ao soterramento — ver `TagDeleteDialog`.
+   * `focusTagsOnReturn` devolve o foco ao seletor quando o modal reabre.
+   */
+  const [pendingDeleteTag, setPendingDeleteTag] = useState<string | null>(null);
+  const [focusTagsOnReturn, setFocusTagsOnReturn] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     setProjectSearch('');
     setEditingDesc(false);
+    setPendingDeleteTag(null);
+    setFocusTagsOnReturn(false);
     const seed = task ? fromTask(task) : emptyForm(defaultProjectId);
     setForm(seed);
     committedTitle.current = seed.title;
@@ -180,6 +190,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-3 sm:max-w-4xl">
         <DialogHeader className="pr-8">
@@ -232,7 +243,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                       value={descDraft}
                       placeholder="Descreva a demanda…"
                       onChange={(e) => setDescDraft(e.target.value)}
-                      className="min-h-48 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="min-h-48 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                     />
                     <div className="flex gap-2">
                       <Button size="sm" onClick={saveDesc}>
@@ -293,7 +304,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                     value={form.projectId}
                     onValueChange={(v) => setForm({ ...form, projectId: v ?? '' })}
                   >
-                    <SelectTrigger />
+                    <SelectTrigger placeholder="Selecione um projeto" />
                     <SelectContent>
                       <div className="p-2">
                         <SearchInput
@@ -347,6 +358,12 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                 <TagSelect
                   value={form.tags}
                   onChange={(tags) => setField({ tags }, { tags })}
+                  onRequestDeleteTag={(tag) => {
+                    setFocusTagsOnReturn(true);
+                    setPendingDeleteTag(tag);
+                  }}
+                  autoFocus={focusTagsOnReturn}
+                  onAutoFocused={() => setFocusTagsOnReturn(false)}
                 />
               </Field>
             </aside>
@@ -366,5 +383,18 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Confirmação de exclusão global de tag — irmã do Dialog para sobreviver ao
+        soterramento; ao fechar, o modal de demanda reabre e o foco volta ao seletor. */}
+    <TagDeleteDialog
+      tag={pendingDeleteTag}
+      onOpenChange={(o) => !o && setPendingDeleteTag(null)}
+      onDeleted={(tag) => {
+        if (!form.tags.includes(tag)) return; // não estava selecionada aqui → sem PATCH
+        const tags = form.tags.filter((t) => t !== tag);
+        setField({ tags }, { tags });
+      }}
+    />
+    </>
   );
 }
