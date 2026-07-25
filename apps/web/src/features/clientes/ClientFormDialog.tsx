@@ -337,6 +337,7 @@ export function ClientFormDialog({
               <FieldLabel htmlFor="name" required>Nome</FieldLabel>
               <Input
                 id="name"
+                placeholder="Nome ou razão social"
                 aria-invalid={!!errors.name}
                 {...register('name')}
               />
@@ -345,7 +346,7 @@ export function ClientFormDialog({
 
             <Field>
               <FieldLabel htmlFor="tradeName">Nome fantasia</FieldLabel>
-              <Input id="tradeName" {...register('tradeName')} />
+              <Input id="tradeName" placeholder="Como o cliente é conhecido" {...register('tradeName')} />
             </Field>
 
             <Field>
@@ -413,6 +414,7 @@ export function ClientFormDialog({
               <Input
                 id="email"
                 type="email"
+                placeholder="contato@empresa.com.br"
                 aria-invalid={!!errors.email}
                 {...register('email')}
               />
@@ -439,7 +441,7 @@ export function ClientFormDialog({
 
             <Field>
               <FieldLabel htmlFor="website">Website</FieldLabel>
-              <Input id="website" {...register('website')} />
+              <Input id="website" placeholder="https://empresa.com.br" {...register('website')} />
             </Field>
 
             <Field>
@@ -509,7 +511,8 @@ export function ClientFormDialog({
               <textarea
                 id="notes"
                 rows={3}
-                className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                placeholder="Anotações internas sobre o cliente…"
+                className="min-h-20 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 {...register('notes')}
               />
             </Field>
@@ -548,27 +551,27 @@ export function ClientFormDialog({
 
             <Field>
               <FieldLabel htmlFor="number">Número</FieldLabel>
-              <Input id="number" {...register('number')} />
+              <Input id="number" placeholder="Ex.: 1234" {...register('number')} />
             </Field>
 
             <Field className="sm:col-span-2">
               <FieldLabel htmlFor="street">Logradouro</FieldLabel>
-              <Input id="street" {...register('street')} />
+              <Input id="street" placeholder="Ex.: Av. Paulista" {...register('street')} />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="complement">Complemento</FieldLabel>
-              <Input id="complement" {...register('complement')} />
+              <Input id="complement" placeholder="Ex.: Sala 12, Bloco B" {...register('complement')} />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="district">Bairro</FieldLabel>
-              <Input id="district" {...register('district')} />
+              <Input id="district" placeholder="Ex.: Centro" {...register('district')} />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="city">Cidade</FieldLabel>
-              <Input id="city" {...register('city')} />
+              <Input id="city" placeholder="Ex.: São Paulo" {...register('city')} />
             </Field>
 
             <Field>

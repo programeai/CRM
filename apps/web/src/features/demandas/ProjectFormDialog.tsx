@@ -139,7 +139,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
           >
             <Field className="sm:col-span-2" data-invalid={!!errors.name}>
               <FieldLabel htmlFor="name" required>Nome</FieldLabel>
-              <Input id="name" aria-invalid={!!errors.name} {...register('name')} />
+              <Input id="name" placeholder="Ex.: Rebranding 2026" aria-invalid={!!errors.name} {...register('name')} />
               {errors.name && <FieldError>{errors.name.message}</FieldError>}
             </Field>
 
@@ -158,7 +158,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
                       value={field.value}
                       onValueChange={field.onChange}
                     >
-                      <SelectTrigger />
+                      <SelectTrigger placeholder="Selecione um cliente" />
                       <SelectContent>
                         <div className="p-2">
                           <SearchInput

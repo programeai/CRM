@@ -89,7 +89,7 @@ export function CobrancaEditDialog({ open, onOpenChange, payment }: Props) {
               <FieldLabel htmlFor="description" required>
                 Descrição
               </FieldLabel>
-              <Input id="description" aria-invalid={!!errors.description} {...register('description')} />
+              <Input id="description" placeholder="Ex.: Mensalidade de julho" aria-invalid={!!errors.description} {...register('description')} />
               {errors.description && <FieldError>{errors.description.message}</FieldError>}
             </Field>
 

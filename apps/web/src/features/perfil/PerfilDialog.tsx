@@ -96,6 +96,7 @@ export function PerfilDialog({ open, onOpenChange }: PerfilDialogProps) {
                 <Input
                   id="name"
                   autoComplete="name"
+                  placeholder="Seu nome"
                   aria-invalid={!!errors.name}
                   {...register('name')}
                 />
@@ -109,6 +110,7 @@ export function PerfilDialog({ open, onOpenChange }: PerfilDialogProps) {
                   id="email"
                   type="email"
                   autoComplete="email"
+                  placeholder="voce@agencia.com.br"
                   aria-invalid={!!errors.email}
                   {...register('email')}
                 />

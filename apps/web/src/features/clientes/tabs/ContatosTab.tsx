@@ -234,6 +234,7 @@ export default function ContatosTab() {
                   <FieldLabel htmlFor="contact-name" required>Nome</FieldLabel>
                   <Input
                     id="contact-name"
+                    placeholder="Nome do contato"
                     aria-invalid={!!errors.name}
                     {...register('name')}
                   />
@@ -243,13 +244,14 @@ export default function ContatosTab() {
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="contact-role">Cargo</FieldLabel>
-                  <Input id="contact-role" {...register('role')} />
+                  <Input id="contact-role" placeholder="Ex.: Gerente de marketing" {...register('role')} />
                 </Field>
                 <Field data-invalid={!!errors.email}>
                   <FieldLabel htmlFor="contact-email">E-mail</FieldLabel>
                   <Input
                     id="contact-email"
                     type="email"
+                    placeholder="contato@empresa.com.br"
                     aria-invalid={!!errors.email}
                     {...register('email')}
                   />

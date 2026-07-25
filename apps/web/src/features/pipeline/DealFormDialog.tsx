@@ -150,7 +150,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
           >
             <Field className="sm:col-span-2" data-invalid={!!errors.title}>
               <FieldLabel htmlFor="title" required>Título</FieldLabel>
-              <Input id="title" aria-invalid={!!errors.title} {...register('title')} />
+              <Input id="title" placeholder="Ex.: Website institucional" aria-invalid={!!errors.title} {...register('title')} />
               {errors.title && <FieldError>{errors.title.message}</FieldError>}
             </Field>
 
@@ -169,7 +169,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
                       value={field.value}
                       onValueChange={field.onChange}
                     >
-                      <SelectTrigger />
+                      <SelectTrigger placeholder="Selecione um cliente" />
                       <SelectContent>
                         <div className="p-2">
                           <SearchInput
@@ -245,6 +245,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
                 type="number"
                 min={0}
                 max={100}
+                placeholder="0 a 100"
                 aria-invalid={!!errors.probability}
                 {...register('probability', { setValueAs: (v) => (v === '' ? undefined : Number(v)) })}
               />

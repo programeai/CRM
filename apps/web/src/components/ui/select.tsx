@@ -11,19 +11,24 @@ function SelectGroup(props: SelectPrimitive.Group.Props) {
   return <SelectPrimitive.Group data-slot="select-group" {...props} />
 }
 
-function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigger.Props) {
+function SelectTrigger({
+  className,
+  children,
+  placeholder,
+  ...props
+}: SelectPrimitive.Trigger.Props & { placeholder?: string }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 text-sm whitespace-nowrap transition-colors outline-none select-none",
+        "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-transparent px-3 text-sm whitespace-nowrap transition-colors outline-none select-none dark:bg-input/30",
         "data-placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
         "disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
         className,
       )}
       {...props}
     >
-      <SelectPrimitive.Value />
+      <SelectPrimitive.Value placeholder={placeholder} />
       {children}
       <SelectPrimitive.Icon className="text-muted-foreground">
         <ChevronDownIcon />

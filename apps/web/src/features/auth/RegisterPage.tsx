@@ -109,6 +109,7 @@ export default function RegisterPage() {
             <PasswordInput
               id="password"
               autoComplete="new-password"
+              placeholder="Mínimo de 6 caracteres"
               aria-invalid={!!errors.password}
               {...register('password')}
             />
@@ -119,6 +120,7 @@ export default function RegisterPage() {
             <PasswordInput
               id="confirmPassword"
               autoComplete="new-password"
+              placeholder="Repita a senha"
               aria-invalid={!!errors.confirmPassword}
               {...register('confirmPassword')}
             />

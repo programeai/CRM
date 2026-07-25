@@ -164,7 +164,7 @@ export default function MinhasDemandasPage() {
         />
         <input
           type="date"
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-10 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
           value={dueBefore}
           onChange={(e) => setDueBefore(e.target.value)}
         />
