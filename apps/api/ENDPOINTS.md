@@ -6,6 +6,18 @@ Prefixo global: `/api/v1`. Formato fixo por endpoint — não altere os rótulos
 
 ---
 
+## Health
+
+### GET /health
+- **Propósito:** Liveness do processo da API. Usado pelo `healthcheck` do container em produção (`docker-compose.prod.yml`). Não toca o banco de propósito: responde se o Nest está de pé, não se as dependências estão saudáveis.
+- **Auth:** Pública (`@Public()`).
+- **Body:** —
+- **Resposta:** `200 { status: 'ok', uptime: number }` — `uptime` em segundos inteiros desde o start do processo.
+- **Erros:** —
+- **Handler:** `modules/health/health.controller.ts` → `HealthController.check`
+
+---
+
 ## Auth
 
 ### POST /auth/register
