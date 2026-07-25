@@ -1,0 +1,112 @@
+name: Build - Imagens de produção
+
+# Publica as imagens no Docker Hub a cada push na main. NÃO faz deploy:
+# a publicação na VPS é manual, pelo workflow "Deploy na VPS".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Um build por ref; se vier push novo no meio, o anterior é descartado.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Portão de qualidade: build de verdade das duas apps antes de publicar imagem.
+  # ---------------------------------------------------------------------------
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar Prisma Client
+        run: pnpm --filter api exec prisma generate
+
+      - name: Build da API
+        run: pnpm --filter api build
+
+      - name: Build do front
+        run: pnpm --filter web build
+
+      - name: Testes da API
+        run: pnpm --filter api test
+
+  # ---------------------------------------------------------------------------
+  # Build e push das duas imagens (tags `latest` e `<sha>`).
+  # ---------------------------------------------------------------------------
+  publicar:
+    needs: verificar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build e push da imagem da API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:${{ github.sha }}
+          cache-from: type=gha,scope=crm-api
+          cache-to: type=gha,mode=max,scope=crm-api
+
+      # As VITE_* são embutidas no bundle em build-time: entram como build-args.
+      - name: Build e push da imagem do front
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:${{ github.sha }}
+          cache-from: type=gha,scope=crm-web
+          cache-to: type=gha,mode=max,scope=crm-web
+          build-args: |
+            VITE_API_URL=/api/v1
+            VITE_TURNSTILE_SITE_KEY=${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+
+      # Deixa o SHA à mão: é o valor a colar no input do workflow de deploy.
+      - name: Resumo
+        run: |
+          {
+            echo "### Imagens publicadas"
+            echo ""
+            echo '- `crm-api:${{ github.sha }}`'
+            echo '- `crm-web:${{ github.sha }}`'
+            echo ""
+            echo 'Também tagueadas como `latest`.'
+            echo ""
+            echo 'Para publicar na VPS: workflow **Deploy na VPS** → Run workflow →'
+            echo 'tag `latest` (ou `${{ github.sha }}` para fixar esta versão).'
+          } >> "$GITHUB_STEP_SUMMARY"
