@@ -134,8 +134,11 @@ jobs:
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          # O GitHub reserva o prefixo GITHUB_ para nomes de secrets/vars, por isso
+          # os secrets são GITHUBOAUTH_*; a env exportada para a VPS mantém o nome
+          # GITHUB_CLIENT_* que a aplicação (oauth.service.ts) espera.
+          GITHUB_CLIENT_ID: ${{ secrets.GITHUBOAUTH_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUBOAUTH_CLIENT_SECRET }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
