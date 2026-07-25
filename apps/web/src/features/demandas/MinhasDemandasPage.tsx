@@ -1,7 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { Plus } from 'lucide-react';
 import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import {
+  enumFilter,
+  stringArrayFilter,
+  stringFilter,
+  useUrlFilters,
+} from '@/hooks/use-url-filters';
 import { Button } from '@/components/ui/button';
 import { SearchInput } from '@/components/ui/search-input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +35,14 @@ const PRIORITY_FILTER_ITEMS: Record<TaskPriority | 'ALL', string> = {
   ...TASK_PRIORITY_LABELS,
 };
 
+/** Filtros do quadro persistidos na URL (sobrevivem à ida/volta de uma tela de detalhe). */
+const DEMANDAS_FILTERS = {
+  clientSearch: stringFilter(),
+  priority: enumFilter(Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[], 'ALL' as const),
+  projectIds: stringArrayFilter(),
+  dueBefore: stringFilter(),
+};
+
 const getTaskId = (t: Task) => t.id;
 
 /** Ordena dentro da coluna: prazo mais próximo primeiro (sem prazo por último), depois prioridade e recência. */
@@ -42,10 +57,18 @@ function compareTasks(a: Task, b: Task) {
 }
 
 export default function MinhasDemandasPage() {
-  const [priority, setPriority] = useState<TaskPriority | 'ALL'>('ALL');
-  const [projectIds, setProjectIds] = useState<string[]>([]);
-  const [clientSearch, setClientSearch] = useState('');
-  const [dueBefore, setDueBefore] = useState('');
+  const { values, set } = useUrlFilters(DEMANDAS_FILTERS);
+  const { priority, projectIds, dueBefore } = values;
+
+  // A busca por cliente mantém estado local para digitação responsiva; o valor com
+  // debounce é o que é persistido na URL (e usado para filtrar as demandas).
+  const [clientSearch, setClientSearch] = useState(values.clientSearch);
+  const debouncedClientSearch = useDebouncedValue(clientSearch, 300);
+  useEffect(() => {
+    if (debouncedClientSearch !== values.clientSearch) {
+      set({ clientSearch: debouncedClientSearch });
+    }
+  }, [debouncedClientSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: tasks, isLoading } = useMyBoard();
   const moveTask = useMoveMyTask();
@@ -142,7 +165,7 @@ export default function MinhasDemandasPage() {
         <Select<TaskPriority | 'ALL'>
           items={PRIORITY_FILTER_ITEMS}
           value={priority}
-          onValueChange={(v) => setPriority(v ?? 'ALL')}
+          onValueChange={(v) => set({ priority: v ?? 'ALL' })}
         >
           <SelectTrigger className="ml-auto w-56" />
           <SelectContent>
@@ -157,7 +180,7 @@ export default function MinhasDemandasPage() {
           className="w-64"
           options={projectOptions}
           value={projectIds}
-          onValueChange={setProjectIds}
+          onValueChange={(ids) => set({ projectIds: ids })}
           placeholder="Todos os projetos"
           searchPlaceholder="Buscar projeto…"
           emptyText="Nenhum projeto encontrado."
@@ -166,7 +189,7 @@ export default function MinhasDemandasPage() {
           type="date"
           className="h-10 rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
           value={dueBefore}
-          onChange={(e) => setDueBefore(e.target.value)}
+          onChange={(e) => set({ dueBefore: e.target.value })}
         />
       </div>
 

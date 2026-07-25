@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ColumnFilter } from '@/components/ui/column-filter';
@@ -23,6 +23,12 @@ import {
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import {
+  enumFilter,
+  numberFilter,
+  stringFilter,
+  useUrlFilters,
+} from '@/hooks/use-url-filters';
 import { useProposals } from './api/hooks';
 import { formatMoney } from './lib/proposal-format';
 import { ProposalFormDialog } from './ProposalFormDialog';
@@ -38,6 +44,13 @@ const STATUS_BADGE: Record<ProposalStatus, 'default' | 'secondary' | 'outline' |
 };
 
 const LIMIT = 20;
+
+/** Filtros da listagem persistidos na URL (sobrevivem à ida/volta de uma tela de detalhe). */
+const PROPOSTAS_FILTERS = {
+  search: stringFilter(),
+  status: enumFilter(Object.keys(PROPOSAL_STATUS_LABELS) as ProposalStatus[], 'ALL' as const),
+  page: numberFilter(1),
+};
 
 /**
  * Cabeçalho de coluna com filtro de opção única (mesmo padrão de `ClientesListPage`,
@@ -92,23 +105,24 @@ function ColumnRadioFilter<T extends string>({
 }
 
 export default function PropostasListPage() {
-  const [status, setStatus] = useState<ProposalStatus | 'ALL'>('ALL');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const { values, set } = useUrlFilters(PROPOSTAS_FILTERS);
+  const { status, page } = values;
   const [formOpen, setFormOpen] = useState(false);
 
+  const [search, setSearch] = useState(values.search);
   const debouncedSearch = useDebouncedValue(search, 300);
+  useEffect(() => {
+    if (debouncedSearch !== values.search) set({ search: debouncedSearch, page: 1 });
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading } = useProposals({
     page,
     limit: LIMIT,
-    search: debouncedSearch || undefined,
+    search: values.search || undefined,
     status: status === 'ALL' ? undefined : status,
   });
 
   const total = data?.meta.total ?? 0;
-
-  const resetToFirstPage = () => setPage(1);
 
   return (
     <div className="flex flex-col gap-4">
@@ -125,10 +139,7 @@ export default function PropostasListPage() {
           className="max-w-xs"
           placeholder="Buscar por cliente ou número…"
           value={search}
-          onValueChange={(value) => {
-            setSearch(value);
-            resetToFirstPage();
-          }}
+          onValueChange={setSearch}
         />
       </div>
 
@@ -144,10 +155,7 @@ export default function PropostasListPage() {
                   label="Status"
                   name="status-filter"
                   value={status}
-                  onValueChange={(v) => {
-                    setStatus(v);
-                    resetToFirstPage();
-                  }}
+                  onValueChange={(v) => set({ status: v, page: 1 })}
                   options={Object.keys(PROPOSAL_STATUS_LABELS) as ProposalStatus[]}
                   translate={translateProposalStatus}
                 />
@@ -201,7 +209,7 @@ export default function PropostasListPage() {
         page={page}
         pageSize={LIMIT}
         total={total}
-        onPageChange={setPage}
+        onPageChange={(p) => set({ page: p })}
         labelSingular="proposta"
         labelPlural="propostas"
       />
