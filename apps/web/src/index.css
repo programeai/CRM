@@ -88,22 +88,24 @@
     --sidebar-ring: oklch(0.532 0.087 194);
 }
 
-/* Navy profundo como base, off-white quente no texto e o mesmo teal da
-   marca como acento, um pouco mais claro para o escuro. */
+/* Cores da marca CRM (acento teal, texto off-white, foco/bordas navy) sobre uma
+   base escura profunda inspirada no dark DoradosDaSorte. As superfícies mantêm o
+   tom frio navy (hue ~266, mesma família das bordas/texto), para que o funil e
+   os cards voltem a exibir a gradação tonal da marca em vez de cinza-neutro. */
 .dark {
-    --background: oklch(0.1782 0.0275 265.95);
+    --background: oklch(0.155 0.02 266);
     --foreground: oklch(0.9698 0.0034 56.39);
-    --card: oklch(0.2085 0.0338 265.86);
+    --card: oklch(0.2 0.028 266);
     --card-foreground: oklch(0.9698 0.0034 56.39);
-    --popover: oklch(0.2085 0.0338 265.86);
+    --popover: oklch(0.225 0.03 266);
     --popover-foreground: oklch(0.9698 0.0034 56.39);
     --primary: oklch(0.62 0.105 190);
     --primary-foreground: oklch(1 0 0);
-    --secondary: oklch(0.2718 0.0335 266.31);
+    --secondary: oklch(0.27 0.033 266);
     --secondary-foreground: oklch(0.9698 0.0034 56.39);
-    --muted: oklch(0.2623 0.0318 266.34);
+    --muted: oklch(0.26 0.031 266);
     --muted-foreground: oklch(0.7183 0.0252 264.40);
-    --accent: oklch(0.2905 0.0368 266.27);
+    --accent: oklch(0.29 0.036 266);
     --accent-foreground: oklch(0.9698 0.0034 56.39);
     --destructive: oklch(0.5380 0.1843 22.82);
     --destructive-foreground: oklch(1 0 0);
@@ -115,11 +117,11 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.1782 0.0275 265.95);
+    --sidebar: oklch(0.2 0.028 266);
     --sidebar-foreground: oklch(0.9698 0.0034 56.39);
     --sidebar-primary: oklch(0.62 0.105 190);
     --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.2905 0.0368 266.27);
+    --sidebar-accent: oklch(0.29 0.036 266);
     --sidebar-accent-foreground: oklch(0.9698 0.0034 56.39);
     --sidebar-border: oklch(0.2812 0.0351 266.29);
     --sidebar-ring: oklch(0.62 0.105 190);

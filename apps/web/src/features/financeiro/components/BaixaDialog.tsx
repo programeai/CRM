@@ -150,7 +150,8 @@ export function BaixaDialog({ open, onOpenChange, payment }: Props) {
               <textarea
                 id="notes"
                 rows={3}
-                className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                placeholder="Observações sobre o pagamento…"
+                className="min-h-20 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 {...register('notes')}
               />
               {errors.notes && <FieldError>{errors.notes.message}</FieldError>}

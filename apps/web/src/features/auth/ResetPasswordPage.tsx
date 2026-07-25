@@ -63,6 +63,7 @@ export default function ResetPasswordPage() {
               <PasswordInput
                 id="password"
                 autoComplete="new-password"
+                placeholder="Mínimo de 6 caracteres"
                 aria-invalid={!!errors.password}
                 {...register('password')}
               />
@@ -73,6 +74,7 @@ export default function ResetPasswordPage() {
               <PasswordInput
                 id="confirmPassword"
                 autoComplete="new-password"
+                placeholder="Repita a nova senha"
                 aria-invalid={!!errors.confirmPassword}
                 {...register('confirmPassword')}
               />

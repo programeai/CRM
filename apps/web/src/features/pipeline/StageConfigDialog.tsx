@@ -90,6 +90,7 @@ function SortableStageRow({
         value={name}
         onChange={(e) => setName(e.target.value)}
         onBlur={saveName}
+        placeholder="Nome do estágio"
         className="max-w-56"
       />
 

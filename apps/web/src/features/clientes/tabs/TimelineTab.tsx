@@ -119,7 +119,7 @@ export default function TimelineTab() {
               <input
                 id="scheduledFor"
                 type="datetime-local"
-                className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="h-10 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 {...register('scheduledFor')}
               />
             </Field>
@@ -130,8 +130,9 @@ export default function TimelineTab() {
           <textarea
             id="content"
             rows={3}
+            placeholder="Descreva o que aconteceu…"
             aria-invalid={!!errors.content}
-            className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
+            className="min-h-20 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
             {...register('content')}
           />
           {errors.content && <FieldError>{errors.content.message}</FieldError>}

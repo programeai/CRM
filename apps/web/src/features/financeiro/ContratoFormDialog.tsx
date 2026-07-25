@@ -306,7 +306,7 @@ export function ContratoFormDialog({
                         value={field.value}
                         onValueChange={field.onChange}
                       >
-                        <SelectTrigger />
+                        <SelectTrigger placeholder="Selecione um cliente" />
                         <SelectContent>
                           <div className="p-2">
                             <SearchInput
@@ -346,6 +346,7 @@ export function ContratoFormDialog({
                 </FieldLabel>
                 <Input
                   id="description"
+                  placeholder="Ex.: Contrato de gestão de tráfego"
                   aria-invalid={!!errors.description}
                   {...register('description')}
                 />
@@ -408,6 +409,7 @@ export function ContratoFormDialog({
                       type="number"
                       min={1}
                       max={28}
+                      placeholder="1 a 28"
                       {...register('billingDay', {
                         setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
                       })}
@@ -472,6 +474,7 @@ export function ContratoFormDialog({
                       type="number"
                       min={1}
                       disabled={isEdit}
+                      placeholder="Ex.: 12"
                       {...register('installments', {
                         setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
                       })}
