@@ -147,6 +147,19 @@ export default function RegisterPage() {
         </FieldGroup>
       </form>
       <OAuthButtons />
+      {/* Aceite explícito: vale tanto para o cadastro por senha quanto para o
+          login social logo acima. */}
+      <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
+        Ao criar sua conta, você concorda com os{' '}
+        <Link to="/termos" className="font-medium text-primary hover:underline">
+          Termos de Uso
+        </Link>{' '}
+        e com a{' '}
+        <Link to="/privacidade" className="font-medium text-primary hover:underline">
+          Política de Privacidade
+        </Link>
+        .
+      </p>
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Já tem uma conta?{' '}
         <Link to="/login" className="font-medium text-primary hover:underline">
