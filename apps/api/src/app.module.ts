@@ -16,6 +16,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { BillingGuard } from './modules/billing/billing.guard';
 import { envValidationSchema } from './config/env.validation';
@@ -40,6 +41,7 @@ import { envValidationSchema } from './config/env.validation';
     FinanceModule,
     DashboardModule,
     BillingModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
