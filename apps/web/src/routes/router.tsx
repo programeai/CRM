@@ -5,6 +5,8 @@ import LoginPage from '@/features/auth/LoginPage';
 import RegisterPage from '@/features/auth/RegisterPage';
 import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/features/auth/ResetPasswordPage';
+import TermosPage from '@/features/legal/TermosPage';
+import PrivacidadePage from '@/features/legal/PrivacidadePage';
 import ClientesListPage from '@/features/clientes/ClientesListPage';
 import ClienteDetalheLayout from '@/features/clientes/ClienteDetalheLayout';
 import DadosTab from '@/features/clientes/tabs/DadosTab';
@@ -31,6 +33,11 @@ export const router = createBrowserRouter([
   { path: '/registrar', element: <RegisterPage /> },
   { path: '/esqueci-senha', element: <ForgotPasswordPage /> },
   { path: '/redefinir-senha', element: <ResetPasswordPage /> },
+  // Documentos legais: rotas públicas por exigência externa — o Google (login
+  // social) e o Stripe checam essas URLs sem sessão. Nunca mova para dentro do
+  // ProtectedRoute.
+  { path: '/termos', element: <TermosPage /> },
+  { path: '/privacidade', element: <PrivacidadePage /> },
   {
     element: <ProtectedRoute />,
     children: [

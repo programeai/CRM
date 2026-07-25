@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { Link } from 'react-router';
 import { Check } from 'lucide-react';
 import { Wordmark } from '@/components/ui/wordmark';
 
@@ -220,6 +221,18 @@ export function AuthLayout({ title, description, children }: Props) {
           </header>
 
           {children}
+
+          {/* Documentos legais alcançáveis de qualquer tela de entrada — é por
+              aqui que o Google chega neles na verificação do login social. */}
+          <nav className="mt-10 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+            <Link to="/termos" className="hover:text-primary hover:underline">
+              Termos de Uso
+            </Link>
+            <span aria-hidden>·</span>
+            <Link to="/privacidade" className="hover:text-primary hover:underline">
+              Política de Privacidade
+            </Link>
+          </nav>
         </div>
       </main>
     </div>
