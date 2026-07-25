@@ -161,111 +161,118 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-6xl">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Editar proposta' : 'Nova proposta'}</DialogTitle>
             <DialogDescription>Dados da proposta e itens.</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <form
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+              className="grid grid-cols-1 gap-6 lg:grid-cols-[1.8fr_1fr] lg:items-start"
               onSubmit={handleSubmit(onSubmit)}
               id="proposal-form"
             >
-              {!defaultClientId && (
-                <Field className="sm:col-span-2" data-invalid={!!errors.clientId}>
-                  <FieldLabel required>Cliente</FieldLabel>
+              {/* Coluna esquerda (maior): escopo e itens */}
+              <div className="order-2 flex flex-col gap-4 lg:order-1">
+                <Field>
+                  <FieldLabel htmlFor="scope">Escopo</FieldLabel>
+                  <textarea
+                    id="scope"
+                    rows={5}
+                    placeholder="Descreva o escopo da proposta…"
+                    className="min-h-32 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    {...register('scope')}
+                  />
+                </Field>
+
+                <ItemsEditor control={control} register={register} errors={errors} />
+              </div>
+
+              {/* Coluna direita: demais dados da proposta */}
+              <div className="order-1 flex flex-col gap-4 lg:order-2">
+                {!defaultClientId && (
+                  <Field data-invalid={!!errors.clientId}>
+                    <FieldLabel required>Cliente</FieldLabel>
+                    <Controller
+                      control={control}
+                      name="clientId"
+                      render={({ field }) => (
+                        <Select<string>
+                          items={clientItems}
+                          open={selectOpen}
+                          onOpenChange={setSelectOpen}
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger placeholder="Selecione um cliente" />
+                          <SelectContent>
+                            <div className="p-2">
+                              <SearchInput
+                                placeholder="Buscar cliente…"
+                                value={clientSearch}
+                                onValueChange={setClientSearch}
+                              />
+                            </div>
+                            {clientChoices.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-primary outline-none hover:bg-accent"
+                              onClick={() => {
+                                setSelectOpen(false);
+                                setClientFormOpen(true);
+                              }}
+                            >
+                              <Plus className="size-4 shrink-0" />
+                              Cadastrar novo cliente
+                            </button>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
+                  </Field>
+                )}
+
+                <Field>
+                  <FieldLabel required>Tipo de serviço</FieldLabel>
                   <Controller
                     control={control}
-                    name="clientId"
+                    name="serviceType"
                     render={({ field }) => (
-                      <Select<string>
-                        items={clientItems}
-                        open={selectOpen}
-                        onOpenChange={setSelectOpen}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
+                      <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
                         <SelectTrigger />
                         <SelectContent>
-                          <div className="p-2">
-                            <SearchInput
-                              placeholder="Buscar cliente…"
-                              value={clientSearch}
-                              onValueChange={setClientSearch}
-                            />
-                          </div>
-                          {clientChoices.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
+                          {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {translateServiceType(s)}
                             </SelectItem>
                           ))}
-                          <SelectSeparator />
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-primary outline-none hover:bg-accent"
-                            onClick={() => {
-                              setSelectOpen(false);
-                              setClientFormOpen(true);
-                            }}
-                          >
-                            <Plus className="size-4 shrink-0" />
-                            Cadastrar novo cliente
-                          </button>
                         </SelectContent>
                       </Select>
                     )}
                   />
-                  {errors.clientId && <FieldError>{errors.clientId.message}</FieldError>}
                 </Field>
-              )}
 
-              <Field>
-                <FieldLabel required>Tipo de serviço</FieldLabel>
-                <Controller
-                  control={control}
-                  name="serviceType"
-                  render={({ field }) => (
-                    <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger />
-                      <SelectContent>
-                        {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {translateServiceType(s)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </Field>
+                <Field>
+                  <FieldLabel htmlFor="validUntil">Válida até</FieldLabel>
+                  <Input id="validUntil" type="date" {...register('validUntil')} />
+                </Field>
 
-              <Field>
-                <FieldLabel htmlFor="validUntil">Válida até</FieldLabel>
-                <Input id="validUntil" type="date" {...register('validUntil')} />
-              </Field>
+                <Field>
+                  <FieldLabel htmlFor="paymentTerms">Condições de pagamento</FieldLabel>
+                  <Input id="paymentTerms" placeholder="Ex.: 50% na aprovação, 50% na entrega" {...register('paymentTerms')} />
+                </Field>
 
-              <Field>
-                <FieldLabel htmlFor="paymentTerms">Condições de pagamento</FieldLabel>
-                <Input id="paymentTerms" {...register('paymentTerms')} />
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="deliveryTime">Prazo de entrega</FieldLabel>
-                <Input id="deliveryTime" {...register('deliveryTime')} />
-              </Field>
-
-              <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="scope">Escopo</FieldLabel>
-                <textarea
-                  id="scope"
-                  rows={3}
-                  className="min-h-20 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                  {...register('scope')}
-                />
-              </Field>
-
-              <ItemsEditor control={control} register={register} errors={errors} />
+                <Field>
+                  <FieldLabel htmlFor="deliveryTime">Prazo de entrega</FieldLabel>
+                  <Input id="deliveryTime" placeholder="Ex.: 30 dias úteis" {...register('deliveryTime')} />
+                </Field>
+              </div>
             </form>
           </DialogBody>
           <DialogFooter>

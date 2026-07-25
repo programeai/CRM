@@ -34,7 +34,7 @@ export function ItemsEditor({ control, register, errors }: Props) {
   const total = liveTotalCents(items, discount) / 100;
 
   return (
-    <div className="flex flex-col gap-3 sm:col-span-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <FieldLabel required>Itens</FieldLabel>
         <Button
@@ -61,7 +61,7 @@ export function ItemsEditor({ control, register, errors }: Props) {
           return (
             <div
               key={field.id}
-              className="grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_5rem_8rem_6rem_auto] sm:items-start"
+              className="grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_5rem_8rem_7rem_auto] sm:items-start"
             >
               <Field data-invalid={!!itemErrors?.description}>
                 <FieldLabel htmlFor={`items.${index}.description`} className="sm:hidden">
@@ -109,7 +109,7 @@ export function ItemsEditor({ control, register, errors }: Props) {
                 />
               </Field>
 
-              <div className="flex flex-col gap-1.5 pt-2 text-sm tabular-nums sm:pt-0">
+              <div className="flex flex-col gap-1.5 pt-2 text-sm tabular-nums whitespace-nowrap sm:h-9 sm:items-center sm:justify-center sm:pt-0">
                 <span className="text-xs text-muted-foreground sm:hidden">Subtotal</span>
                 {formatMoney(subtotal)}
               </div>
