@@ -2,63 +2,157 @@ name: Build - Imagens de produção
 
 # Publica as imagens no Docker Hub a cada push na main. NÃO faz deploy:
 # a publicação na VPS é manual, pelo workflow "Deploy na VPS".
+#
+# Eficiência (minutos de Actions são cobrados por job, arredondados para cima):
+#  1. `paths-ignore` barra o push antes de alocar runner — commit só de docs,
+#     spec ou compose não gasta 1 minuto sequer.
+#  2. Job único: um checkout, um login, um buildx. Dois jobs custariam o dobro
+#     de setup, mesmo rodando em paralelo.
+#  3. Detecção de mudança por app: commit que só toca o front não reconstrói a
+#     imagem da API (e vice-versa).
+#  4. O portão de qualidade é só `jest`. Compilar API e front aqui era trabalho
+#     duplicado — os Dockerfiles já rodam `nest build` e `tsc -b && vite build`,
+#     e build que falha não publica imagem nenhuma.
 on:
   push:
     branches: [main]
+    # Nada aqui entra nas imagens: o .dockerignore já exclui docs/, specs/,
+    # .claude/ e todo *.md do contexto de build, e os composes são consumidos
+    # pelo workflow de deploy (que faz checkout do repo por conta própria).
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "specs/**"
+      - ".claude/**"
+      - ".agents/**"
+      - ".github/**"
+      - ".gitignore"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "docker-compose.prod.yml"
+      - LICENSE
+      - NOTICE
   workflow_dispatch:
+    inputs:
+      forcar:
+        description: "Reconstruir as duas imagens, ignorando a detecção de mudanças"
+        type: boolean
+        default: true
 
 # Um build por ref; se vier push novo no meio, o anterior é descartado.
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  # ---------------------------------------------------------------------------
-  # Portão de qualidade: build de verdade das duas apps antes de publicar imagem.
-  # ---------------------------------------------------------------------------
-  verificar:
+  construir:
     runs-on: ubuntu-latest
+
     steps:
+      # fetch-depth: 0 para o diff funcionar em push com vários commits. O repo
+      # tem ~1,4 MB, então o histórico completo é irrelevante no tempo.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # -----------------------------------------------------------------------
+      # Decide o que reconstruir. Classifica cada arquivo do push; o que não
+      # cai em nenhuma regra conhecida (lockfile, package.json da raiz,
+      # .dockerignore, arquivo novo na raiz) reconstrói as duas imagens — errar
+      # para o lado de reconstruir é mais barato que publicar imagem defasada.
+      # -----------------------------------------------------------------------
+      - name: Detectar apps afetados
+        id: detectar
+        env:
+          BASE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          FORCAR: ${{ inputs.forcar }}
+        run: |
+          api=false
+          web=false
+          motivo=""
+
+          tudo=false
+          if [ "${{ github.event_name }}" != "push" ] || [ "$FORCAR" = "true" ]; then
+            tudo=true
+            motivo="disparo manual"
+          elif [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            # Branch nova ou force-push: o commit base não existe mais no grafo.
+            tudo=true
+            motivo="commit base indisponível (force-push?)"
+          fi
+
+          if [ "$tudo" = true ]; then
+            api=true
+            web=true
+          else
+            arquivos="$(git diff --name-only "$BASE" "$SHA")"
+            echo "Arquivos no push:"
+            echo "$arquivos" | sed 's/^/  /'
+
+            while IFS= read -r arquivo; do
+              [ -n "$arquivo" ] || continue
+              case "$arquivo" in
+                # Inertes: não entram em imagem nenhuma. Mantido em uma linha —
+                # continuação com `\` faria a indentação virar parte do padrão.
+                *.md|docs/*|specs/*|.claude/*|.agents/*|.github/*|.gitignore|.env.example|docker-compose.yml|docker-compose.prod.yml|LICENSE|NOTICE)
+                  ;;
+                apps/api/*) api=true ;;
+                apps/web/*) web=true ;;
+                # Raiz compartilhada (pnpm-lock.yaml, package.json,
+                # pnpm-workspace.yaml, .dockerignore) ou caminho desconhecido.
+                *)
+                  api=true
+                  web=true
+                  motivo="arquivo compartilhado alterado: $arquivo"
+                  ;;
+              esac
+            done <<< "$arquivos"
+          fi
+
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "motivo=$motivo" >> "$GITHUB_OUTPUT"
+          echo "Reconstruir → api=$api web=$web ${motivo:+($motivo)}"
+
+      # -----------------------------------------------------------------------
+      # Portão de qualidade da API. Só instala o workspace `api` — as deps do
+      # front (react, vite, radix) não são necessárias para rodar o jest.
+      # O front não tem suíte de teste; seu portão é o `tsc -b` do Dockerfile.
+      # -----------------------------------------------------------------------
       - name: Instalar pnpm
+        if: steps.detectar.outputs.api == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 9.15.0
 
       - name: Instalar Node
+        if: steps.detectar.outputs.api == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - name: Instalar dependências
-        run: pnpm install --frozen-lockfile
+      - name: Instalar dependências da API
+        if: steps.detectar.outputs.api == 'true'
+        run: pnpm install --filter api --frozen-lockfile
 
+      # O ts-jest checa tipos, então os tipos do Prisma Client precisam existir.
       - name: Gerar Prisma Client
+        if: steps.detectar.outputs.api == 'true'
         run: pnpm --filter api exec prisma generate
 
-      - name: Build da API
-        run: pnpm --filter api build
-
-      - name: Build do front
-        run: pnpm --filter web build
-
       - name: Testes da API
+        if: steps.detectar.outputs.api == 'true'
         run: pnpm --filter api test
 
-  # ---------------------------------------------------------------------------
-  # Build e push das duas imagens (tags `latest` e `<sha>`).
-  # ---------------------------------------------------------------------------
-  publicar:
-    needs: verificar
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      # -----------------------------------------------------------------------
+      # Build e push das imagens que mudaram (tags `latest` e `<sha>`).
+      # -----------------------------------------------------------------------
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
@@ -66,9 +160,11 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Configurar Buildx
+        if: steps.detectar.outputs.api == 'true' || steps.detectar.outputs.web == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Build e push da imagem da API
+        if: steps.detectar.outputs.api == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -82,6 +178,7 @@ jobs:
 
       # As VITE_* são embutidas no bundle em build-time: entram como build-args.
       - name: Build e push da imagem do front
+        if: steps.detectar.outputs.web == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -96,16 +193,56 @@ jobs:
             VITE_API_URL=/api/v1
             VITE_TURNSTILE_SITE_KEY=${{ secrets.VITE_TURNSTILE_SITE_KEY }}
 
+      # -----------------------------------------------------------------------
+      # Mantém a garantia que o workflow de deploy assume: TODO sha que passou
+      # por aqui tem as duas imagens. A imagem não reconstruída recebe o sha
+      # novo apontando para o mesmo manifest do `latest` — é uma cópia de
+      # ponteiro no registry (segundos), não um rebuild.
+      # -----------------------------------------------------------------------
+      - name: Alinhar tag do sha nas imagens não reconstruídas
+        if: steps.detectar.outputs.api == 'false' || steps.detectar.outputs.web == 'false'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SHA: ${{ github.sha }}
+          API_RECONSTRUIDA: ${{ steps.detectar.outputs.api }}
+          WEB_RECONSTRUIDA: ${{ steps.detectar.outputs.web }}
+        run: |
+          set -e
+          for par in "crm-api:$API_RECONSTRUIDA" "crm-web:$WEB_RECONSTRUIDA"; do
+            imagem="${par%%:*}"
+            reconstruida="${par##*:}"
+            [ "$reconstruida" = "false" ] || continue
+
+            origem="${DOCKERHUB_USERNAME}/${imagem}:latest"
+            if ! docker manifest inspect "$origem" > /dev/null 2>&1; then
+              echo "::warning::${imagem}:latest não existe no registry; o sha ${SHA} ficará sem essa imagem."
+              continue
+            fi
+            echo "Tagueando ${imagem}:${SHA} a partir de latest (sem rebuild)."
+            docker buildx imagetools create -t "${DOCKERHUB_USERNAME}/${imagem}:${SHA}" "$origem"
+          done
+
       # Deixa o SHA à mão: é o valor a colar no input do workflow de deploy.
       - name: Resumo
+        env:
+          API: ${{ steps.detectar.outputs.api }}
+          WEB: ${{ steps.detectar.outputs.web }}
+          MOTIVO: ${{ steps.detectar.outputs.motivo }}
         run: |
+          rotulo() { [ "$1" = "true" ] && echo "reconstruída" || echo "reaproveitada de \`latest\` (sem rebuild)"; }
           {
             echo "### Imagens publicadas"
             echo ""
-            echo '- `crm-api:${{ github.sha }}`'
-            echo '- `crm-web:${{ github.sha }}`'
+            echo "- \`crm-api:${{ github.sha }}\` — $(rotulo "$API")"
+            echo "- \`crm-web:${{ github.sha }}\` — $(rotulo "$WEB")"
             echo ""
-            echo 'Também tagueadas como `latest`.'
+            # `[ ... ] && echo` sozinho abortaria o step: o shell dos steps roda
+            # com `-e` e o status do teste falso é o status do comando completo.
+            if [ -n "$MOTIVO" ]; then
+              echo "Build completo: ${MOTIVO}."
+              echo ""
+            fi
+            echo 'As reconstruídas também foram tagueadas como `latest`.'
             echo ""
             echo 'Para publicar na VPS: workflow **Deploy na VPS** → Run workflow →'
             echo 'tag `latest` (ou `${{ github.sha }}` para fixar esta versão).'
