@@ -8,3 +8,6 @@ build/
 apps/*/dist/
 apps/*/node_modules/
 apps/api/prisma/*.db
+
+# Material interno de marketing — não faz parte do produto open source.
+APRESENTACAO-PRODUTO.md
