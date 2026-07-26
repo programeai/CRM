@@ -31,6 +31,23 @@ jobs:
         with:
           ref: ${{ inputs.tag == 'latest' && github.ref || inputs.tag }}
 
+      # Estes dois não têm default em lugar nenhum: ACME_RESOLVER errado quebraria
+      # o TLS e DEPLOY_DIR vazio faria o compose rodar no home do usuário. Falhar
+      # aqui é gratuito — um dispatch que para no runner não altera a produção.
+      - name: Conferir configuração da VPS
+        env:
+          ACME_RESOLVER: ${{ secrets.ACME_RESOLVER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          set -e
+          faltando=""
+          [ -n "$ACME_RESOLVER" ] || faltando="$faltando ACME_RESOLVER"
+          [ -n "$DEPLOY_DIR" ] || faltando="$faltando DEPLOY_DIR"
+          if [ -n "$faltando" ]; then
+            echo "::error::Secrets ausentes:$faltando. Cadastre em Settings → Secrets and variables → Actions (ver .env.example)."
+            exit 1
+          fi
+
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
@@ -60,7 +77,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          script: mkdir -p ~/programeai/prod/crm
+          script: mkdir -p ${{ secrets.DEPLOY_DIR }}
 
       - name: Copiar docker-compose para a VPS
         uses: appleboy/scp-action@v0.1.7
@@ -70,7 +87,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "docker-compose.prod.yml"
-          target: "~/programeai/prod/crm"
+          target: ${{ secrets.DEPLOY_DIR }}
 
       - name: Deploy na VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -80,10 +97,10 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           # Passa os segredos por env (nunca interpola direto no script).
-          envs: IMAGE_TAG,DOCKERHUB_USERNAME,CRM_DOMAIN,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,APP_DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,TURNSTILE_SECRET_KEY,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASSWORD,MAIL_FROM,BILLING_ENABLED,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_PRICE_ID
+          envs: IMAGE_TAG,DOCKERHUB_USERNAME,CRM_DOMAIN,ACME_RESOLVER,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,APP_DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,TURNSTILE_SECRET_KEY,REGISTRATION_ENABLED,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASSWORD,MAIL_FROM,BILLING_ENABLED,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_PRICE_ID
           script: |
             set -e
-            cd ~/programeai/prod/crm
+            cd ${{ secrets.DEPLOY_DIR }}
 
             # Gera o .env consumido pelo docker-compose.prod.yml
             umask 077
@@ -91,6 +108,7 @@ jobs:
             IMAGE_TAG=${IMAGE_TAG}
             DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
             CRM_DOMAIN=${CRM_DOMAIN}
+            ACME_RESOLVER=${ACME_RESOLVER}
             POSTGRES_USER=${POSTGRES_USER}
             POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
             POSTGRES_DB=${POSTGRES_DB}
@@ -108,6 +126,7 @@ jobs:
             SMTP_USER=${SMTP_USER}
             SMTP_PASSWORD=${SMTP_PASSWORD}
             MAIL_FROM=${MAIL_FROM}
+            REGISTRATION_ENABLED=${REGISTRATION_ENABLED}
             BILLING_ENABLED=${BILLING_ENABLED}
             STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
             STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
@@ -126,6 +145,7 @@ jobs:
           IMAGE_TAG: ${{ inputs.tag }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
+          ACME_RESOLVER: ${{ secrets.ACME_RESOLVER }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
@@ -146,10 +166,26 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          REGISTRATION_ENABLED: ${{ secrets.REGISTRATION_ENABLED }}
           BILLING_ENABLED: ${{ secrets.BILLING_ENABLED }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PRICE_ID: ${{ secrets.STRIPE_PRICE_ID }}
+
+      - name: Conferir o certificado TLS
+        env:
+          CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
+        run: |
+          set -e
+          sleep 20   # margem para o Traefik reconfigurar os routers
+          issuer=$(echo | openssl s_client -connect "${CRM_DOMAIN}:443" \
+            -servername "${CRM_DOMAIN}" 2>/dev/null \
+            | openssl x509 -noout -issuer)
+          echo "$issuer"
+          case "$issuer" in
+            *"Let's Encrypt"*) echo "TLS ok." ;;
+            *) echo "::error::Certificado inesperado ($issuer). Confira ACME_RESOLVER."; exit 1 ;;
+          esac
 
       - name: Resumo
         run: |

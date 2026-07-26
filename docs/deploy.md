@@ -1,15 +1,16 @@
 # Deploy em produção
 
-O CRM roda na mesma VPS do Dorado da Sorte, atrás do **Traefik** que já está lá.
-Cada projeto é um Compose isolado (nome de projeto, rede interna e volume
-próprios) — nada é compartilhado além da rede pública do Traefik.
+O CRM sobe como um Compose isolado (nome de projeto, rede interna e volume
+próprios) atrás de um **reverse proxy** que já exista no host — os exemplos aqui
+usam Traefik. Nada é compartilhado com outros projetos do host além da rede
+pública do proxy.
 
 ## Topologia
 
 Host único, front e API na mesma origem:
 
 ```
-                       ┌─ Traefik (websecure, TLS via factis_resolver)
+                       ┌─ Traefik (websecure, TLS via ${ACME_RESOLVER})
                        │
 crm.programeai.com.br/           → crm-web   (nginx:80, bundle do Vite)
 crm.programeai.com.br/api/v1/*   → crm-api   (NestJS:3000)
@@ -30,12 +31,12 @@ Consequências dessa escolha:
 
 ## Pré-requisitos na VPS
 
-Já atendidos pelo deploy do Dorado, mas confirme:
-
-- Rede externa do Traefik existe: `docker network ls | grep traefik-proxy`.
-- O resolver ACME `factis_resolver` está configurado em `/opt/traefik/traefik.yml`
-  (é o único; não invente outro nome).
+- Rede externa do proxy existe: `docker network ls | grep traefik-proxy`.
+- Um resolver ACME configurado no Traefik. O nome dele vai no secret
+  `ACME_RESOLVER` — o compose não tem default, e o workflow de deploy falha
+  antes de conectar na VPS se o secret estiver ausente.
 - Usuário de deploy com acesso ao socket do Docker.
+- Diretório de deploy (o do secret `DEPLOY_DIR`) gravável por esse usuário.
 
 ## DNS
 
@@ -55,7 +56,9 @@ Mínimo para subir:
 | --- | --- |
 | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | publicação das imagens |
 | `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY` | acesso à VPS |
-| `CRM_DOMAIN` | `crm.programeai.com.br` |
+| `CRM_DOMAIN` | host público, ex.: `crm.programeai.com.br` |
+| `ACME_RESOLVER` | nome do resolver ACME do seu Traefik |
+| `DEPLOY_DIR` | diretório de deploy na VPS, ex.: `~/apps/crm` |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | banco |
 | `APP_DB_PASSWORD` | senha da role `crm_app` (RLS) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | ≥32 caracteres cada |
@@ -66,7 +69,8 @@ entrypoint aborta se encontrar esses caracteres.
 
 Opcionais (podem ficar em branco): OAuth (`GOOGLE_*`, `GITHUB_*`), captcha
 (`TURNSTILE_SECRET_KEY` + `VITE_TURNSTILE_SITE_KEY`), SMTP (`SMTP_*`,
-`MAIL_FROM`) e Stripe (`BILLING_ENABLED`, `STRIPE_*`).
+`MAIL_FROM`), Stripe (`BILLING_ENABLED`, `STRIPE_*`) e o autocadastro
+(`REGISTRATION_ENABLED` — ausente vale `true`; ver "Primeiro acesso").
 
 ## Pipeline
 
@@ -127,8 +131,8 @@ reaproveitado — é o valor a colar no deploy.
 | `tag` | `latest` (default, última imagem da `main`) ou o SHA completo de um commit |
 
 O workflow confere se a tag existe no Docker Hub (falha rápido em SHA digitado
-errado ou build ainda em andamento), copia o compose, escreve o `.env` em
-`~/programeai/prod/crm` a partir dos secrets e roda `pull` + `up -d` +
+errado ou build ainda em andamento), copia o compose, escreve o `.env` no
+diretório de `DEPLOY_DIR` a partir dos secrets e roda `pull` + `up -d` +
 `docker image prune -af`.
 
 Quando a `tag` é um SHA, o checkout usa **aquele commit** — o compose vai junto
@@ -151,27 +155,32 @@ O entrypoint (`apps/api/docker/entrypoint.sh`) é idempotente:
    tentativas para tolerar o Postgres ainda subindo;
 2. `ALTER ROLE crm_app` com a `APP_DB_PASSWORD` — a migration
    `20260724040000_create_app_role` cria a role com senha de desenvolvimento, e
-   é aqui que ela passa a valer a senha real de produção;
+   é aqui que ela passa a valer a senha real de produção. **Sem
+   `APP_DB_PASSWORD` o boot aborta**: seguir em frente deixaria o banco com a
+   senha de desenvolvimento, que é pública neste repositório;
 3. `node apps/api/dist/src/main.js`.
 
 ## Primeiro acesso
 
 Não há seed de admin em produção (o seed do repositório é dataset de demo). A
-primeira conta é criada em `https://crm.programeai.com.br/registro`.
+primeira conta é criada em `https://<seu-dominio>/registrar`.
 
-> **Atenção:** `POST /auth/register` é público. Numa instância interna de agência,
-> considere restringir o autocadastro depois de criar sua conta — hoje o único
-> freio é o captcha, se `TURNSTILE_SECRET_KEY` estiver configurada.
+> **Depois de criar sua conta**, feche o autocadastro: cadastre o secret
+> `REGISTRATION_ENABLED=false` e rode um novo deploy. Isso fecha `/registrar` e
+> a criação de conta nova por OAuth; o acesso de novas pessoas passa a ser por
+> convite de colaborador. Deixar aberto significa que qualquer um com o endereço
+> da instância cria conta — o captcha (`TURNSTILE_SECRET_KEY`) reduz o abuso
+> automatizado, mas não é um controle de acesso.
 
 ## Operação
 
-Log do dia a dia é no **Grafana** (`https://grafana.programeai.com.br`), não por
+Log do dia a dia é no **Grafana** da stack de observabilidade do host, não por
 SSH: `{stack="crm"}` traz o projeto inteiro e `{stack="crm", level="error"}` só os
 erros. Ver [observabilidade.md](observabilidade.md) — inclui como usar o
 `x-request-id` para puxar uma requisição inteira.
 
 ```bash
-cd ~/programeai/prod/crm
+cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
 
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f api
@@ -189,7 +198,7 @@ docker compose -f docker-compose.prod.yml exec postgres \
 ### Backup do banco
 
 ```bash
-cd ~/programeai/prod/crm
+cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
 docker compose -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom \
   > "crm-$(date +%F).dump"
@@ -212,7 +221,7 @@ aplicou migration, avalie o `down` manual antes de voltar a imagem.
 Se precisar mesmo agir direto na VPS (GitHub fora do ar, por exemplo):
 
 ```bash
-cd ~/programeai/prod/crm
+cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
 sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<sha-anterior>/' .env
 docker compose -f docker-compose.prod.yml pull api web
 docker compose -f docker-compose.prod.yml up -d

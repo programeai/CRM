@@ -1,6 +1,7 @@
-# Deploy de produção na VPS compartilhada. Roteamento e TLS ficam a cargo do
-# Traefik já existente (rede externa "traefik-proxy", entrypoint "websecure",
-# certresolver "factis_resolver" — o único resolver ACME do /opt/traefik).
+# Deploy de produção. Roteamento e TLS ficam a cargo de um reverse proxy já
+# existente no host (Traefik neste exemplo), que precisa de uma rede externa
+# chamada "traefik-proxy" e de um resolver ACME configurado — o nome do resolver
+# vem de ACME_RESOLVER (ver .env.example).
 #
 # As imagens vêm do Docker Hub (publicadas pelo workflow de build) e as
 # variáveis do arquivo .env que o workflow de deploy gera no diretório de deploy
@@ -48,7 +49,7 @@ services:
       - traefik.http.routers.crm-web.rule=Host(`${CRM_DOMAIN}`)
       - traefik.http.routers.crm-web.entrypoints=websecure
       - traefik.http.routers.crm-web.tls=true
-      - traefik.http.routers.crm-web.tls.certresolver=factis_resolver
+      - traefik.http.routers.crm-web.tls.certresolver=${ACME_RESOLVER}
       # Prioridade explícita nos DOIS routers: sem ela o Traefik usa o tamanho
       # da regra como prioridade, e um número fixo só na API poderia ficar
       # abaixo do default do front — que então engoliria /api.
@@ -86,11 +87,15 @@ services:
       FRONTEND_URL: https://${CRM_DOMAIN}
       API_URL: https://${CRM_DOMAIN}
       COOKIE_DOMAIN: ${CRM_DOMAIN}
+      # 1 salto = só o Traefik. Ver .env.example para outras topologias.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
+      # false fecha o autocadastro (register + criação de conta nova por OAuth).
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -122,7 +127,7 @@ services:
       - traefik.http.routers.crm-api.rule=Host(`${CRM_DOMAIN}`) && PathPrefix(`/api`)
       - traefik.http.routers.crm-api.entrypoints=websecure
       - traefik.http.routers.crm-api.tls=true
-      - traefik.http.routers.crm-api.tls.certresolver=factis_resolver
+      - traefik.http.routers.crm-api.tls.certresolver=${ACME_RESOLVER}
       - traefik.http.routers.crm-api.priority=10
       - traefik.http.services.crm-api.loadbalancer.server.port=3000
 
@@ -149,8 +154,8 @@ volumes:
   crm_pgdata:
 
 networks:
-  # Rede compartilhada com o Traefik (criada fora deste compose). Na VPS ela se
-  # chama "traefik-proxy"; mantemos o alias local "traefik" apontando pra ela.
+  # Rede compartilhada com o reverse proxy (criada fora deste compose). O nome
+  # externo esperado é "traefik-proxy"; o alias local "traefik" aponta pra ela.
   traefik:
     external: true
     name: traefik-proxy

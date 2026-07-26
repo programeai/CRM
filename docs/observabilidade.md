@@ -1,8 +1,8 @@
 # Observabilidade
 
-Os logs do CRM são lidos pela **stack central da VPS** (repositório
-`Observabilidade`): o Alloy coleta o stdout de todos os containers do host, o
-Loki indexa e o Grafana consulta em `https://grafana.programeai.com.br`.
+Os logs do CRM são lidos pela **stack de observabilidade do host**: um agente
+(Alloy) coleta o stdout de todos os containers, o Loki indexa e o Grafana
+consulta.
 
 Não há nada a instalar do lado do CRM — subiu container na VPS, está sendo
 coletado. O que este projeto faz é **escrever log que dá para pesquisar**: uma
@@ -134,12 +134,19 @@ para o contexto, de onde o logger o lê.
 docker compose -f docker-compose.prod.yml logs api | tail -3
 
 # Uma requisição real e o id que ela devolveu
-curl -sD - -o /dev/null https://crm.programeai.com.br/api/v1/health | grep -i x-request-id
+curl -sD - -o /dev/null https://<seu-dominio>/api/v1/health | grep -i x-request-id
 ```
 
 No Grafana, `{stack="crm"}` deve mostrar as duas coisas em segundos. Se não
 mostrar, o problema é do lado da coleta (containers `log-collector`/`loki`), não
 do CRM.
+
+## O campo `ip`
+
+**`ip` é o IP do cliente**, derivado do `x-forwarded-for` pelo próprio Express
+(`trust proxy`, configurado a partir de `TRUST_PROXY_HOPS` — ver `main.ts`). É o
+mesmo valor que o rate limit usa como chave, então o campo `ip` do log e o 429 do
+throttler falam do mesmo cliente.
 
 ## Limitações conhecidas
 
@@ -155,6 +162,3 @@ do CRM.
 - **Requisição que morre antes da aplicação** (5xx do Traefik, TLS, timeout) só
   aparece se o access log do Traefik estiver ligado — é configuração da VPS, não
   deste repositório.
-- **`ip` vem do `x-forwarded-for`** escrito pelo Traefik. O `trust proxy` do
-  Express **não** foi alterado, então o rate limit continua contando pelo IP do
-  proxy.
