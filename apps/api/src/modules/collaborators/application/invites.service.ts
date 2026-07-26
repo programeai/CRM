@@ -32,8 +32,7 @@ export interface InvitePreview {
  * bruto só existe no link entregue por e-mail (e devolvido uma vez ao owner,
  * para ele repassar por outro canal se o e-mail não chegar).
  *
- * Espelha o `lib/tokens-email.ts` do Dorados: token de 32 bytes, uso único,
- * emissão nova invalida a anterior.
+ * Token de 32 bytes e uso único: emitir um convite novo invalida o anterior.
  */
 @Injectable()
 export class InvitesService {
@@ -88,7 +87,7 @@ export class InvitesService {
 
   /**
    * Define a senha do colaborador e consome o convite. Devolve o `userId` para
-   * o controller emitir a sessão — o convidado já entra logado, como no Dorados.
+   * o controller emitir a sessão — o convidado já entra logado.
    */
   async accept(rawToken: string, password: string): Promise<string> {
     const invite = await this.findValidOrFail(rawToken);

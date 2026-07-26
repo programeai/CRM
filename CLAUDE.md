@@ -37,7 +37,7 @@ Os logs vão para a stack central da VPS (Alloy → Loki → Grafana), que exige
 
 - Gerenciador: **pnpm workspaces** (`pnpm-workspace.yaml` → `apps/*`).
 - **Comandos pnpm são sempre executados a partir da raiz** com `--filter`, nunca duplicados dentro dos workspaces. Ex.: `pnpm --filter api start:dev`, `pnpm --filter web dev`.
-- Banco local via `docker compose up -d` (Postgres 16 em `localhost:5432`).
+- Banco local via `docker compose up -d` (Postgres 16 em `localhost:5435`).
 
 ## Estrutura do monorepo
 
