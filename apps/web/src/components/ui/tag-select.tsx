@@ -184,7 +184,7 @@ export function TagSelect({
         <PopoverPrimitive.Trigger
           ref={triggerRef}
           className={cn(
-            'flex h-8 w-full items-center gap-2 rounded-md border border-input bg-transparent px-2.5 text-sm text-muted-foreground transition-colors outline-none select-none dark:bg-input/30',
+            'flex h-10 w-full items-center gap-2 rounded-lg border border-border bg-transparent px-3 text-sm text-muted-foreground transition-colors outline-none select-none dark:bg-input/30',
             'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
           )}
         >
