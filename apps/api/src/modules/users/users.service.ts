@@ -26,9 +26,33 @@ export class UsersService {
     };
   }
 
+  /**
+   * Papel "Administrador" da workspace, criado junto com a conta do owner: é o
+   * papel que ele atribui ao primeiro colaborador com acesso total. `system`
+   * significa imexível e valendo o catálogo INTEIRO (resolvido no
+   * `AccessService`), por isso `permissions` nasce vazio.
+   *
+   * Também tem RLS e, como o cadastro não tem contexto de owner, entra pelo
+   * client admin no mesmo nested create do `User`.
+   */
+  private systemRole() {
+    return {
+      name: 'Administrador',
+      description:
+        'Acesso total ao CRM. Papel do sistema — não pode ser editado nem excluído.',
+      system: true,
+    };
+  }
+
   create(data: { name: string; email: string; passwordHash: string }) {
     return this.admin.user.create({
-      data: { ...data, subscription: { create: this.trialSubscription() } },
+      data: {
+        ...data,
+        // Owner: `ownerId` nulo (é a própria workspace) e conta já ativa.
+        acceptedAt: new Date(),
+        subscription: { create: this.trialSubscription() },
+        ownedRoles: { create: this.systemRole() },
+      },
     });
   }
   findByEmail(email: string) {
@@ -69,6 +93,7 @@ export class UsersService {
       data: {
         name: data.name,
         email: data.email,
+        acceptedAt: new Date(),
         oauthAccounts: {
           create: {
             provider: data.provider,
@@ -76,6 +101,7 @@ export class UsersService {
           },
         },
         subscription: { create: this.trialSubscription() },
+        ownedRoles: { create: this.systemRole() },
       },
     });
   }

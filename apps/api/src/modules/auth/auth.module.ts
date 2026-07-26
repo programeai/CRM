@@ -11,6 +11,8 @@ import { CaptchaService } from './captcha/captcha.service';
   imports: [UsersModule, MailModule, JwtModule.register({})],
   providers: [AuthService, OAuthService, CaptchaService],
   controllers: [AuthController],
-  exports: [JwtModule],
+  // AuthService é exportado para o aceite de convite (modules/collaborators)
+  // emitir a sessão do colaborador — o convidado já entra logado.
+  exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

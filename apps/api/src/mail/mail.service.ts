@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { passwordResetEmail } from './templates/password-reset.template';
+import { collaboratorInviteEmail } from './templates/collaborator-invite.template';
 
 /**
  * Envio de e-mail via SMTP (Nodemailer). Segue o mesmo padrão de "serviço
@@ -84,6 +85,61 @@ export class MailService {
         {
           evento: 'email.envio_falhou',
           msg: 'Falha ao enviar e-mail de redefinição de senha.',
+          destinatario: to,
+        },
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Envia o convite de colaborador. Mesmo contrato do reset: sem SMTP, o link
+   * só é logado (em dev) — e o painel exibe o link para o owner repassar, então
+   * o fluxo nunca depende do e-mail ter saído.
+   */
+  async sendCollaboratorInvite(params: {
+    to: string;
+    name: string;
+    ownerName: string;
+    roleName: string;
+    inviteUrl: string;
+  }): Promise<void> {
+    const { to, name, ownerName, roleName, inviteUrl } = params;
+    if (!this.isEnabled()) {
+      this.logger.warn({
+        evento: 'email.smtp_desabilitado',
+        msg: 'SMTP desabilitado — e-mail de convite não enviado.',
+        destinatario: to,
+        // O link carrega o token do convite: fora de desenvolvimento ele não
+        // entra no log (o Grafana é publicado e a linha vive 30 dias).
+        ...(process.env.NODE_ENV === 'production' ? {} : { inviteUrl }),
+      });
+      return;
+    }
+
+    const { subject, text, html } = collaboratorInviteEmail({
+      name,
+      ownerName,
+      roleName,
+      inviteUrl,
+      appUrl:
+        this.config.get<string>('FRONTEND_URL') ||
+        'https://crm.programeai.com.br',
+    });
+
+    try {
+      await this.getTransporter().sendMail({
+        from: this.from,
+        to,
+        subject,
+        text,
+        html,
+      });
+    } catch (err) {
+      this.logger.error(
+        {
+          evento: 'email.envio_falhou',
+          msg: 'Falha ao enviar e-mail de convite de colaborador.',
           destinatario: to,
         },
         err instanceof Error ? err.stack : undefined,
