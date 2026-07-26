@@ -4,6 +4,7 @@ import {
   monthBounds,
 } from './dashboard.service';
 import type { DashboardRepository } from '../domain/dashboard.repository';
+import { ALL_PERMISSION_KEYS } from '../../../shared/permissions';
 
 describe('monthBounds', () => {
   const now = new Date('2026-07-23T15:00:00.000Z');
@@ -111,9 +112,9 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner');
-    expect(result.funnel.totalOpen).toBe(3); // 2 + 1
-    expect(result.funnel.amountInNegotiation).toBe(1500); // 1000 + 500
+    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    expect(result.funnel!.totalOpen).toBe(3); // 2 + 1
+    expect(result.funnel!.amountInNegotiation).toBe(1500); // 1000 + 500
   });
 
   it('calcula a conversão como aceitas ÷ (aceitas + recusadas)', async () => {
@@ -130,9 +131,41 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner');
-    expect(result.proposals.conversionRate).toBe(0.75); // 3 / (3 + 1)
-    expect(result.proposals.acceptedThisMonth).toBe(3);
+    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    expect(result.proposals!.conversionRate).toBe(0.75); // 3 / (3 + 1)
+    expect(result.proposals!.acceptedThisMonth).toBe(3);
+  });
+
+  it('recorta o resumo pelas permissões da sessão', async () => {
+    repo.funnel.mockResolvedValue([]);
+    repo.upcomingActions.mockResolvedValue([]);
+
+    // Papel só-comercial: vê pipeline e clientes, não vê propostas nem demandas.
+    const result = await service.summary('owner', [
+      'cliente:ver',
+      'oportunidade:ver',
+    ]);
+
+    expect(result.funnel).not.toBeNull();
+    expect(result.proposals).toBeNull();
+    expect(result.demands).toBeNull();
+    // Não consulta o que não pode mostrar.
+    expect(repo.proposalsOpen).not.toHaveBeenCalled();
+    expect(repo.tasksInProgressCount).not.toHaveBeenCalled();
+    expect(repo.upcomingActions).toHaveBeenCalled();
+  });
+
+  it('não consulta nada de módulo nenhum para papel sem permissão', async () => {
+    const result = await service.summary('owner', []);
+
+    expect(result).toEqual({
+      funnel: null,
+      proposals: null,
+      demands: null,
+      upcomingActions: [],
+    });
+    expect(repo.funnel).not.toHaveBeenCalled();
+    expect(repo.upcomingActions).not.toHaveBeenCalled();
   });
 
   it('conversão é 0 quando não há propostas decididas', async () => {
@@ -145,8 +178,8 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner');
-    expect(result.proposals.conversionRate).toBe(0);
+    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    expect(result.proposals!.conversionRate).toBe(0);
   });
 
   it('repassa os agregados financeiros do repositório', async () => {

@@ -63,58 +63,75 @@ export class DashboardService {
     private readonly repo: DashboardRepository,
   ) {}
 
-  /** Resumo comercial: funil, propostas, demandas e próximas ações. */
-  async summary(ownerId: string) {
+  /**
+   * Resumo comercial: funil, propostas, demandas e próximas ações.
+   *
+   * O dashboard é a home de **todo** colaborador (não exige permissão), mas cada
+   * bloco é agregado de um módulo diferente. Por isso recebe as permissões da
+   * sessão e devolve `null` no bloco que o usuário não pode ver — sem isso, quem
+   * não tem `proposta:ver` leria os totais de propostas por aqui.
+   */
+  async summary(ownerId: string, permissions: readonly string[]) {
+    const may = (...keys: string[]) =>
+      keys.some((k) => permissions.includes(k));
+    const mayDeals = may('oportunidade:ver', 'oportunidade:gerenciar');
+    const mayProposals = may('proposta:ver', 'proposta:gerenciar');
+    const mayTasks = may(
+      'projeto:ver',
+      'projeto:gerenciar',
+      'demanda:gerenciar',
+    );
+    const mayClients = may('cliente:ver', 'cliente:gerenciar');
+
     const w = buildWindows(new Date());
-    const [
-      funnel,
-      open,
-      acceptedThisMonth,
-      decided,
-      tasksInProgress,
-      tasksOverdue,
-      upcomingTasks,
-      upcomingActions,
-    ] = await Promise.all([
-      this.repo.funnel(ownerId),
+    const [funnel, proposals, demands, upcomingActions] = await Promise.all([
+      mayDeals ? this.funnelBlock(ownerId) : null,
+      mayProposals ? this.proposalsBlock(ownerId, w) : null,
+      mayTasks ? this.demandsBlock(ownerId, w) : null,
+      // Próximas ações são follow-ups de clientes (ver Activity).
+      mayClients ? this.repo.upcomingActions(ownerId, UPCOMING_TAKE) : [],
+    ]);
+
+    return { funnel, proposals, demands, upcomingActions };
+  }
+
+  /** Funil de oportunidades + totais em aberto. */
+  private async funnelBlock(ownerId: string) {
+    const stages = await this.repo.funnel(ownerId);
+    // Estágios "abertos" = nem ganho nem perdido (oportunidades em negociação).
+    const openStages = stages.filter((s) => !s.isWon && !s.isLost);
+    return {
+      stages,
+      totalOpen: openStages.reduce((acc, s) => acc + s.count, 0),
+      amountInNegotiation: openStages.reduce((acc, s) => acc + s.amount, 0),
+    };
+  }
+
+  private async proposalsBlock(ownerId: string, w: DashboardWindows) {
+    const [open, acceptedThisMonth, decided] = await Promise.all([
       this.repo.proposalsOpen(ownerId),
       this.repo.proposalsAcceptedCount(ownerId, w.monthStart, w.monthEnd),
       this.repo.proposalsDecidedSince(ownerId, w.conversionSince),
-      this.repo.tasksInProgressCount(ownerId),
-      this.repo.tasksOverdueCount(ownerId, w.now),
-      this.repo.upcomingTasks(ownerId, w.now, w.upcomingUntil, UPCOMING_TAKE),
-      this.repo.upcomingActions(ownerId, UPCOMING_TAKE),
     ]);
-
-    // Estágios "abertos" = nem ganho nem perdido (oportunidades em negociação).
-    const openStages = funnel.filter((s) => !s.isWon && !s.isLost);
-    const totalOpen = openStages.reduce((acc, s) => acc + s.count, 0);
-    const amountInNegotiation = openStages.reduce(
-      (acc, s) => acc + s.amount,
-      0,
-    );
-
     // Conversão nos últimos 90 dias: aceitas ÷ (aceitas + recusadas) decididas.
     const accepted = decided.find((d) => d.status === 'ACCEPTED')?.count ?? 0;
     const rejected = decided.find((d) => d.status === 'REJECTED')?.count ?? 0;
     const decidedTotal = accepted + rejected;
-    const conversionRate = decidedTotal > 0 ? accepted / decidedTotal : 0;
-
     return {
-      funnel: { stages: funnel, totalOpen, amountInNegotiation },
-      proposals: {
-        openCount: open.count,
-        openAmount: open.amount,
-        acceptedThisMonth,
-        conversionRate, // 0..1
-      },
-      demands: {
-        inProgress: tasksInProgress,
-        overdue: tasksOverdue,
-        upcoming: upcomingTasks,
-      },
-      upcomingActions,
+      openCount: open.count,
+      openAmount: open.amount,
+      acceptedThisMonth,
+      conversionRate: decidedTotal > 0 ? accepted / decidedTotal : 0, // 0..1
     };
+  }
+
+  private async demandsBlock(ownerId: string, w: DashboardWindows) {
+    const [inProgress, overdue, upcoming] = await Promise.all([
+      this.repo.tasksInProgressCount(ownerId),
+      this.repo.tasksOverdueCount(ownerId, w.now),
+      this.repo.upcomingTasks(ownerId, w.now, w.upcomingUntil, UPCOMING_TAKE),
+    ]);
+    return { inProgress, overdue, upcoming };
   }
 
   /**
