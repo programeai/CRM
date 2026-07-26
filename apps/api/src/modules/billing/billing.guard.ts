@@ -10,10 +10,11 @@ import { IS_PUBLIC_KEY } from '../auth/public.decorator';
 import { StripeService } from './application/stripe.service';
 import { SubscriptionAccessService } from './application/subscription-access.service';
 import { ALLOW_WITHOUT_SUBSCRIPTION_KEY } from './allow-without-subscription.decorator';
+import type { AuthenticatedRequest } from '../access/domain/access-context';
 
 /**
- * Gate de assinatura. Registrado como APP_GUARD **após** o JwtAuthGuard (precisa
- * de `req.user`). Só atua quando o billing está habilitado; caso contrário
+ * Gate de assinatura. Registrado como APP_GUARD **após** o AccessGuard (precisa
+ * de `req.access`). Só atua quando o billing está habilitado; caso contrário
  * (autohospedagem) libera tudo. Libera também rotas públicas e as rotas de
  * billing/webhook (`@AllowWithoutSubscription()`), senão um owner bloqueado não
  * conseguiria assinar.
@@ -44,10 +45,11 @@ export class BillingGuard implements CanActivate {
     );
     if (allowWithout) return true;
 
-    const req = context
-      .switchToHttp()
-      .getRequest<{ user?: { sub?: string } }>();
-    const ownerId = req.user?.sub;
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    // Owner da workspace (resolvido pelo AccessGuard, que roda antes): o
+    // colaborador herda o gate da assinatura de quem o convidou — ele não tem
+    // assinatura própria.
+    const ownerId = req.access?.ownerId ?? req.user?.sub;
     // Rota protegida sem usuário não deveria chegar aqui (JwtAuthGuard barra antes).
     if (!ownerId) return true;
 
