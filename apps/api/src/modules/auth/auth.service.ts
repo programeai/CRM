@@ -1,7 +1,9 @@
 import {
   ConflictException,
+  ForbiddenException,
   GoneException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +21,8 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private users: UsersService,
     private jwt: JwtService,
@@ -27,6 +31,7 @@ export class AuthService {
   ) {}
 
   async register(name: string, email: string, password: string) {
+    this.assertRegistrationEnabled();
     const existing = await this.users.findByEmail(email);
     if (existing) {
       throw new ConflictException('Já existe uma conta com este e-mail.');
@@ -71,6 +76,7 @@ export class AuthService {
       return this.issueTokens(existing.id);
     }
 
+    this.assertRegistrationEnabled();
     const created = await this.users.createWithOAuth({
       name: profile.name,
       email: profile.email,
@@ -95,6 +101,25 @@ export class AuthService {
     // revelaria a existência da conta a quem não sabe a senha.
     this.assertActive(user.active);
     return this.issueTokens(user.id);
+  }
+
+  /**
+   * Freio do autocadastro. Cobre os dois caminhos que criam conta por conta
+   * própria: `register()` e o ramo de criação do `oauthLogin()`. Não cobre — e
+   * não deve cobrir — o convite de colaborador, que é uma ação deliberada do
+   * owner e passa pelo CollaboratorsService, não por aqui.
+   */
+  private assertRegistrationEnabled() {
+    if (this.config.get<boolean>('REGISTRATION_ENABLED') === false) {
+      // Sem e-mail no log: a linha vive 30 dias num Grafana publicado.
+      this.logger.warn({
+        evento: 'cadastro.bloqueado',
+        msg: 'Tentativa de autocadastro com REGISTRATION_ENABLED=false.',
+      });
+      throw new ForbiddenException(
+        'O autocadastro está desativado nesta instância. Peça um convite ao responsável pela conta.',
+      );
+    }
   }
 
   /** Colaborador desativado não entra nem renova sessão. */

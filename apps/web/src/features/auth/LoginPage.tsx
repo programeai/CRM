@@ -14,10 +14,13 @@ import { useAuth } from '@/lib/auth';
 import { clearCredentials, loadCredentials, saveCredentials } from '@/lib/remember';
 import { AuthLayout } from './AuthLayout';
 import { OAuthButtons } from './OAuthButtons';
+import { useRegistrationEnabled } from './use-registration';
 
 const OAUTH_ERRORS: Record<string, string> = {
   oauth: 'Não foi possível entrar com o provedor. Tente novamente.',
   oauth_indisponivel: 'Este provedor de login não está disponível no momento.',
+  cadastro_desativado:
+    'Esta instância não aceita novos cadastros. Peça um convite ao responsável pela conta.',
 };
 
 const schema = z.object({
@@ -31,6 +34,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [remember, setRemember] = useState(false);
+  const registrationEnabled = useRegistrationEnabled();
 
   useEffect(() => {
     const error = searchParams.get('error');
@@ -124,12 +128,14 @@ export default function LoginPage() {
         </FieldGroup>
       </form>
       <OAuthButtons />
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        Não tem uma conta?{' '}
-        <Link to="/registrar" className="font-medium text-primary hover:underline">
-          Criar conta
-        </Link>
-      </p>
+      {registrationEnabled !== false && (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Não tem uma conta?{' '}
+          <Link to="/registrar" className="font-medium text-primary hover:underline">
+            Criar conta
+          </Link>
+        </p>
+      )}
     </AuthLayout>
   );
 }

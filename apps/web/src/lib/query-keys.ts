@@ -72,6 +72,7 @@ export const queryKeys = {
   clientOptions: (search: string) => ['client-options', search] as const,
   auth: {
     oauthProviders: ['auth', 'oauth-providers'] as const,
+    registration: ['auth', 'registration'] as const,
     me: ['auth', 'me'] as const,
   },
 } as const;

@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth';
 import { AuthLayout } from './AuthLayout';
 import { OAuthButtons } from './OAuthButtons';
 import { Turnstile } from './Turnstile';
+import { useRegistrationEnabled } from './use-registration';
 
 const CAPTCHA_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | string
@@ -73,6 +74,30 @@ export default function RegisterPage() {
       toast.error(message);
     }
   };
+
+  const registrationEnabled = useRegistrationEnabled();
+
+  // `undefined` = ainda carregando: não pisca a tela de bloqueio.
+  if (registrationEnabled === false) {
+    return (
+      <AuthLayout
+        title="Cadastro fechado"
+        description="Esta instância do CRM não aceita novos cadastros."
+      >
+        <p className="text-sm text-muted-foreground">
+          O acesso é criado pelo responsável pela conta. Se você deveria ter
+          acesso, peça um convite — ele chega por e-mail com um link de
+          ativação.
+        </p>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Já tem uma conta?{' '}
+          <Link to="/login" className="font-medium text-primary hover:underline">
+            Entrar
+          </Link>
+        </p>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout

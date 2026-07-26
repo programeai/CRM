@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -144,6 +145,15 @@ export class AuthController {
     return { ok: true };
   }
 
+  /** Informa se o autocadastro está aberto, para a UI não oferecer o que a API recusa. */
+  @Public()
+  @Get('registration')
+  registration() {
+    return {
+      enabled: this.config.get<boolean>('REGISTRATION_ENABLED') !== false,
+    };
+  }
+
   // --- OAuth (Google / GitHub) ---
 
   /** Informa quais provedores OAuth estão configurados, para a UI exibir só o que funciona. */
@@ -202,7 +212,12 @@ export class AuthController {
       );
       this.setRefreshCookie(res, refreshToken);
       return res.redirect(this.config.get<string>('FRONTEND_URL') ?? '/');
-    } catch {
+    } catch (erro) {
+      // O gate de cadastro não é falha de OAuth: merece mensagem própria no
+      // login, senão o usuário lê "erro no login social" e tenta de novo.
+      if (erro instanceof ForbiddenException) {
+        return res.redirect(this.frontendError('cadastro_desativado'));
+      }
       return res.redirect(this.frontendError('oauth'));
     }
   }

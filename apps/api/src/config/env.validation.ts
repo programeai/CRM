@@ -33,6 +33,12 @@ export const envValidationSchema = Joi.object({
   GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),
   // Captcha (Cloudflare Turnstile) — opcional: em branco desativa a verificação.
   TURNSTILE_SECRET_KEY: Joi.string().allow('').default(''),
+  // Autocadastro público. Default `true` para não travar quem sobe o projeto do
+  // zero: com o cadastro fechado a primeira conta seria impossível de criar (não
+  // há seed de admin em produção). Numa instância já em uso, `false` fecha as
+  // DUAS portas de autocadastro — POST /auth/register e a criação de conta nova
+  // pelo OAuth. O convite de colaborador é do owner e não é afetado.
+  REGISTRATION_ENABLED: Joi.boolean().default(true),
   // SMTP para envio de e-mail (ex.: redefinição de senha) — opcional: sem
   // SMTP_HOST o envio é desativado e o link é apenas logado (ver MailService).
   SMTP_HOST: Joi.string().allow('').default(''),
