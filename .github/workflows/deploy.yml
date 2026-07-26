@@ -71,7 +71,7 @@ jobs:
           done
 
       - name: Criar diretório de deploy na VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
@@ -90,7 +90,7 @@ jobs:
           target: ${{ secrets.DEPLOY_DIR }}
 
       - name: Deploy na VPS
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
