@@ -1,0 +1,55 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Falha de **segurança** não vai aqui — use o
+        [reporte privado](https://github.com/programeai/CRM/security/advisories/new).
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que acontece
+      description: Descreva o comportamento observado.
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que deveria acontecer
+    validations:
+      required: true
+  - type: textarea
+    id: reproducao
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Entrar em …
+        2. Clicar em …
+        3. Ver o erro …
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão ou commit
+      placeholder: "main @ 992b507"
+  - type: dropdown
+    id: ambiente
+    attributes:
+      label: Ambiente
+      options:
+        - Desenvolvimento local (pnpm dev)
+        - Autohospedagem (docker-compose.prod.yml)
+        - Instância hospedada (crm.programeai.com.br)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log ou x-request-id
+      description: >
+        Toda resposta da API traz o cabeçalho `x-request-id`. Cole-o aqui, ou o
+        trecho de log relevante — **sem senha, token ou cookie**.
+      render: text

@@ -1,0 +1,32 @@
+name: Melhoria
+description: Sugerir uma funcionalidade ou mudança
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve
+      description: Comece pelo problema, não pela solução.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+  - type: checkboxes
+    id: escopo
+    attributes:
+      label: Escopo do produto
+      description: >
+        O CRM é de agência (clientes, pipeline de vendas, propostas, projetos,
+        contratos e financeiro). Os dados são isolados por owner: cada owner é
+        dono dos seus dados e convida colaboradores com papéis e permissões.
+      options:
+        - label: Li o escopo de produto no README e a proposta cabe nele
+          required: true

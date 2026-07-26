@@ -45,4 +45,6 @@ são licenciados**. Forks e produtos derivados devem usar um nome e uma
 identidade próprios e não podem sugerir afiliação ou endosso oficial.
 
 ## Contribuindo
-Ver [CONTRIBUTING.md](./CONTRIBUTING.md).
+Ver [CONTRIBUTING.md](./CONTRIBUTING.md) e o
+[Código de Conduta](./.github/CODE_OF_CONDUCT.md).
+Falha de segurança vai por [reporte privado](./.github/SECURITY.md), nunca em issue.
