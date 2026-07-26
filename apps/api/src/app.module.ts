@@ -7,7 +7,10 @@ import { ClsModule } from 'nestjs-cls';
 import type { Request } from 'express';
 import { PrismaModule } from './prisma/prisma.module';
 import { OwnerContextInterceptor } from './prisma/owner-context.interceptor';
+import { AccessModule } from './modules/access/access.module';
+import { AccessGuard } from './modules/access/access.guard';
 import { AuthModule } from './modules/auth/auth.module';
+import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
@@ -46,7 +49,9 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
       },
     }),
     PrismaModule,
+    AccessModule,
     AuthModule,
+    CollaboratorsModule,
     ClientsModule,
     ContactsModule,
     ActivitiesModule,
@@ -63,7 +68,11 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Após o JwtAuthGuard: precisa de req.user para identificar o owner.
+    // Após o JwtAuthGuard: usa req.user para resolver req.access (workspace +
+    // permissões) e aplicar o @RequirePermission da rota.
+    { provide: APP_GUARD, useClass: AccessGuard },
+    // Após o AccessGuard: o gate é da assinatura do OWNER da workspace, que só
+    // o req.access conhece (colaborador não tem assinatura própria).
     { provide: APP_GUARD, useClass: BillingGuard },
     { provide: APP_INTERCEPTOR, useClass: OwnerContextInterceptor },
   ],

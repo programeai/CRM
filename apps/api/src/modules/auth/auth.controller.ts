@@ -24,8 +24,17 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 import { Public } from './public.decorator';
+import {
+  REFRESH_COOKIE,
+  REFRESH_COOKIE_PATH,
+  setRefreshCookie,
+} from './refresh-cookie';
+import {
+  CurrentAccess,
+  CurrentUserId,
+} from '../../shared/current-user.decorator';
+import type { AccessContext } from '../access/domain/access-context';
 
-const REFRESH_COOKIE = 'refresh_token';
 const OAUTH_STATE_COOKIE = 'oauth_state';
 
 @Controller('auth')
@@ -39,14 +48,7 @@ export class AuthController {
   ) {}
 
   private setRefreshCookie(res: Response, token: string) {
-    res.cookie(REFRESH_COOKIE, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.config.get('NODE_ENV') === 'production',
-      domain: this.config.get('COOKIE_DOMAIN'),
-      path: '/api/v1/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setRefreshCookie(res, token, this.config);
   }
 
   @Public()
@@ -123,25 +125,22 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@Req() req: Request & { user: { sub: string } }) {
-    return this.auth.me(req.user.sub);
+  me(@CurrentUserId() userId: string, @CurrentAccess() access: AccessContext) {
+    return this.auth.me(userId, access);
   }
 
   @Patch('me')
-  updateMe(
-    @Req() req: Request & { user: { sub: string } },
-    @Body() dto: UpdateProfileDto,
-  ) {
-    return this.auth.updateProfile(req.user.sub, dto);
+  updateMe(@CurrentUserId() userId: string, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateProfile(userId, dto);
   }
 
   @Post('logout')
   async logout(
-    @Req() req: Request & { user: { sub: string } },
+    @CurrentUserId() userId: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.auth.logout(req.user.sub);
-    res.clearCookie(REFRESH_COOKIE, { path: '/api/v1/auth' });
+    await this.auth.logout(userId);
+    res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     return { ok: true };
   }
 

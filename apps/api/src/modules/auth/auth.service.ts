@@ -11,6 +11,7 @@ import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
+import type { AccessContext } from '../access/domain/access-context';
 import type { OAuthProfile } from './oauth/oauth.service';
 
 /** Validade do token de redefinição de senha. */
@@ -48,7 +49,10 @@ export class AuthService {
       provider,
       profile.providerAccountId,
     );
-    if (linked) return this.issueTokens(linked.id);
+    if (linked) {
+      this.assertActive(linked.active);
+      return this.issueTokens(linked.id);
+    }
 
     if (!profile.email || !profile.emailVerified) {
       throw new UnauthorizedException(
@@ -58,6 +62,7 @@ export class AuthService {
 
     const existing = await this.users.findByEmail(profile.email);
     if (existing) {
+      this.assertActive(existing.active);
       await this.users.linkOAuthAccount(
         existing.id,
         provider,
@@ -77,6 +82,8 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.users.findByEmail(email);
+    // `passwordHash` nulo = conta só-OAuth ou convite de colaborador ainda não
+    // aceito: nos dois casos não há o que verificar, e a resposta é genérica.
     if (
       !user ||
       !user.passwordHash ||
@@ -84,7 +91,19 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
+    // A checagem vem DEPOIS da senha de propósito: sem isso, o erro específico
+    // revelaria a existência da conta a quem não sabe a senha.
+    this.assertActive(user.active);
     return this.issueTokens(user.id);
+  }
+
+  /** Colaborador desativado não entra nem renova sessão. */
+  private assertActive(active: boolean) {
+    if (!active) {
+      throw new UnauthorizedException(
+        'Seu acesso ao CRM foi desativado. Fale com o responsável pela conta.',
+      );
+    }
   }
 
   /**
@@ -168,14 +187,35 @@ export class AuthService {
     ) {
       throw new UnauthorizedException();
     }
+    // Desativar o colaborador derruba a sessão dele no próximo refresh, mesmo
+    // que o cookie ainda esteja no navegador.
+    this.assertActive(user.active);
     return this.issueTokens(user.id);
   }
 
-  async me(userId: string) {
+  /**
+   * Dados da sessão para o frontend. Além do cadastro (sem segredo), devolve o
+   * contexto de acesso já resolvido pelo `AccessGuard` — o front usa
+   * `permissions` para esconder navegação e ações, e `isOwner` para diferenciar
+   * o dono da conta de um colaborador.
+   */
+  async me(userId: string, access: AccessContext) {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
-    const { passwordHash, refreshTokenHash, ...safe } = user;
-    return safe;
+    // `ownerId`/`roleId` ficam de fora: são o mesmo dado que `isOwner`/`role`
+    // expressam melhor — não vale expor duas formas do mesmo estado.
+    const { passwordHash, refreshTokenHash, ownerId, roleId, ...safe } = user;
+    return {
+      ...safe,
+      isOwner: access.isOwner,
+      role: access.roleId ? { id: access.roleId, name: access.roleName } : null,
+      permissions: access.permissions,
+    };
+  }
+
+  /** Emite sessão para um usuário já validado (usado no aceite do convite). */
+  issueSession(userId: string) {
+    return this.issueTokens(userId);
   }
 
   /**

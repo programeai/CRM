@@ -66,12 +66,39 @@ describe('AuthService', () => {
 
     it('emite tokens e persiste o hash do refresh quando a senha confere', async () => {
       const passwordHash = await argon2.hash('senha-correta');
-      users.findByEmail.mockResolvedValue({ id: 'u1', passwordHash } as any);
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        passwordHash,
+        active: true,
+      } as any);
       const result = await service.login('a@b.com', 'senha-correta');
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
       expect(users.setRefreshTokenHash).toHaveBeenCalledWith(
         'u1',
         expect.any(String),
+      );
+    });
+
+    it('rejeita colaborador desativado, mesmo com a senha correta', async () => {
+      const passwordHash = await argon2.hash('senha-correta');
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        passwordHash,
+        active: false,
+      } as any);
+      await expect(service.login('a@b.com', 'senha-correta')).rejects.toThrow(
+        'Seu acesso ao CRM foi desativado',
+      );
+    });
+
+    it('rejeita convite pendente (sem senha definida) sem revelar a conta', async () => {
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        passwordHash: null,
+        active: true,
+      } as any);
+      await expect(service.login('a@b.com', 'x')).rejects.toThrow(
+        'Credenciais inválidas',
       );
     });
   });
@@ -98,9 +125,26 @@ describe('AuthService', () => {
     it('emite novos tokens quando o refresh confere', async () => {
       const token = 'refresh-valido';
       const refreshTokenHash = await argon2.hash(token);
-      users.findById.mockResolvedValue({ id: 'u1', refreshTokenHash } as any);
+      users.findById.mockResolvedValue({
+        id: 'u1',
+        refreshTokenHash,
+        active: true,
+      } as any);
       const result = await service.refresh('u1', token);
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
+    });
+
+    it('rejeita o refresh de colaborador desativado', async () => {
+      const token = 'refresh-valido';
+      const refreshTokenHash = await argon2.hash(token);
+      users.findById.mockResolvedValue({
+        id: 'u1',
+        refreshTokenHash,
+        active: false,
+      } as any);
+      await expect(service.refresh('u1', token)).rejects.toThrow(
+        'Seu acesso ao CRM foi desativado',
+      );
     });
   });
 
