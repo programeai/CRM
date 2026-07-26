@@ -115,7 +115,10 @@ describe('contextoDaRequisicao', () => {
     expect(res.cabecalhos['x-request-id']).toBeDefined();
   });
 
-  it('prefere o IP do x-forwarded-for ao IP do proxy', () => {
+  it('loga o IP que o Express resolveu em req.ip, não o cabeçalho cru', () => {
+    // Em produção req.ip já vem do x-forwarded-for, porque o bootstrap configura
+    // `trust proxy` (TRUST_PROXY_HOPS). O middleware não interpreta o cabeçalho:
+    // ler de novo aqui seria uma segunda fonte de verdade para o mesmo dado.
     const res = respostaFalsa(200);
     contextoDaRequisicao(
       requisicaoFalsa('/api/v1/x', {
@@ -126,6 +129,6 @@ describe('contextoDaRequisicao', () => {
     );
     res.disparaFinish();
 
-    expect(linhas[0].ip).toBe('203.0.113.7');
+    expect(linhas[0].ip).toBe('10.0.0.1');
   });
 });

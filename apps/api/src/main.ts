@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { JsonLogger } from './shared/logging/json-logger';
 import { registrarLog } from './shared/logging/log';
@@ -47,9 +48,28 @@ async function bootstrap() {
   });
   const config = app.get(ConfigService);
   app.setGlobalPrefix('api/v1');
+  // Atrás de um reverse proxy, a conexão TCP vem do proxy: sem isto req.ip é o
+  // IP do container do Traefik, e como o getTracker default do ThrottlerGuard é
+  // `return req.ip`, o @Throttle de /auth/* viraria um balde ÚNICO compartilhado
+  // por todos os clientes — 5 logins/min derrubariam o login de todo mundo. O
+  // mesmo req.ip vai como `remoteip` ao Turnstile.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .set('trust proxy', config.get<number>('TRUST_PROXY_HOPS') ?? 1);
   // Primeiro middleware da cadeia: define o requestId que todas as linhas de log
   // daquele acesso (inclusive as do próprio Nest) vão carregar.
   app.use(contextoDaRequisicao);
+  // A API responde em /api, que o Traefik roteia DIRETO ao Nest: estas respostas
+  // não passam pelo nginx do front (apps/web/nginx.conf) e sairiam sem cabeçalho
+  // de segurança algum. O CSP default do helmet é inócuo numa API que só devolve
+  // JSON, e não conflita com o CSP do front — são caminhos diferentes (/ vs /api).
+  // hsts: false porque HSTS é política de HOST, não de path: o navegador guarda a
+  // última que recebeu daquele host, e o nginx do front já manda
+  // `max-age=31536000` sem includeSubDomains (nginx.conf:70). Ligar o default do
+  // helmet aqui criaria duas políticas divergentes para o mesmo host, decididas
+  // pela ordem das respostas — e includeSubDomains fica travado por um ano.
+  app.use(helmet({ hsts: false }));
   app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
