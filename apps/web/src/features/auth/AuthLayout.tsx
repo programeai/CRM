@@ -123,66 +123,88 @@ function Showcase() {
         style={{ background: 'radial-gradient(circle, #0e7c7b, transparent 70%)' }}
       />
 
-      <div className="relative flex h-full flex-col justify-between p-12 xl:p-16">
-        <Wordmark tone="dark" className="text-2xl" data-animate />
+      {/* O painel rola como peça única: `min-h-full` + `justify-between` deixam
+          a marca no topo e o rodapé no pé enquanto sobra espaço, e passam a
+          rolar juntos quando não sobra — em vez de o discurso transbordar e ser
+          pintado por cima do rodapé, como acontecia quando a altura era fixa. */}
+      <div className="relative flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/15">
+        <div
+          className="flex min-h-full flex-col justify-between gap-10 px-12 xl:px-16"
+          /* Respiro vertical acompanha a altura da janela: aperta em notebook
+             baixo (onde cada pixel decide se cabe) sem achatar em tela grande. */
+          style={{ paddingBlock: 'clamp(2rem, 6vh, 4rem)' }}
+        >
+          <Wordmark tone="dark" className="text-2xl" data-animate />
 
-        {/* `min-h-0` mantém a marca e o rodapé ancorados em telas baixas:
-            o bloco do meio encolhe em vez de empurrar a estrutura para fora. */}
-        <div className="min-h-0 max-w-md">
-          <p
-            data-animate
-            className="font-mono text-xs tracking-wide"
-            style={{ color: TEAL_ON_DARK, animationDelay: '80ms' }}
-          >
-            // crm comercial para agências
-          </p>
-          <h2
-            data-animate
-            className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-[-0.03em] text-balance text-white xl:text-[2.75rem]"
-            style={{ animationDelay: '160ms' }}
-          >
-            Todo o comercial da sua agência em um só lugar.
-          </h2>
-          <p
-            data-animate
-            className="mt-5 text-[0.95rem] leading-relaxed"
-            style={{ color: 'rgba(245,246,248,0.7)', animationDelay: '240ms' }}
-          >
-            Do primeiro lead ao contrato assinado. Pipeline, propostas, projetos
-            e financeiro conversando entre si, sem planilha solta.
-          </p>
+          <div className="max-w-md">
+            <p
+              data-animate
+              className="font-mono text-xs tracking-wide"
+              style={{ color: TEAL_ON_DARK, animationDelay: '80ms' }}
+            >
+              // crm comercial para agências
+            </p>
+            <h2
+              data-animate
+              className="mt-4 text-4xl font-extrabold leading-[1.08] tracking-[-0.03em] text-balance text-white xl:text-[2.75rem]"
+              style={{ animationDelay: '160ms' }}
+            >
+              Todo o comercial da sua agência em um só lugar.
+            </h2>
+            <p
+              data-animate
+              className="mt-5 text-[0.95rem] leading-relaxed"
+              style={{ color: 'rgba(245,246,248,0.7)', animationDelay: '240ms' }}
+            >
+              Do primeiro lead ao contrato assinado. Pipeline, propostas,
+              projetos e financeiro conversando entre si, sem planilha solta.
+            </p>
 
-          <div data-animate className="mt-8" style={{ animationDelay: '320ms' }}>
-            <PipelinePreview />
+            {/* A amostra é o pedaço mais alto do painel (~265px) e o único
+                dispensável, então é ela que sai quando a janela não tem altura.
+                Limiares medidos no painel montado: com a amostra o discurso
+                exige ~1035px de altura; sem ela, cabe a partir de ~700px. */}
+            <div
+              data-animate
+              className="mt-8 [@media(max-height:1040px)]:hidden"
+              style={{ animationDelay: '320ms' }}
+            >
+              <PipelinePreview />
+            </div>
+
+            <ul
+              data-animate
+              className="mt-8 space-y-3"
+              style={{ animationDelay: '400ms' }}
+            >
+              {HIGHLIGHTS.map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <span
+                    className="grid size-5 shrink-0 place-items-center rounded-full"
+                    style={{ backgroundColor: 'rgba(14,124,123,0.25)' }}
+                  >
+                    <Check
+                      className="size-3"
+                      style={{ color: TEAL_ON_DARK }}
+                      strokeWidth={3}
+                    />
+                  </span>
+                  <span className="text-sm" style={{ color: 'rgba(245,246,248,0.82)' }}>
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <ul data-animate className="mt-8 space-y-3" style={{ animationDelay: '400ms' }}>
-            {HIGHLIGHTS.map((item) => (
-              <li key={item} className="flex items-center gap-3">
-                <span
-                  className="grid size-5 shrink-0 place-items-center rounded-full"
-                  style={{ backgroundColor: 'rgba(14,124,123,0.25)' }}
-                >
-                  <Check className="size-3" style={{ color: TEAL_ON_DARK }} strokeWidth={3} />
-                </span>
-                <span
-                  className="text-sm"
-                  style={{ color: 'rgba(245,246,248,0.82)' }}
-                >
-                  {item}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <p
+            data-animate
+            className="font-mono text-[0.7rem]"
+            style={{ color: 'rgba(245,246,248,0.4)', animationDelay: '480ms' }}
+          >
+            ProgrameAi © 2026 · feito para quem vende software
+          </p>
         </div>
-
-        <p
-          data-animate
-          className="font-mono text-[0.7rem]"
-          style={{ color: 'rgba(245,246,248,0.4)', animationDelay: '480ms' }}
-        >
-          ProgrameAi © 2026 · feito para quem vende software
-        </p>
       </div>
     </aside>
   );
