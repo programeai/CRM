@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { defaultPipelineStages } from '../src/shared/default-pipeline-stages';
 
 const prisma = new PrismaClient();
 
@@ -98,24 +99,20 @@ async function main() {
     },
   });
 
-  // --- estágios do pipeline (globais) -----------------------------------
-  const stageDefs = [
-    { name: 'Novo lead', isWon: false, isLost: false },
-    { name: 'Contato feito', isWon: false, isLost: false },
-    { name: 'Reunião/Diagnóstico', isWon: false, isLost: false },
-    { name: 'Proposta enviada', isWon: false, isLost: false },
-    { name: 'Negociação', isWon: false, isLost: false },
-    { name: 'Ganhou', isWon: true, isLost: false },
-    { name: 'Perdeu', isWon: false, isLost: true },
-  ];
-  for (const [order, s] of stageDefs.entries()) {
-    await prisma.pipelineStage.upsert({
-      where: { name: s.name },
-      update: { order, isWon: s.isWon, isLost: s.isLost },
-      create: { name: s.name, order, isWon: s.isWon, isLost: s.isLost },
-    });
+  // --- estágios do pipeline (por owner) ---------------------------------
+  // O funil é do owner (RLS por ownerId). Em produção estes estágios nascem no
+  // cadastro (ver UsersService); aqui o seed replica para os dois owners de
+  // desenvolvimento, o que também exercita o isolamento.
+  for (const owner of [admin, demo]) {
+    for (const s of defaultPipelineStages()) {
+      await prisma.pipelineStage.upsert({
+        where: { ownerId_name: { ownerId: owner.id, name: s.name } },
+        update: { order: s.order, isWon: s.isWon, isLost: s.isLost },
+        create: { ownerId: owner.id, ...s },
+      });
+    }
   }
-  const stages = await prisma.pipelineStage.findMany();
+  const stages = await prisma.pipelineStage.findMany({ where: { ownerId } });
   const stage = (name: string) => {
     const s = stages.find((x) => x.name === name);
     if (!s) throw new Error(`Estágio não encontrado: ${name}`);
