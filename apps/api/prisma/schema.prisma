@@ -14,13 +14,69 @@ model User {
   id               String         @id @default(uuid())
   name             String
   email            String         @unique
-  passwordHash     String? // opcional: contas criadas via OAuth não têm senha
+  passwordHash     String? // opcional: conta criada via OAuth ou convite de colaborador ainda não aceito
   refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
   stripeCustomerId String?        @unique // billing (SaaS hospedado) — ausente na autohospedagem
+  // --- colaboração (ver modelos Role/CollaboratorInvite) ---
+  // NULL = este usuário é um owner: dono da workspace, dos dados e da assinatura.
+  // Preenchido = colaborador daquele owner. É este valor que vira `app.owner_id`
+  // no RLS (ver AccessService + OwnerContextInterceptor), e não o próprio id.
+  ownerId          String?
+  owner            User?          @relation("Collaborators", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators    User[]         @relation("Collaborators")
+  // Papel do colaborador. NULL no owner — que tem todas as permissões por definição.
+  roleId           String?
+  role             Role?          @relation(fields: [roleId], references: [id])
+  // Colaborador desativado não autentica e perde o acesso na requisição seguinte.
+  active           Boolean        @default(true)
+  // Quando o convite foi aceito (senha definida). NULL = convite pendente.
+  acceptedAt       DateTime?
   createdAt        DateTime       @default(now())
   oauthAccounts    OAuthAccount[]
   passwordResetTokens PasswordResetToken[]
   subscription     Subscription?
+  ownedRoles       Role[]         @relation("OwnerRoles")
+  invites          CollaboratorInvite[]
+
+  @@index([ownerId])
+}
+
+// Papel de colaborador: um conjunto de chaves do catálogo em
+// `src/shared/permissions.ts`. Escopado ao owner (RLS por ownerId) — dois owners
+// podem ter papéis de mesmo nome sem se verem.
+model Role {
+  id          String   @id @default(uuid())
+  ownerId     String
+  owner       User     @relation("OwnerRoles", fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  // Papel criado junto com a conta ("Administrador"): não é editável nem
+  // excluível e vale SEMPRE o catálogo inteiro (resolvido no AccessService), de
+  // modo que uma permissão nova não deixa o papel desatualizado.
+  system      Boolean  @default(false)
+  permissions String[] @default([])
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+// Convite de colaborador. Guarda apenas o sha256 do token que vai no link — o
+// valor bruto só existe no e-mail/link entregue ao convidado. Uso único.
+model CollaboratorInvite {
+  id        String    @id @default(uuid())
+  ownerId   String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique // sha256 do token bruto enviado no link
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([ownerId])
 }
 
 enum OAuthProvider {

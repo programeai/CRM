@@ -42,16 +42,61 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email: 'admin@crm.local' },
     update: {},
-    create: { email: 'admin@crm.local', name: 'Edson Alencar', passwordHash },
+    create: {
+      email: 'admin@crm.local',
+      name: 'Edson Alencar',
+      passwordHash,
+      acceptedAt: now,
+    },
   });
   // Segundo usuário: permite testar isolamento por ownerId (Fase 3 do RLS).
-  await prisma.user.upsert({
+  const demo = await prisma.user.upsert({
     where: { email: 'demo@crm.local' },
     update: {},
-    create: { email: 'demo@crm.local', name: 'Demo', passwordHash },
+    create: {
+      email: 'demo@crm.local',
+      name: 'Demo',
+      passwordHash,
+      acceptedAt: now,
+    },
   });
 
   const ownerId = admin.id;
+
+  // --- papel do sistema por owner ---------------------------------------
+  // "Administrador" nasce com a conta e vale o catálogo inteiro (resolvido em
+  // tempo de execução pelo AccessService), por isso `permissions` fica vazio.
+  for (const owner of [admin, demo]) {
+    await prisma.role.upsert({
+      where: { ownerId_name: { ownerId: owner.id, name: 'Administrador' } },
+      update: {},
+      create: {
+        ownerId: owner.id,
+        name: 'Administrador',
+        description:
+          'Acesso total ao CRM. Papel do sistema — não pode ser editado nem excluído.',
+        system: true,
+      },
+    });
+  }
+  // Papel de exemplo (editável) para demonstrar o convite de colaborador.
+  await prisma.role.upsert({
+    where: { ownerId_name: { ownerId, name: 'Comercial' } },
+    update: {},
+    create: {
+      ownerId,
+      name: 'Comercial',
+      description: 'Clientes, pipeline e propostas — sem acesso ao financeiro.',
+      permissions: [
+        'cliente:ver',
+        'cliente:gerenciar',
+        'oportunidade:ver',
+        'oportunidade:gerenciar',
+        'proposta:ver',
+        'proposta:gerenciar',
+      ],
+    },
+  });
 
   // --- estágios do pipeline (globais) -----------------------------------
   const stageDefs = [
