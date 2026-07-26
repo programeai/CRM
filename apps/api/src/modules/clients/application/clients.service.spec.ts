@@ -18,6 +18,9 @@ describe('ClientsService', () => {
       update: jest.fn(),
       archive: jest.fn(),
       existsByDocument: jest.fn(),
+      listOwnerTags: jest.fn(),
+      findByTag: jest.fn(),
+      removeTagFromAll: jest.fn(),
     };
     service = new ClientsService(repo);
   });

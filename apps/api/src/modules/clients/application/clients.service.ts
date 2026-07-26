@@ -9,9 +9,11 @@ import type { Client } from '@prisma/client';
 import {
   CLIENT_REPOSITORY,
   type ClientRepository,
+  type ClientTagRef,
 } from '../domain/client.repository';
 import { isValidDocument, onlyDigits } from '../../../shared/document';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
 import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
@@ -71,6 +73,25 @@ export class ClientsService {
   async archive(ownerId: string, id: string): Promise<Client> {
     await this.findOne(ownerId, id);
     return this.repo.archive(id, ownerId);
+  }
+
+  /** Tags existentes do dono (agregadas dos clientes) com contagem de uso. */
+  listTags(ownerId: string): Promise<TagUsage[]> {
+    return this.repo.listOwnerTags(ownerId);
+  }
+
+  /** Clientes do dono que usam a tag — para exibir o uso antes de excluir. */
+  tagUsage(ownerId: string, tag: string): Promise<ClientTagRef[]> {
+    return this.repo.findByTag(ownerId, normalizeTag(tag));
+  }
+
+  /** Exclui a tag de todos os clientes do dono. Retorna quantos foram afetados. */
+  async deleteTag(ownerId: string, tag: string): Promise<{ removed: number }> {
+    const removed = await this.repo.removeTagFromAll(
+      ownerId,
+      normalizeTag(tag),
+    );
+    return { removed };
   }
 
   /** Valida formato e unicidade do documento; retorna só dígitos, ou undefined se vazio. */

@@ -1,4 +1,5 @@
 import type { Client, Prisma } from '@prisma/client';
+import type { TagUsage } from '../../../shared/tags';
 
 export const CLIENT_REPOSITORY = Symbol('CLIENT_REPOSITORY');
 
@@ -10,6 +11,12 @@ export interface ClientListFilter {
   includeArchived?: boolean;
   skip: number;
   take: number;
+}
+
+/** Referência mínima de um cliente que usa determinada tag (modal de exclusão). */
+export interface ClientTagRef {
+  id: string;
+  name: string;
 }
 
 export interface ClientRepository {
@@ -30,4 +37,10 @@ export interface ClientRepository {
     document: string,
     exceptId?: string,
   ): Promise<boolean>;
+  /** Tags distintas do dono (agregadas dos clientes ativos) com contagem de uso. */
+  listOwnerTags(ownerId: string): Promise<TagUsage[]>;
+  /** Clientes do dono que usam a tag informada — alimenta o modal de exclusão. */
+  findByTag(ownerId: string, tag: string): Promise<ClientTagRef[]>;
+  /** Remove a tag de todos os clientes do dono; retorna quantos foram afetados. */
+  removeTagFromAll(ownerId: string, tag: string): Promise<number>;
 }
