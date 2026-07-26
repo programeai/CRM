@@ -56,7 +56,7 @@ jobs:
       # fetch-depth: 0 para o diff funcionar em push com vários commits. O repo
       # tem ~1,4 MB, então o histórico completo é irrelevante no tempo.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

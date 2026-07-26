@@ -27,7 +27,7 @@ jobs:
       # acompanha a imagem, senão um rollback subiria imagem antiga com compose
       # novo. Com `latest`, usa a ref de onde o workflow foi disparado.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag == 'latest' && github.ref || inputs.tag }}
 
