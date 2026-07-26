@@ -1,0 +1,42 @@
+# Atualização automática de dependências. Três ecossistemas:
+#   npm            → pnpm workspace com lockfile único na raiz (directory "/")
+#   docker         → imagens base dos Dockerfiles e dos composes
+#   github-actions → as actions pinadas em build.yml e deploy.yml
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Um PR por grupo em vez de um por pacote: o volume de patch/minor em
+    # NestJS + React sozinho abriria dezenas de PRs por mês.
+    groups:
+      producao:
+        applies-to: version-updates
+        dependency-type: production
+        update-types: [minor, patch]
+      desenvolvimento:
+        applies-to: version-updates
+        dependency-type: development
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: docker
+    directories:
+      - "/apps/api"
+      - "/apps/web"
+      - "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"

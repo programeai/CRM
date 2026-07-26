@@ -2,6 +2,10 @@
 
 Obrigado pelo interesse em contribuir! Este guia é curto e direto.
 
+Antes de começar, leia o [Código de Conduta](./.github/CODE_OF_CONDUCT.md).
+Falha de segurança **não** vai em issue pública — ver
+[SECURITY.md](./.github/SECURITY.md).
+
 ## Rodando o projeto
 
 Siga o [Setup de desenvolvimento](./README.md#setup-de-desenvolvimento) do README.
@@ -37,3 +41,14 @@ Tipos comuns: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`.
 
 Ao enviar um PR, você concorda em licenciar sua contribuição sob a
 **Apache License 2.0** (ver [LICENSE](./LICENSE)), a mesma licença do projeto.
+
+## Código de conduta
+
+Este projeto adota o [Código de Conduta](./.github/CODE_OF_CONDUCT.md)
+(Contributor Covenant 2.1). Participar significa concordar com ele.
+
+## Falhas de segurança
+
+**Não abra issue pública.** Use o
+[reporte privado de vulnerabilidade](https://github.com/programeai/CRM/security/advisories/new)
+— detalhes em [SECURITY.md](./.github/SECURITY.md).

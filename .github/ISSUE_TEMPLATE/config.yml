@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Falha de segurança
+    url: https://github.com/programeai/CRM/security/advisories/new
+    about: Vulnerabilidades vão por reporte privado, nunca por issue pública.
+  - name: Dúvida ou ideia
+    url: https://github.com/programeai/CRM/discussions
+    about: Perguntas e propostas em aberto ficam melhor em Discussions.
