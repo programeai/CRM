@@ -5,7 +5,7 @@
 #
 # As VITE_* são embutidas no bundle em BUILD-TIME — trocar qualquer uma delas
 # exige rebuild da imagem, não basta reiniciar o container.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 RUN corepack enable
 WORKDIR /repo
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
