@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { useCan } from '@/hooks/use-can';
 import { startCheckout } from './api';
 import { useSubscription } from './useSubscription';
 import SubscriptionSettings from './SubscriptionSettings';
@@ -24,6 +25,7 @@ const PRICE_LABEL = 'R$ 27,97/mês';
  */
 export default function PaywallPage() {
   const { billingEnabled, isBlocked, isPending } = useSubscription();
+  const { can } = useCan();
   const [busy, setBusy] = useState(false);
 
   const assinar = async () => {
@@ -50,6 +52,27 @@ export default function PaywallPage() {
 
   // Autohospedagem (billing off): a feature não existe.
   if (!billingEnabled) return <Navigate to="/" replace />;
+
+  // Colaborador não assina — a assinatura é do dono da conta. Sem esta saída, o
+  // 402 o traria para cá e ele veria um botão que só devolveria 403.
+  if (!can('assinatura:gerenciar')) {
+    return (
+      <div className="grid min-h-[70vh] place-items-center p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {isBlocked ? 'Acesso suspenso' : 'Assinatura'}
+            </CardTitle>
+            <CardDescription>
+              {isBlocked
+                ? 'A assinatura desta conta está inativa, então o CRM ficou indisponível. Fale com o responsável pela conta para reativar.'
+                : 'A assinatura é gerenciada pelo responsável pela conta. Você não precisa fazer nada por aqui.'}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   // Com acesso: mostra o gerenciamento em vez do paywall.
   if (!isBlocked) {

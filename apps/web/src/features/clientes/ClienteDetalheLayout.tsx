@@ -15,6 +15,7 @@ import {
 import { SectionTabs, type SectionTabItem } from '@/components/ui/section-tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useGoBack } from '@/hooks/use-go-back';
+import { useCan } from '@/hooks/use-can';
 import { translateClientStatus } from '@/lib/labels';
 import { formatPhone } from '@/lib/format';
 import { useClient, useArchiveClient } from './api/hooks';
@@ -38,11 +39,15 @@ export default function ClienteDetalheLayout() {
   const goBack = useGoBack('/clientes');
   const { data: client, isLoading, isError } = useClient(id);
   const archiveClient = useArchiveClient();
+  const { canAny } = useCan();
 
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
-  const tabs: SectionTabItem[] = [
+  // As abas atravessam módulos (propostas, projetos, financeiro): cada uma
+  // declara o que exige e as que o colaborador não pode ver são removidas —
+  // sem isso ele clicaria numa aba que só devolveria 403.
+  const allTabs: SectionTabItem[] = [
     {
       label: 'Dados',
       to: `/clientes/${id}`,
@@ -63,23 +68,28 @@ export default function ClienteDetalheLayout() {
       label: 'Oportunidades',
       to: `/clientes/${id}/oportunidades`,
       description: 'Oportunidades de negócio associadas a este cliente.',
+      permission: ['oportunidade:ver', 'oportunidade:gerenciar'],
     },
     {
       label: 'Propostas',
       to: `/clientes/${id}/propostas`,
       description: 'Propostas comerciais enviadas para este cliente.',
+      permission: ['proposta:ver', 'proposta:gerenciar'],
     },
     {
       label: 'Projetos',
       to: `/clientes/${id}/projetos`,
       description: 'Projetos deste cliente, em andamento ou concluídos.',
+      permission: ['projeto:ver', 'projeto:gerenciar'],
     },
     {
       label: 'Contratos',
       to: `/clientes/${id}/contratos`,
       description: 'Contratos firmados com este cliente.',
+      permission: ['financeiro:ver', 'financeiro:gerenciar'],
     },
   ];
+  const tabs = allTabs.filter((tab) => canAny(tab.permission ?? []));
 
   const activeTab =
     tabs.find((tab) =>
