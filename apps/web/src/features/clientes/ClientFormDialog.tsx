@@ -3,7 +3,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { isAxiosError } from 'axios';
 import {
   Dialog,
   DialogBody,
@@ -37,7 +36,9 @@ import {
   translateClientStatus,
 } from '@/lib/labels';
 import { maskCep, maskDocument, maskPhone, onlyDigits } from '@/lib/format';
+import { extractApiMessage } from '@/lib/api-error';
 import { useCreateClient, useUpdateClient } from './api/hooks';
+import { TagDeleteDialog, TagSelect } from './components/TagSelect';
 import type { Client, ClientStatus, LeadSource, PersonType } from './api/types';
 
 const schema = z.object({
@@ -52,7 +53,7 @@ const schema = z.object({
     .enum(['REFERRAL', 'PAID_TRAFFIC', 'ORGANIC', 'OUTBOUND', 'OTHER'])
     .optional(),
   status: z.enum(['LEAD', 'ACTIVE', 'INACTIVE', 'LOST']),
-  tagsText: z.string().optional(),
+  tags: z.array(z.string()),
   notes: z.string().optional(),
   zipCode: z.string().optional(),
   street: z.string().optional(),
@@ -74,7 +75,7 @@ const EMPTY: Values = {
   website: '',
   source: undefined,
   status: 'LEAD',
-  tagsText: '',
+  tags: [],
   notes: '',
   zipCode: '',
   street: '',
@@ -96,7 +97,7 @@ function toValues(client: Client): Values {
     website: client.website ?? '',
     source: client.source ?? undefined,
     status: client.status,
-    tagsText: client.tags.join(', '),
+    tags: client.tags,
     notes: client.notes ?? '',
     zipCode: client.zipCode ?? '',
     street: client.street ?? '',
@@ -112,16 +113,6 @@ function toValues(client: Client): Values {
 function blank(value?: string): string | undefined {
   const v = value?.trim();
   return v ? v : undefined;
-}
-
-function extractApiMessage(error: unknown, fallback: string): string {
-  if (isAxiosError(error)) {
-    const msg = (error.response?.data as { message?: string | string[] })
-      ?.message;
-    if (Array.isArray(msg)) return msg[0] ?? fallback;
-    if (typeof msg === 'string') return msg;
-  }
-  return fallback;
 }
 
 interface ViaCepResponse {
@@ -178,6 +169,13 @@ export function ClientFormDialog({
    * sobrescrito quando o campo CEP perde o foco.
    */
   const lastCepLookup = useRef<string | null>(null);
+  /**
+   * Exclusão global de tag: a confirmação é renderizada como IRMÃ deste Dialog
+   * (não dentro dele) para sobreviver ao soterramento — ver `TagDeleteDialog`.
+   * `focusTagsOnReturn` devolve o foco ao seletor quando o modal reabre.
+   */
+  const [pendingDeleteTag, setPendingDeleteTag] = useState<string | null>(null);
+  const [focusTagsOnReturn, setFocusTagsOnReturn] = useState(false);
 
   const {
     register,
@@ -185,6 +183,7 @@ export function ClientFormDialog({
     control,
     reset,
     setValue,
+    getValues,
     setFocus,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
@@ -197,6 +196,8 @@ export function ClientFormDialog({
       reset(client ? toValues(client) : EMPTY);
       lastCnpjLookup.current = null;
       lastCepLookup.current = null;
+      setPendingDeleteTag(null);
+      setFocusTagsOnReturn(false);
     }
   }, [open, client, reset]);
 
@@ -280,12 +281,7 @@ export function ClientFormDialog({
       website: blank(v.website),
       source: v.source,
       status: v.status,
-      tags: v.tagsText
-        ? v.tagsText
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [],
+      tags: v.tags,
       notes: blank(v.notes),
       zipCode: blank(v.zipCode),
       street: blank(v.street),
@@ -318,6 +314,7 @@ export function ClientFormDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
@@ -498,11 +495,22 @@ export function ClientFormDialog({
             </Field>
 
             <Field className="sm:col-span-2">
-              <FieldLabel htmlFor="tagsText">Tags</FieldLabel>
-              <Input
-                id="tagsText"
-                placeholder="Separe por vírgula"
-                {...register('tagsText')}
+              <FieldLabel>Tags</FieldLabel>
+              <Controller
+                control={control}
+                name="tags"
+                render={({ field }) => (
+                  <TagSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    onRequestDeleteTag={(tag) => {
+                      setFocusTagsOnReturn(true);
+                      setPendingDeleteTag(tag);
+                    }}
+                    autoFocus={focusTagsOnReturn}
+                    onAutoFocused={() => setFocusTagsOnReturn(false)}
+                  />
+                )}
               />
             </Field>
 
@@ -616,5 +624,19 @@ export function ClientFormDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Confirmação de exclusão global de tag — irmã do Dialog para sobreviver ao
+        soterramento; ao fechar, o modal de cliente reabre e o foco volta ao seletor. */}
+    <TagDeleteDialog
+      tag={pendingDeleteTag}
+      onOpenChange={(o) => !o && setPendingDeleteTag(null)}
+      onDeleted={(tag) =>
+        setValue(
+          'tags',
+          getValues('tags').filter((t) => t !== tag),
+        )
+      }
+    />
+    </>
   );
 }

@@ -40,6 +40,33 @@ export function useArchiveClient() {
   });
 }
 
+// --- Tags (agregadas dos clientes do dono) ---
+
+/** Tags existentes com contagem de uso, para o autocomplete do seletor. */
+export function useClientTags() {
+  return useQuery({
+    queryKey: queryKeys.clients.tags,
+    queryFn: () => clientsApi.listTags(),
+  });
+}
+/** Clientes que usam uma tag — carregado sob demanda no modal de exclusão. */
+export function useClientTagUsage(tag: string | null) {
+  return useQuery({
+    queryKey: queryKeys.clients.tagUsage(tag ?? ''),
+    queryFn: () => clientsApi.tagUsage(tag as string),
+    enabled: !!tag,
+  });
+}
+/** Exclui uma tag globalmente (remove de todos os clientes do dono). */
+export function useDeleteClientTag() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tag: string) => clientsApi.deleteTag(tag),
+    // invalida ['clients'] → cobre listagem, detalhes e a lista de tags
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.clients.all }),
+  });
+}
+
 // --- Contatos ---
 
 export function useContacts(clientId: string) {
