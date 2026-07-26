@@ -8,7 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { ContactsService } from '../application/contacts.service';
-import { CurrentUserId } from '../../../shared/current-user.decorator';
+import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 
@@ -16,31 +17,35 @@ import { UpdateContactDto } from './dto/update-contact.dto';
 export class ContactsController {
   constructor(private readonly contacts: ContactsService) {}
 
+  @RequirePermission('cliente:ver', 'cliente:gerenciar')
   @Get('clients/:clientId/contacts')
-  list(@CurrentUserId() ownerId: string, @Param('clientId') clientId: string) {
+  list(@CurrentOwnerId() ownerId: string, @Param('clientId') clientId: string) {
     return this.contacts.list(ownerId, clientId);
   }
 
+  @RequirePermission('cliente:gerenciar')
   @Post('clients/:clientId/contacts')
   create(
-    @CurrentUserId() ownerId: string,
+    @CurrentOwnerId() ownerId: string,
     @Param('clientId') clientId: string,
     @Body() dto: CreateContactDto,
   ) {
     return this.contacts.create(ownerId, clientId, dto);
   }
 
+  @RequirePermission('cliente:gerenciar')
   @Patch('contacts/:id')
   update(
-    @CurrentUserId() ownerId: string,
+    @CurrentOwnerId() ownerId: string,
     @Param('id') id: string,
     @Body() dto: UpdateContactDto,
   ) {
     return this.contacts.update(ownerId, id, dto);
   }
 
+  @RequirePermission('cliente:gerenciar')
   @Delete('contacts/:id')
-  remove(@CurrentUserId() ownerId: string, @Param('id') id: string) {
+  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
     return this.contacts.delete(ownerId, id);
   }
 }

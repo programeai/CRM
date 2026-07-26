@@ -9,7 +9,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ProjectsService } from '../application/projects.service';
-import { CurrentUserId } from '../../../shared/current-user.decorator';
+import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
@@ -18,39 +19,40 @@ import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
-  @Get() list(
-    @CurrentUserId() ownerId: string,
+  @RequirePermission('projeto:ver', 'projeto:gerenciar')
+  @Get()
+  list(
+    @CurrentOwnerId() ownerId: string,
     @Query() query: ListProjectsQueryDto,
   ) {
     return this.projects.list(ownerId, query);
   }
 
-  @Post() create(
-    @CurrentUserId() ownerId: string,
-    @Body() dto: CreateProjectDto,
-  ) {
+  @RequirePermission('projeto:gerenciar')
+  @Post()
+  create(@CurrentOwnerId() ownerId: string, @Body() dto: CreateProjectDto) {
     return this.projects.create(ownerId, dto);
   }
 
-  @Get(':id') findOne(
-    @CurrentUserId() ownerId: string,
-    @Param('id') id: string,
-  ) {
+  @RequirePermission('projeto:ver', 'projeto:gerenciar')
+  @Get(':id')
+  findOne(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
     return this.projects.findOne(ownerId, id);
   }
 
-  @Patch(':id') update(
-    @CurrentUserId() ownerId: string,
+  @RequirePermission('projeto:gerenciar')
+  @Patch(':id')
+  update(
+    @CurrentOwnerId() ownerId: string,
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
   ) {
     return this.projects.update(ownerId, id, dto);
   }
 
-  @Delete(':id') remove(
-    @CurrentUserId() ownerId: string,
-    @Param('id') id: string,
-  ) {
+  @RequirePermission('projeto:gerenciar')
+  @Delete(':id')
+  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
     return this.projects.delete(ownerId, id);
   }
 }
