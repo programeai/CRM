@@ -5,6 +5,15 @@ export type Me = {
   name: string;
   email: string;
   createdAt: string;
+  /** `true` para o dono da conta: acesso total, sem papel atribuído. */
+  isOwner: boolean;
+  /** Papel do colaborador; `null` no owner. */
+  role: { id: string; name: string } | null;
+  /**
+   * Chaves de permissão efetivas (catálogo em `GET /permissions`). É a fonte de
+   * verdade do gating na interface — ver `useCan`.
+   */
+  permissions: string[];
 };
 
 export type UpdateProfileBody = {

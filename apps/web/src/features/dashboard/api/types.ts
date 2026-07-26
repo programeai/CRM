@@ -50,24 +50,28 @@ export interface UpcomingPayment {
   clientName: string;
 }
 
-/** Resposta de GET /dashboard/summary. */
+/**
+ * Resposta de GET /dashboard/summary. Cada bloco vem `null` quando o papel do
+ * colaborador não dá acesso àquele módulo — o backend não envia o agregado que
+ * a pessoa não pode ver (ver `DashboardService.summary`).
+ */
 export interface DashboardSummary {
   funnel: {
     stages: FunnelStage[];
     totalOpen: number;
     amountInNegotiation: number;
-  };
+  } | null;
   proposals: {
     openCount: number;
     openAmount: number;
     acceptedThisMonth: number;
     conversionRate: number; // 0..1
-  };
+  } | null;
   demands: {
     inProgress: number;
     overdue: number;
     upcoming: UpcomingTask[];
-  };
+  } | null;
   upcomingActions: UpcomingAction[];
 }
 

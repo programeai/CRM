@@ -9,9 +9,14 @@ export function useDashboardSummary() {
   });
 }
 
-export function useDashboardFinance(month?: string) {
+/**
+ * `enabled` desliga a busca para quem não tem permissão de financeiro — a rota
+ * responde 403 e não há por que pedir (ver `DashboardPage`).
+ */
+export function useDashboardFinance(month?: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.dashboard.finance(month),
     queryFn: () => dashboardApi.finance(month),
+    enabled,
   });
 }

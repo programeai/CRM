@@ -7,8 +7,12 @@ export interface SectionTabItem {
   end?: boolean
   /** Descrição curta da aba, exibida abaixo do título do conteúdo. */
   description?: string
-  /** Reservado para RBAC futuro; hoje ignorado (CRM é single-tenant). */
-  permission?: string | string[]
+  /**
+   * Chaves de permissão exigidas pela aba (basta uma). O filtro é feito por
+   * **quem monta a lista** (ver `ClienteDetalheLayout`), com `useCan` — este
+   * componente é apenas apresentação e não conhece a sessão.
+   */
+  permission?: string[]
 }
 
 function SectionTabLink({ item }: { item: SectionTabItem }) {

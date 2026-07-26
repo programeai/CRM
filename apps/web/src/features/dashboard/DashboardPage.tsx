@@ -11,6 +11,7 @@ import { MonthPicker } from '@/components/ui/month-picker';
 import { formatMoney, formatDate } from '@/lib/format';
 import { translateTaskPriority, translateActivityType } from '@/lib/labels';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/hooks/use-can';
 import { useDashboardFinance, useDashboardSummary } from './api/hooks';
 import { Funnel } from './components/Funnel';
 import type {
@@ -105,7 +106,16 @@ function SectionError({ label }: { label: string }) {
 
 // --- Comercial ---------------------------------------------------------------
 
+/**
+ * Bloco comercial. `funnel` e `proposals` chegam `null` quando o papel não dá
+ * acesso ao pipeline / às propostas — cada pedaço aparece só para quem pode vê-lo,
+ * e a seção inteira desaparece quando nenhum dos dois é permitido.
+ */
 function ComercialSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
+  const funnel = q.data?.funnel ?? null;
+  const proposals = q.data?.proposals ?? null;
+  if (q.data && !funnel && !proposals) return null;
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-heading text-lg font-semibold">Comercial</h2>
@@ -116,30 +126,38 @@ function ComercialSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Em negociação"
-              value={formatMoney(q.data.funnel.amountInNegotiation)}
-              hint={`${q.data.funnel.totalOpen} oportunidade(s) em aberto`}
-            />
-            <StatCard
-              label="Propostas em aberto"
-              value={q.data.proposals.openCount}
-              hint={formatMoney(q.data.proposals.openAmount)}
-            />
-            <StatCard
-              label="Aceitas no mês"
-              value={q.data.proposals.acceptedThisMonth}
-              tone="positive"
-            />
-            <StatCard
-              label="Conversão (90 dias)"
-              value={formatPercent(q.data.proposals.conversionRate)}
-              hint="Aceitas ÷ decididas"
-            />
+            {funnel && (
+              <StatCard
+                label="Em negociação"
+                value={formatMoney(funnel.amountInNegotiation)}
+                hint={`${funnel.totalOpen} oportunidade(s) em aberto`}
+              />
+            )}
+            {proposals && (
+              <>
+                <StatCard
+                  label="Propostas em aberto"
+                  value={proposals.openCount}
+                  hint={formatMoney(proposals.openAmount)}
+                />
+                <StatCard
+                  label="Aceitas no mês"
+                  value={proposals.acceptedThisMonth}
+                  tone="positive"
+                />
+                <StatCard
+                  label="Conversão (90 dias)"
+                  value={formatPercent(proposals.conversionRate)}
+                  hint="Aceitas ÷ decididas"
+                />
+              </>
+            )}
           </div>
-          <Panel title="Funil de oportunidades" to="/pipeline" linkLabel="Abrir pipeline">
-            <Funnel stages={q.data.funnel.stages} />
-          </Panel>
+          {funnel && (
+            <Panel title="Funil de oportunidades" to="/pipeline" linkLabel="Abrir pipeline">
+              <Funnel stages={funnel.stages} />
+            </Panel>
+          )}
         </>
       )}
     </section>
@@ -264,7 +282,15 @@ function ActionRow({ action }: { action: UpcomingAction }) {
   );
 }
 
+/**
+ * Bloco de operação. `demands` chega `null` sem acesso a projetos/demandas;
+ * "Próximas ações" são follow-ups de clientes e vêm vazias sem `cliente:ver`.
+ */
 function OperacaoSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
+  const demands = q.data?.demands ?? null;
+  const actions = q.data?.upcomingActions ?? [];
+  if (q.data && !demands && actions.length === 0) return null;
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-heading text-lg font-semibold">Operação</h2>
@@ -274,32 +300,36 @@ function OperacaoSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
         <SectionError label="as demandas" />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <StatCard label="Demandas em andamento" value={q.data.demands.inProgress} />
-            <StatCard
-              label="Demandas atrasadas"
-              value={q.data.demands.overdue}
-              tone={q.data.demands.overdue > 0 ? 'danger' : 'default'}
-            />
-          </div>
+          {demands && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <StatCard label="Demandas em andamento" value={demands.inProgress} />
+              <StatCard
+                label="Demandas atrasadas"
+                value={demands.overdue}
+                tone={demands.overdue > 0 ? 'danger' : 'default'}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel title="Próximas entregas (7 dias)" to="/demandas" linkLabel="Minhas demandas">
-              {q.data.demands.upcoming.length === 0 ? (
-                <EmptyRow>Nenhuma entrega nos próximos 7 dias.</EmptyRow>
-              ) : (
-                <ul className="divide-y">
-                  {q.data.demands.upcoming.map((t) => (
-                    <TaskRow key={t.id} task={t} />
-                  ))}
-                </ul>
-              )}
-            </Panel>
+            {demands && (
+              <Panel title="Próximas entregas (7 dias)" to="/demandas" linkLabel="Minhas demandas">
+                {demands.upcoming.length === 0 ? (
+                  <EmptyRow>Nenhuma entrega nos próximos 7 dias.</EmptyRow>
+                ) : (
+                  <ul className="divide-y">
+                    {demands.upcoming.map((t) => (
+                      <TaskRow key={t.id} task={t} />
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
             <Panel title="Próximas ações">
-              {q.data.upcomingActions.length === 0 ? (
+              {actions.length === 0 ? (
                 <EmptyRow>Nenhum follow-up agendado.</EmptyRow>
               ) : (
                 <ul className="divide-y">
-                  {q.data.upcomingActions.map((a) => (
+                  {actions.map((a) => (
                     <ActionRow key={a.id} action={a} />
                   ))}
                 </ul>
@@ -314,15 +344,21 @@ function OperacaoSection({ q }: { q: UseQueryResult<DashboardSummary> }) {
 
 export default function DashboardPage() {
   const [month, setMonth] = useState(currentMonthValue);
+  // A seção financeira só existe para quem tem acesso ao financeiro: sem isso o
+  // colaborador veria um bloco de erro (a API responde 403 em /dashboard/finance).
+  const { canAny } = useCan();
+  const canSeeFinance = canAny(['financeiro:ver', 'financeiro:gerenciar']);
 
   const summary = useDashboardSummary();
-  const finance = useDashboardFinance(month);
+  const finance = useDashboardFinance(month, canSeeFinance);
 
   return (
     <div className="flex flex-col gap-8">
       <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
       <ComercialSection q={summary} />
-      <FinanceiroSection q={finance} month={month} onMonthChange={setMonth} />
+      {canSeeFinance && (
+        <FinanceiroSection q={finance} month={month} onMonthChange={setMonth} />
+      )}
       <OperacaoSection q={summary} />
     </div>
   );
