@@ -65,6 +65,7 @@ longo do tempo. Os que existem hoje:
 | `financeiro.mensalidades_geradas` / `financeiro.cobrancas_vencidas` | rotina diária das 3h | `info` |
 | `propostas.expiradas` | rotina diária das 3h | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
+| `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
 
 O front (`service=web`) emite `http.acesso` pelo nginx, **só para 4xx e 5xx** —
 servidor de arquivo estático em modo "loga tudo" seria só ruído. Para registrar
