@@ -1,13 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OAuthProvider } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PrismaAdminService } from '../../prisma/prisma-admin.service';
+import {
+  DEFAULT_PIPELINE_STAGES,
+  defaultPipelineStages,
+} from '../../shared/default-pipeline-stages';
 
 /** Duração do trial concedido no cadastro. */
 const TRIAL_DAYS = 14;
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private prisma: PrismaService,
     private admin: PrismaAdminService,
@@ -44,16 +50,39 @@ export class UsersService {
     };
   }
 
-  create(data: { name: string; email: string; passwordHash: string }) {
-    return this.admin.user.create({
+  /**
+   * Funil padrão da workspace, criado junto com a conta do owner. `PipelineStage`
+   * tem RLS e o cadastro não tem contexto de owner — entra pelo client admin, no
+   * mesmo nested create do `User` (atômico, sem $transaction explícito), pela
+   * mesma razão de `Subscription` e `Role`.
+   */
+  private defaultStages() {
+    return defaultPipelineStages();
+  }
+
+  /** Log do provisionamento — vale para os dois caminhos de cadastro. */
+  private logStagesProvisioned(ownerId: string) {
+    this.logger.log({
+      evento: 'funil.estagios_provisionados',
+      msg: 'Funil padrão criado para a conta nova.',
+      ownerId,
+      quantidade: DEFAULT_PIPELINE_STAGES.length,
+    });
+  }
+
+  async create(data: { name: string; email: string; passwordHash: string }) {
+    const user = await this.admin.user.create({
       data: {
         ...data,
         // Owner: `ownerId` nulo (é a própria workspace) e conta já ativa.
         acceptedAt: new Date(),
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
+        pipelineStages: { create: this.defaultStages() },
       },
     });
+    this.logStagesProvisioned(user.id);
+    return user;
   }
   findByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
@@ -83,13 +112,13 @@ export class UsersService {
   }
 
   /** Cria um usuário sem senha (origem OAuth) já vinculado à identidade do provedor. */
-  createWithOAuth(data: {
+  async createWithOAuth(data: {
     name: string;
     email: string;
     provider: OAuthProvider;
     providerAccountId: string;
   }) {
-    return this.admin.user.create({
+    const user = await this.admin.user.create({
       data: {
         name: data.name,
         email: data.email,
@@ -102,8 +131,11 @@ export class UsersService {
         },
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
+        pipelineStages: { create: this.defaultStages() },
       },
     });
+    this.logStagesProvisioned(user.id);
+    return user;
   }
   findById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
