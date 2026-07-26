@@ -1,4 +1,5 @@
 import type { Prisma, TaskStatus } from '@prisma/client';
+import type { TagUsage } from '../../../shared/tags';
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');
 
@@ -30,12 +31,6 @@ export interface TaskListFilter {
 /** Campos ajustados no destino durante um move (calculados no service). */
 export interface TaskMovePatch {
   completedAt?: Date | null;
-}
-
-/** Uma tag do dono e em quantas tarefas ela é usada. */
-export interface TagUsage {
-  tag: string;
-  count: number;
 }
 
 /** Referência mínima de uma tarefa que usa determinada tag (para o modal de exclusão). */

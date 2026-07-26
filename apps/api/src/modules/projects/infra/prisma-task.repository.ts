@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
-  TagUsage,
   TaskListFilter,
   TaskMovePatch,
   TaskRepository,
   TaskTagRef,
 } from '../domain/task.repository';
+import { countTags, type TagUsage } from '../../../shared/tags';
 
 const withProject = {
   project: {
@@ -105,15 +105,7 @@ export class PrismaTaskRepository implements TaskRepository {
       where: { project: { client: { ownerId } } },
       select: { tags: true },
     });
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      for (const tag of row.tags) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()]
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'pt-BR'));
+    return countTags(rows);
   }
 
   findByTag(ownerId: string, tag: string): Promise<TaskTagRef[]> {
