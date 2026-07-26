@@ -172,7 +172,7 @@ jobs:
 
       - name: Build e push da imagem da API
         if: steps.detectar.outputs.api == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/api/Dockerfile
@@ -186,7 +186,7 @@ jobs:
       # As VITE_* são embutidas no bundle em build-time: entram como build-args.
       - name: Build e push da imagem do front
         if: steps.detectar.outputs.web == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/web/Dockerfile
