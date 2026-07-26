@@ -1,19 +1,14 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
   TASK_REPOSITORY,
-  type TagUsage,
   type TaskRepository,
   type TaskTagRef,
   type TaskWithProject,
 } from '../domain/task.repository';
 import { ProjectsService } from './projects.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import type { CreateTaskDto } from '../api/dto/create-task.dto';
 import type { UpdateTaskDto } from '../api/dto/update-task.dto';
 import type { ListTasksQueryDto } from '../api/dto/list-tasks-query.dto';
@@ -126,22 +121,16 @@ export class TasksService {
 
   /** Tarefas do dono que usam a tag — para exibir o uso antes de excluir. */
   tagUsage(ownerId: string, tag: string): Promise<TaskTagRef[]> {
-    return this.repo.findByTag(ownerId, this.normalizeTag(tag));
+    return this.repo.findByTag(ownerId, normalizeTag(tag));
   }
 
   /** Exclui a tag de todas as tarefas do dono. Retorna quantas foram afetadas. */
   async deleteTag(ownerId: string, tag: string): Promise<{ removed: number }> {
     const removed = await this.repo.removeTagFromAll(
       ownerId,
-      this.normalizeTag(tag),
+      normalizeTag(tag),
     );
     return { removed };
-  }
-
-  private normalizeTag(tag: string): string {
-    const trimmed = tag?.trim();
-    if (!trimmed) throw new BadRequestException('Tag inválida.');
-    return trimmed;
   }
 
   /** Carrega a task garantindo posse via o projeto→cliente do dono (404 caso contrário). */
