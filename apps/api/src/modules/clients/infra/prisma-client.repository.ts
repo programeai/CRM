@@ -4,7 +4,9 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import type {
   ClientListFilter,
   ClientRepository,
+  ClientTagRef,
 } from '../domain/client.repository';
+import { countTags, type TagUsage } from '../../../shared/tags';
 
 @Injectable()
 export class PrismaClientRepository implements ClientRepository {
@@ -57,6 +59,44 @@ export class PrismaClientRepository implements ClientRepository {
 
   archive(id: string, ownerId: string) {
     return this.update(id, ownerId, { archivedAt: new Date() });
+  }
+
+  async listOwnerTags(ownerId: string): Promise<TagUsage[]> {
+    // Tags são um String[] por cliente (sem catálogo próprio); a fonte de verdade
+    // das "tags existentes" é a agregação distinta sobre os clientes do dono.
+    // Arquivados ficam fora — não aparecem na interface.
+    const rows = await this.prisma.db.client.findMany({
+      where: { ownerId, archivedAt: null },
+      select: { tags: true },
+    });
+    return countTags(rows);
+  }
+
+  findByTag(ownerId: string, tag: string): Promise<ClientTagRef[]> {
+    return this.prisma.db.client.findMany({
+      where: { ownerId, archivedAt: null, tags: { has: tag } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async removeTagFromAll(ownerId: string, tag: string): Promise<number> {
+    // Postgres não remove elemento de array em updateMany; carrega os afetados e
+    // reescreve cada array sem a tag. Roda na transação do request.
+    // Inclui arquivados: a tag deixa de existir em qualquer registro do dono.
+    const affected = await this.prisma.db.client.findMany({
+      where: { ownerId, tags: { has: tag } },
+      select: { id: true, tags: true },
+    });
+    await Promise.all(
+      affected.map((c) =>
+        this.prisma.db.client.update({
+          where: { id: c.id },
+          data: { tags: c.tags.filter((x) => x !== tag) },
+        }),
+      ),
+    );
+    return affected.length;
   }
 
   async existsByDocument(ownerId: string, document: string, exceptId?: string) {
