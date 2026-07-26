@@ -4,7 +4,7 @@ author: claude
 source_prd: specs/research/2026-07-25-ajustes-open-source-producao.md
 git_commit: 992b5075f606fcc108e2a6d252eda3de26537218
 branch: main
-status: draft
+status: implemented
 tags: [spec, open-source, seguranca, throttler, licenca, docs, ci]
 ---
 
@@ -74,8 +74,11 @@ recebem adições isoladas.
   Como consequência direta e sem código extra, o `ThrottlerGuard` (cujo `getTracker`
   default é `return req.ip`) passa a contar **por cliente**, e o Turnstile recebe o
   `remoteip` correto. `ipDoCliente()` deixa de existir: `req.ip` é a única fonte de verdade.
-- `helmet()` responde nas rotas `/api`, que o Traefik roteia direto ao Nest sem passar
-  pelo nginx do front.
+- `helmet({ hsts: false })` responde nas rotas `/api`, que o Traefik roteia direto ao Nest
+  sem passar pelo nginx do front. O HSTS fica de fora porque é política **de host**, não de
+  path, e o nginx do front já responde por ela.
+- O deploy **confere o emissor do certificado** depois do `up -d`: o pré-flight garante que
+  `ACME_RESOLVER` não está vazio, mas só o certificado real prova que o valor está correto.
 - `entrypoint.sh` **aborta** quando `APP_DB_PASSWORD` está vazia, em vez de seguir com a
   senha de desenvolvimento que a migration grava e que passa a ser pública.
 - `REGISTRATION_ENABLED` (default `true`) fecha `POST /auth/register` **e** o ramo de
@@ -168,6 +171,24 @@ APRESENTACAO-PRODUTO.md
 
 Depois: `git rm --cached APRESENTACAO-PRODUTO.md` (o arquivo continua no disco).
 
+#### Termos privados fora de `specs/` e dos comentários de código
+
+**Já aplicado em commit próprio, antes desta fase.** A genericização dos docs não bastava:
+o mesmo conteúdo aparecia em `specs/` — que **continua versionado** por decisão explícita
+(ver "What We're NOT Doing") — e em dois comentários de código. Eram quatro arquivos:
+
+- `specs/plans/2026-07-25-colaboradores-e-papeis.md` — citava nominalmente o outro projeto
+  da VPS em 11 pontos, incluindo caminhos de arquivo do repositório fechado dele. Passou a
+  falar de "painel de origem", preservando o raciocínio de cada decisão sem a procedência.
+- `specs/research/2026-07-25-ajustes-open-source-producao.md` — o PRD listava o resolver
+  ACME, o diretório de deploy, o host do Grafana e o caminho da config do Traefik como
+  itens **a remover**, e por isso os expunha.
+- `apps/api/src/modules/collaborators/application/invites.service.ts` e
+  `apps/web/src/index.css` — comentários que citavam o projeto de origem.
+
+Sem reescrita de histórico: a limpeza vale para quem lê o repositório, não para quem lê
+`git log -p`. É proporcional ao risco — nome de projeto e caminho de host, não credencial.
+
 #### Divergência de porta na documentação
 
 **Modify**: `CLAUDE.md`, seção "Ferramentas do monorepo"
@@ -254,7 +275,7 @@ Novo step **antes** do "Login no Docker Hub" — falha no runner, sem tocar a VP
           fi
 ```
 
-Nos três steps que hoje usam `~/programeai/prod/crm` literal, trocar por
+Nos três steps que hoje usam o diretório de deploy literal, trocar por
 `${{ secrets.DEPLOY_DIR }}`:
 
 ```yaml
@@ -306,6 +327,32 @@ E o `env:` do job, onde os secrets são mapeados — adicionar na mesma lista do
 > Nota de implementação: conferir onde o `deploy.yml` mapeia os secrets para `env` do
 > step (o `envs:` do `ssh-action` só passa adiante variáveis que já existem no ambiente
 > do step). `ACME_RESOLVER` tem de aparecer nos **dois** lugares.
+
+Por último, um step **depois** do "Deploy na VPS" e antes do "Resumo". O pré-flight só
+sabe se o secret está vazio; um valor **errado** passa por ele e faz o Traefik cair para o
+certificado default — o site fica no ar com erro de TLS e o workflow termina verde. Este
+step transforma isso em falha visível.
+
+```yaml
+      - name: Conferir o certificado TLS
+        env:
+          CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
+        run: |
+          set -e
+          sleep 20   # margem para o Traefik reconfigurar os routers
+          issuer=$(echo | openssl s_client -connect "${CRM_DOMAIN}:443" \
+            -servername "${CRM_DOMAIN}" 2>/dev/null \
+            | openssl x509 -noout -issuer)
+          echo "$issuer"
+          case "$issuer" in
+            *"Let's Encrypt"*) echo "TLS ok." ;;
+            *) echo "::error::Certificado inesperado ($issuer). Confira ACME_RESOLVER."; exit 1 ;;
+          esac
+```
+
+O step **não conserta** nada — ele avisa. O conserto é corrigir o secret e redeployar, ou
+editar o `.env` na VPS e rodar `docker compose up -d`. Se algum dia o CRM passar a usar
+outra CA, é esta string que muda.
 
 #### `docs/deploy.md` — genericização
 
@@ -388,7 +435,7 @@ erros. Ver [observabilidade.md](observabilidade.md) — inclui como usar o
 cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
 ```
 
-As demais ocorrências de `cd ~/programeai/prod/crm` (backup, rollback manual) recebem o
+As demais ocorrências do `cd` no diretório de deploy (backup, rollback manual) recebem o
 mesmo tratamento.
 
 #### `docs/observabilidade.md` — genericização
@@ -414,20 +461,20 @@ que a torna falsa.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `node -e "['package.json','apps/api/package.json','apps/web/package.json'].forEach(p=>{const l=require('./'+p).license; if(l!=='Apache-2.0') throw new Error(p+': '+l)})"` — os três manifestos declaram Apache-2.0
-- [ ] `docker compose -f docker-compose.prod.yml config -q` com um `.env` que tenha `ACME_RESOLVER` — o compose é válido e a variável resolve
-- [ ] `! grep -rniE "dorado|factis|programeai/prod" docs/ docker-compose.prod.yml .github/ .env.example` — nenhuma menção a projeto de terceiro, resolver ou caminho de deploy sobrou
-- [ ] `! grep -rn "grafana.programeai.com.br" docs/` — host do Grafana removido
-- [ ] `! grep -rn "5432" CLAUDE.md` — porta de dev corrigida
-- [ ] `git ls-files APRESENTACAO-PRODUTO.md` não retorna nada, e `test -f APRESENTACAO-PRODUTO.md` passa (saiu do índice, ficou no disco)
-- [ ] `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/deploy.yml'))"` — o workflow continua YAML válido
-- [ ] `grep -c 'secrets.DEPLOY_DIR' .github/workflows/deploy.yml` retorna `4` (pré-flight + 3 steps)
-- [ ] `pnpm --filter api test` — nada de código mudou, a suíte segue verde
+- [x] `node -e "['package.json','apps/api/package.json','apps/web/package.json'].forEach(p=>{const l=require('./'+p).license; if(l!=='Apache-2.0') throw new Error(p+': '+l)})"` — os três manifestos declaram Apache-2.0
+- [x] `docker compose -f docker-compose.prod.yml config -q` com um `.env` que tenha `ACME_RESOLVER` — o compose é válido e a variável resolve
+- [x] `! grep -rniE "$TERMOS_PRIVADOS" docs/ specs/ apps/ CLAUDE.md README.md docker-compose.prod.yml .github/ .env.example` — com `TERMOS_PRIVADOS` montado à mão a partir do runbook privado (nome do projeto vizinho, resolver ACME, diretório de deploy, host do Grafana, caminho da config do Traefik). Zero ocorrências. O padrão **não** é versionado: os termos não podem aparecer nem na spec que manda removê-los, e é por isso que o critério cobre `specs/` e `apps/`, não só `docs/`
+- [x] `! grep -rn "5432" CLAUDE.md` — porta de dev corrigida
+- [x] `git ls-files APRESENTACAO-PRODUTO.md` não retorna nada, e `test -f APRESENTACAO-PRODUTO.md` passa (saiu do índice, ficou no disco)
+- [x] `python3 -c "import yaml,sys; yaml.safe_load(open('.github/workflows/deploy.yml'))"` — o workflow continua YAML válido
+- [x] `grep -c 'secrets.DEPLOY_DIR' .github/workflows/deploy.yml` retorna `4` (pré-flight + 3 steps)
+- [x] `grep -c 'openssl x509' .github/workflows/deploy.yml` retorna `1` — o step de conferência do certificado entrou
+- [x] `pnpm --filter api test` — nada de código mudou, a suíte segue verde
 
 #### Manual Verification
 - [ ] Ler `docs/deploy.md` de ponta a ponta como se fosse um self-hoster: os placeholders `<seu-dominio>` e `<dir-de-deploy>` estão explicados e o documento continua executável
-- [ ] Cadastrar os secrets `ACME_RESOLVER` (valor atual: o resolver do Traefik da VPS) e `DEPLOY_DIR` (valor atual: `~/programeai/prod/crm`) em Settings → Secrets and variables → Actions
-- [ ] Rodar o workflow **Deploy na VPS** com `tag: latest` e confirmar que passa no step "Conferir configuração da VPS", que o site continua no ar e que o certificado TLS não foi reemitido nem invalidado
+- [x] Cadastrar os secrets `ACME_RESOLVER` e `DEPLOY_DIR` (valores atuais no runbook privado) em Settings → Secrets and variables → Actions — **feito em 26/07/2026**, junto de `REGISTRATION_ENABLED=true`. Enquanto o `deploy.yml` não os referenciar, são inertes
+- [ ] Rodar o workflow **Deploy na VPS** com `tag: latest` — confirmar que passa nos dois steps de conferência ("Conferir configuração da VPS" e "Conferir o certificado TLS") e que o site continua no ar. Como a imagem em produção já é a de `latest`, este deploy só troca o compose e o `.env`: nenhuma imagem nova, nenhuma migration
 - [ ] Guardar fora do repositório o runbook com as particularidades da VPS (resolver, diretório, host do Grafana)
 
 **⏸ PAUSE**: A verificação manual desta fase inclui um deploy real. Confirme que
@@ -469,7 +516,10 @@ papel da variável:
 
 **Modify**: `apps/api/src/main.ts:48-53`
 
-`app.set` precisa vir antes de qualquer middleware ler `req.ip`.
+`app.set` precisa vir antes de qualquer middleware ler `req.ip`. O `helmet` entra **depois**
+do `contextoDaRequisicao`: ele só escreve cabeçalhos e nunca interrompe a requisição, então
+nada se perde por vir depois — e o comentário "primeiro middleware da cadeia", que é o que
+garante `requestId` em toda linha de log, continua verdadeiro.
 
 ```typescript
   const config = app.get(ConfigService);
@@ -482,14 +532,19 @@ papel da variável:
   app.getHttpAdapter()
     .getInstance()
     .set('trust proxy', config.get<number>('TRUST_PROXY_HOPS') ?? 1);
+  // Primeiro middleware da cadeia: define o requestId que todas as linhas de log
+  // daquele acesso (inclusive as do próprio Nest) vão carregar.
+  app.use(contextoDaRequisicao);
   // A API responde em /api, que o Traefik roteia DIRETO ao Nest: estas respostas
   // não passam pelo nginx do front (apps/web/nginx.conf) e sairiam sem cabeçalho
   // de segurança algum. O CSP default do helmet é inócuo numa API que só devolve
   // JSON, e não conflita com o CSP do front — são caminhos diferentes (/ vs /api).
-  app.use(helmet());
-  // Primeiro middleware da cadeia: define o requestId que todas as linhas de log
-  // daquele acesso (inclusive as do próprio Nest) vão carregar.
-  app.use(contextoDaRequisicao);
+  // hsts: false porque HSTS é política de HOST, não de path: o navegador guarda a
+  // última que recebeu daquele host, e o nginx do front já manda
+  // `max-age=31536000` sem includeSubDomains (nginx.conf:70). Ligar o default do
+  // helmet aqui criaria duas políticas divergentes para o mesmo host, decididas
+  // pela ordem das respostas — e includeSubDomains fica travado por um ano.
+  app.use(helmet({ hsts: false }));
   app.use(cookieParser());
 ```
 
@@ -635,18 +690,19 @@ A nota afirmava o contrário do que passa a valer.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — suíte verde, incluindo o teste reescrito do middleware
-- [ ] `pnpm --filter api build` — compila com o import e a tipagem do `helmet`
-- [ ] `grep -n '"helmet"' apps/api/package.json` e `grep -c helmet pnpm-lock.yaml` — dependência e lockfile no mesmo commit
-- [ ] `! grep -rn "ipDoCliente" apps/api/src` — a função saiu por completo
-- [ ] `sh -n apps/api/docker/entrypoint.sh` — o script continua válido
-- [ ] `APP_DB_PASSWORD= sh -c 'set -e; ...'` — ou, mais simples: rodar o entrypoint num container com `APP_DB_PASSWORD` vazia e conferir `exit 1` com a mensagem em pt-BR
+- [x] `pnpm --filter api test` — suíte verde, incluindo o teste reescrito do middleware
+- [x] `pnpm --filter api build` — compila com o import e a tipagem do `helmet`
+- [x] `grep -n '"helmet"' apps/api/package.json` e `grep -c helmet pnpm-lock.yaml` — dependência e lockfile no mesmo commit
+- [x] `! grep -rn "ipDoCliente" apps/api/src` — a função saiu por completo
+- [x] `sh -n apps/api/docker/entrypoint.sh` — o script continua válido
+- [x] `APP_DB_PASSWORD= sh -c 'set -e; ...'` — ou, mais simples: rodar o entrypoint num container com `APP_DB_PASSWORD` vazia e conferir `exit 1` com a mensagem em pt-BR
 
 #### Manual Verification
 - [ ] Local, com `TRUST_PROXY_HOPS=1`: `curl -H 'x-forwarded-for: 203.0.113.7' localhost:3000/api/v1/health` e conferir no log que `ip` é `203.0.113.7`
 - [ ] Local: seis `POST /api/v1/auth/login` com `x-forwarded-for: 1.1.1.1` retornam 429 no sexto; em seguida um com `x-forwarded-for: 2.2.2.2` retorna 401 (e **não** 429) — os baldes são independentes
 - [ ] Local, com `TRUST_PROXY_HOPS=0`: o `x-forwarded-for` é ignorado e `ip` volta a ser o IP da conexão
-- [ ] Após deploy: `curl -sD - -o /dev/null https://crm.programeai.com.br/api/v1/health` mostra `x-content-type-options`, `x-frame-options` e `strict-transport-security` vindos do helmet
+- [ ] Após deploy: `curl -sI https://crm.programeai.com.br/api/v1/health` mostra `x-content-type-options` e `x-frame-options`, **não** mostra `strict-transport-security` (é `hsts: false`; o host é coberto pelas respostas do front) e **não** mostra mais `x-powered-by: Express`, que hoje vaza a stack em toda resposta da API
+- [ ] Após deploy: `curl -sI https://crm.programeai.com.br/` continua mostrando `strict-transport-security: max-age=31536000` sem `includeSubDomains` — a política do host não mudou
 - [ ] Após deploy: no Grafana, `{stack="crm", service="api"} | json | evento="http.requisicao"` mostra IPs de clientes distintos, não um IP de container repetido
 - [ ] Após deploy: o login de um usuário real continua funcionando (a mudança de tracker é a única alteração de comportamento visível)
 
@@ -814,7 +870,7 @@ export function useRegistrationEnabled(): boolean | undefined {
 }
 ```
 
-**Modify**: `apps/web/src/lib/query-keys.ts:71-74`
+**Modify**: `apps/web/src/lib/query-keys.ts:73-76`
 
 ```typescript
   auth: {
@@ -1046,12 +1102,12 @@ Um teste que fixa a fronteira — o convite não passa pelo gate:
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — os quatro casos novos passam e a suíte existente segue verde
-- [ ] `pnpm --filter api build` e `pnpm --filter web build` — compilam
-- [ ] `pnpm --filter web lint` — oxlint limpo
-- [ ] `grep -n "REGISTRATION_ENABLED" apps/api/src/config/env.validation.ts docker-compose.prod.yml .env.example .github/workflows/deploy.yml` — a variável está declarada nos quatro lugares
-- [ ] `grep -n "GET /auth/registration" apps/api/ENDPOINTS.md` — doc do endpoint no mesmo commit (exigência do `apps/api/CLAUDE.md`)
-- [ ] `! grep -rn "email" apps/api/src/modules/auth/auth.service.ts | grep -n "evento: 'cadastro.bloqueado'" -A3` — o log do gate não carrega e-mail
+- [x] `pnpm --filter api test` — os quatro casos novos passam e a suíte existente segue verde
+- [x] `pnpm --filter api build` e `pnpm --filter web build` — compilam
+- [x] `pnpm --filter web lint` — oxlint limpo
+- [x] `grep -n "REGISTRATION_ENABLED" apps/api/src/config/env.validation.ts docker-compose.prod.yml .env.example .github/workflows/deploy.yml` — a variável está declarada nos quatro lugares
+- [x] `grep -n "GET /auth/registration" apps/api/ENDPOINTS.md` — doc do endpoint no mesmo commit (exigência do `apps/api/CLAUDE.md`)
+- [x] `! grep -rn "email" apps/api/src/modules/auth/auth.service.ts | grep -n "evento: 'cadastro.bloqueado'" -A3` — o log do gate não carrega e-mail
 
 #### Manual Verification
 - [ ] Local com `REGISTRATION_ENABLED=false`: `/registrar` mostra "Cadastro fechado" e o link "Criar conta" desaparece do login
@@ -1340,11 +1396,11 @@ Falha de segurança vai por [reporte privado](./.github/SECURITY.md), nunca em i
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `for f in .github/dependabot.yml .github/ISSUE_TEMPLATE/*.yml; do python3 -c "import yaml,sys; yaml.safe_load(open('$f'))" || exit 1; done` — todos os YAML são válidos
-- [ ] `test -f .github/SECURITY.md && test -f .github/CODE_OF_CONDUCT.md && test -f .github/PULL_REQUEST_TEMPLATE.md` — arquivos no lugar
-- [ ] `grep -rn "Edsonalencar" .github/ CONTRIBUTING.md README.md` não retorna nada — todas as URLs usam `programeai/CRM`
-- [ ] `grep -rn "contributor-covenant.org" .github/CODE_OF_CONDUCT.md` — atribuição da CC BY 4.0 preservada
-- [ ] `git log --oneline -1 --name-only` mostra que o push não disparou o build (todos os caminhos estão no `paths-ignore` do `build.yml:22-35`)
+- [x] `for f in .github/dependabot.yml .github/ISSUE_TEMPLATE/*.yml; do python3 -c "import yaml,sys; yaml.safe_load(open('$f'))" || exit 1; done` — todos os YAML são válidos
+- [x] `test -f .github/SECURITY.md && test -f .github/CODE_OF_CONDUCT.md && test -f .github/PULL_REQUEST_TEMPLATE.md` — arquivos no lugar
+- [x] `grep -rn "Edsonalencar" .github/ CONTRIBUTING.md README.md` não retorna nada — todas as URLs usam `programeai/CRM`
+- [x] `grep -rn "contributor-covenant.org" .github/CODE_OF_CONDUCT.md` — atribuição da CC BY 4.0 preservada
+- [x] Todos os caminhos da fase caem no `paths-ignore` do `build.yml` (`.github/**` e `**/*.md`) — conferido arquivo por arquivo; o push não aloca runner. (A confirmação por `git log` só é possível depois do commit.)
 
 #### Manual Verification
 - [ ] Habilitar **Private vulnerability reporting** em Settings → Code security, e conferir que a URL do `SECURITY.md` abre o formulário
@@ -1420,10 +1476,14 @@ Nenhuma migration de banco nesta spec. A rollback story é a que já existe:
   | Secret | Fase | Obrigatório | Valor |
   | --- | --- | --- | --- |
   | `ACME_RESOLVER` | 1 | **sim** (deploy falha sem) | resolver ACME atual do Traefik da VPS |
-  | `DEPLOY_DIR` | 1 | **sim** (deploy falha sem) | `~/programeai/prod/crm` |
+  | `DEPLOY_DIR` | 1 | **sim** (deploy falha sem) | diretório de deploy atual (runbook privado) |
   | `REGISTRATION_ENABLED` | 3 | não (default `true`) | `false` na produção |
   `TRUST_PROXY_HOPS` não precisa de secret: o default `1` no compose já é o valor correto
-  para a topologia atual.
+  para a topologia atual. **Confirmado em 26/07/2026**: não há CDN na frente do Traefik — o
+  certificado é Let's Encrypt emitido pelo próprio Traefik, o `server: nginx` da resposta
+  vem direto do container do front e nenhum cabeçalho de CDN aparece. Um salto, valor `1`.
+  Se algum dia entrar Cloudflare (ou outra CDN) na frente, este valor passa a `2` **no mesmo
+  deploy** — senão o `req.ip` volta a ser um endereço só, e o balde a ser global sem aviso.
 - **Multi-ambiente** — o único diferencial dev/prod é que o `entrypoint.sh` (e portanto o
   hard-fail) só roda na imagem de produção. Em dev, `TRUST_PROXY_HOPS` deve ficar em `0`
   ou ausente com a API acessada direto; se você usa algum proxy local, `1`.
@@ -1443,10 +1503,13 @@ Nenhuma migration de banco nesta spec. A rollback story é a que já existe:
   limite. Monitorar `{stack="crm", service="api"} | json | status=429` depois do deploy;
   se aparecer, o ajuste é o `limit` da rota, não o tracker.
 - **`ACME_RESOLVER` sem default é deliberado, e é o único risco de indisponibilidade
-  nesta spec.** A mitigação é o pré-flight que falha no runner antes de qualquer SSH: um
-  deploy sem o secret não chega a tocar a VPS. Não adicione um default depois — um
-  resolver errado sobe o container e derruba o TLS, que é justamente o cenário que o
-  pré-flight evita.
+  nesta spec.** Duas mitigações, em pontos diferentes da linha do tempo: o pré-flight pega
+  o secret **ausente** e falha no runner antes de qualquer SSH (um deploy assim não chega a
+  tocar a VPS), e o step "Conferir o certificado TLS" pega o secret **errado**, que é o caso
+  que o pré-flight não vê — valor não-vazio mas inexistente no Traefik passa por ele, o
+  container sobe e o TLS cai. O segundo step não conserta, só torna a falha visível em vez
+  de deixar o workflow verde com o site quebrado. Não adicione um default depois: um
+  resolver errado é exatamente o cenário que essas duas travas existem para pegar.
 - **Ordenação entre Fase 3 e o trabalho de colaboradores no working tree.** A Fase 3
   toca `auth.service.ts` e `auth.controller.ts`, arquivos que a feature de colaboradores
   também modificou. Fazer a Fase 3 **depois** de a feature estar commitada evita conflito;
