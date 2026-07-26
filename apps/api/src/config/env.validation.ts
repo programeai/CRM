@@ -13,6 +13,15 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_TTL: Joi.string().default('7d'),
   FRONTEND_URL: Joi.string().uri().required(),
   COOKIE_DOMAIN: Joi.string().default('localhost'),
+  // Quantidade de proxies confiáveis à frente da API (`trust proxy` do Express).
+  // É o que faz req.ip ser o IP do cliente e não o do proxy — e req.ip é a chave
+  // do rate limit (ThrottlerGuard) e o `remoteip` enviado ao Turnstile.
+  //   1 → topologia padrão: só o reverse proxy do host (Traefik).
+  //   0 → API exposta direto, sem proxy nenhum na frente.
+  //   2 → CDN + proxy (ex.: Cloudflare na frente do Traefik).
+  // Nunca use um valor maior do que a quantidade real de saltos: o excedente
+  // passa a confiar em `x-forwarded-for` escrito pelo próprio cliente.
+  TRUST_PROXY_HOPS: Joi.number().integer().min(0).default(1),
   // Base pública da API, usada para montar o redirect_uri do OAuth
   // (deve bater com o cadastrado no provedor). Ex.: http://localhost:3000
   API_URL: Joi.string().uri().default('http://localhost:3000'),

@@ -49,7 +49,11 @@ if [ -n "$APP_DB_PASSWORD" ]; then
     | $PRISMA db execute --stdin --schema="$SCHEMA"
   echo "==> Role crm_app atualizada."
 else
-  echo "!! APP_DB_PASSWORD não definida — crm_app segue com a senha da migration." >&2
+  echo "!! APP_DB_PASSWORD não definida." >&2
+  echo "   Sem ela a role crm_app fica com a senha de desenvolvimento gravada" >&2
+  echo "   pela migration — que é pública neste repositório." >&2
+  echo "   Gere com: openssl rand -hex 32   (sem apóstrofo nem barra invertida)" >&2
+  exit 1
 fi
 
 echo "==> Iniciando a API..."

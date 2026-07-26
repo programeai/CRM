@@ -44,17 +44,6 @@ function nivelPeloStatus(status: number): NivelLog {
   return 'info';
 }
 
-/**
- * IP real do cliente. Atrás do Traefik, `req.ip` é o IP do proxy na rede Docker
- * — o `x-forwarded-for` é reescrito pelo Traefik e traz quem de fato chamou.
- * Só para log: não mexemos em `trust proxy`, que mudaria o throttler também.
- */
-function ipDoCliente(req: Request): string | undefined {
-  const encaminhado = req.headers['x-forwarded-for'];
-  const primeiro = Array.isArray(encaminhado) ? encaminhado[0] : encaminhado;
-  return primeiro?.split(',')[0]?.trim() || req.ip;
-}
-
 export function contextoDaRequisicao(
   req: Request,
   res: Response,
@@ -83,7 +72,10 @@ export function contextoDaRequisicao(
       ms: Math.round(ms),
       // Definido pelo JwtAuthGuard quando a rota é autenticada.
       usuarioId: (req as Request & { user?: { sub?: string } }).user?.sub,
-      ip: ipDoCliente(req),
+      // req.ip já é o IP do cliente: o bootstrap configura `trust proxy` a partir
+      // de TRUST_PROXY_HOPS (ver main.ts), então o Express deriva do
+      // `x-forwarded-for` escrito pelo proxy. É o mesmo valor que o rate limit usa.
+      ip: req.ip,
       ua: req.headers['user-agent'],
     });
   });
