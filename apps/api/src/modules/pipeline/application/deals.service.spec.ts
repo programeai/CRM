@@ -48,6 +48,7 @@ describe('DealsService', () => {
       serviceType: 'SOFTWARE',
     } as never);
     expect(clients.findOne).toHaveBeenCalledWith('owner', 'cli');
+    expect(stages.firstStage).toHaveBeenCalledWith('owner');
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({ stageId: 'stage-0', position: 3 }),
     );
