@@ -9,6 +9,22 @@ recebido na requisição, se houver, senão um UUID novo). É a chave para puxar
 requisição inteira no Grafana — ver [`docs/observabilidade.md`](../../docs/observabilidade.md).
 Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do servidor.' }`.
 
+**Owner × colaborador (vale para todas as rotas autenticadas):** o eixo de
+isolamento é o `ownerId` da **workspace**, não o id de quem está logado. O
+`AccessGuard` resolve `req.access = { userId, ownerId, isOwner, permissions }` a
+cada requisição; é o `ownerId` daí que vira `app.owner_id` no RLS e que alimenta
+`@CurrentOwnerId()`. Um colaborador enxerga e escreve exatamente os dados do
+owner que o convidou, limitado pelas permissões do seu papel, e herda a
+assinatura desse owner. O **owner tem todas as permissões** por definição.
+
+- Onde o campo **Auth** cita `Permissão:`, várias chaves valem como **ou** — ter
+  uma delas basta. Nessas rotas, faltar a permissão responde
+  `403 { message: 'Você não tem permissão para <ação>.' }`.
+- Toda rota autenticada responde `401 { message: 'Sua sessão não é mais válida. Entre novamente.' }`
+  quando a conta foi apagada ou o colaborador foi desativado — a sessão cai na
+  requisição seguinte, sem esperar o access token expirar.
+- Catálogo de permissões: `GET /permissions` (e `apps/api/src/shared/permissions.ts`).
+
 ---
 
 ## Health
@@ -66,10 +82,10 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.refresh`
 
 ### GET /auth/me
-- **Propósito:** Retornar o usuário autenticado (sem campos sensíveis).
+- **Propósito:** Retornar o usuário autenticado (sem campos sensíveis) junto com o contexto de acesso — é o que o frontend usa para esconder navegação e ações (ver `useCan`).
 - **Auth:** Bearer (access token).
 - **Body:** —
-- **Resposta:** `200 { id, name, email, createdAt }` (sem `passwordHash`/`refreshTokenHash`).
+- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[] }`. Sem `passwordHash`/`refreshTokenHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.me`
 
@@ -119,7 +135,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /clients
 - **Propósito:** Listar clientes do usuário autenticado (não arquivados), com busca e filtros, paginado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** — (query: `page?`, `limit?`, `search?`, `status?`, `source?`)
 - **Resposta:** `200 { data: Client[], meta: { total, page, limit } }`.
 - **Erros:** `400` (query inválida), `401`.
@@ -127,15 +143,39 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /clients
 - **Propósito:** Criar um cliente para o usuário autenticado (`ownerId` derivado do token).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** `{ name: string (mín. 2), personType: PersonType, tradeName?, document?, email?, phone?, website?, source?, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state? }`
 - **Resposta:** `201 Client`.
 - **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.create`
 
+### GET /clients/tags
+- **Propósito:** Listar as tags existentes do usuário autenticado (agregadas dos seus clientes não arquivados), com a contagem de uso de cada uma. Alimenta o autocomplete do seletor de tags. Não há catálogo próprio de tags: elas vivem como `String[]` por cliente.
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 { tag: string; count: number }[]` (ordenado por `count desc`, depois alfabético pt-BR).
+- **Erros:** `401`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.listTags`
+
+### GET /clients/tags/usage
+- **Propósito:** Listar os clientes do usuário autenticado que usam determinada tag. Usado pelo modal de confirmação de exclusão para mostrar onde a tag está em uso.
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Body:** — (query: `tag` obrigatório).
+- **Resposta:** `200 { id: string; name: string }[]` (ordenado por `name asc`).
+- **Erros:** `400 Tag inválida.` (tag vazia), `401`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.tagUsage`
+
+### DELETE /clients/tags
+- **Propósito:** Excluir uma tag globalmente, removendo-a de todos os clientes do usuário autenticado (inclusive arquivados).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
+- **Body:** — (query: `tag` obrigatório).
+- **Resposta:** `200 { removed: number }` (quantidade de clientes afetados).
+- **Erros:** `400 Tag inválida.` (tag vazia), `401`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.deleteTag`
+
 ### GET /clients/:id
 - **Propósito:** Buscar um cliente do usuário autenticado pelo id.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Client`.
 - **Erros:** `404 Cliente não encontrado.`, `401`.
@@ -143,7 +183,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /clients/:id
 - **Propósito:** Atualizar parcialmente um cliente do usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar.
 - **Resposta:** `200 Client`.
 - **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Cliente não encontrado.`, `401`.
@@ -151,7 +191,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /clients/:id/archive
 - **Propósito:** Arquivar (soft delete) um cliente, setando `archivedAt`. O cliente some da listagem padrão.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Client` (com `archivedAt` preenchido).
 - **Erros:** `404 Cliente não encontrado.`, `401`.
@@ -163,7 +203,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /clients/:clientId/contacts
 - **Propósito:** Listar os contatos de um cliente (principal primeiro, depois por nome).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Contact[]`.
 - **Erros:** `404 Cliente não encontrado.` (cliente de outro dono ou inexistente), `401`.
@@ -171,7 +211,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /clients/:clientId/contacts
 - **Propósito:** Criar um contato para o cliente. O primeiro contato vira principal automaticamente; marcar `isPrimary` desmarca os demais.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** `{ name: string (mín. 2), role?, email?, phone?, isPrimary?: boolean }`
 - **Resposta:** `201 Contact`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
@@ -179,7 +219,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /contacts/:id
 - **Propósito:** Atualizar parcialmente um contato. Marcar `isPrimary: true` desmarca os demais contatos do cliente.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** Campos parciais de `POST` (todos opcionais).
 - **Resposta:** `200 Contact`.
 - **Erros:** `400` (validação), `404 Contato não encontrado.` (ou cliente de outro dono), `401`.
@@ -187,7 +227,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /contacts/:id
 - **Propósito:** Excluir um contato do cliente.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Contato não encontrado.` (ou cliente de outro dono), `401`.
@@ -199,7 +239,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /activities
 - **Propósito:** Listar atividades (timeline), filtrando por `clientId` e/ou `dealId`, em ordem `createdAt desc`, paginado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** — (query: `page?`, `limit?`, `clientId?`, `dealId?`)
 - **Resposta:** `200 { data: Activity[], meta: { total, page, limit } }`.
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
@@ -207,7 +247,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /activities
 - **Propósito:** Criar uma atividade/anotação na timeline de um cliente. Com `type: FOLLOW_UP` e `scheduledFor`, registra um follow-up.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** `{ clientId: uuid, type: ActivityType, content: string, dealId?: uuid, scheduledFor?: ISO date }`
 - **Resposta:** `201 Activity`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
@@ -215,7 +255,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /activities/:id
 - **Propósito:** Atualizar parcialmente uma atividade (não permite mover de cliente — `clientId` omitido).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** `{ type?, content?, dealId?, scheduledFor? }`
 - **Resposta:** `200 Activity`.
 - **Erros:** `400` (validação), `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
@@ -223,7 +263,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /activities/:id/complete
 - **Propósito:** Concluir uma atividade (follow-up), definindo `completedAt`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Activity` (com `completedAt` preenchido).
 - **Erros:** `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
@@ -243,7 +283,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /pipeline-stages
 - **Propósito:** Criar um novo estágio no fim da ordem atual.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ name: string (mín. 2), isWon?: boolean, isLost?: boolean }`
 - **Resposta:** `201 PipelineStage`.
 - **Erros:** `400` (validação), `409 Já existe um estágio com este nome.`, `401`.
@@ -251,7 +291,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /pipeline-stages/reorder
 - **Propósito:** Reatribuir a ordem (`order`) sequencial dos estágios conforme a lista de ids informada.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ ids: uuid[] }`
 - **Resposta:** `200 PipelineStage[]` (já reordenados).
 - **Erros:** `400` (validação), `401`.
@@ -259,7 +299,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /pipeline-stages/:id
 - **Propósito:** Atualizar parcialmente um estágio (nome, `isWon`, `isLost`).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** Campos parciais de `POST /pipeline-stages`.
 - **Resposta:** `200 PipelineStage`.
 - **Erros:** `400` (validação), `404 Estágio não encontrado.`, `409 Já existe um estágio com este nome.`, `401`.
@@ -267,7 +307,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /pipeline-stages/:id
 - **Propósito:** Excluir um estágio, desde que não possua oportunidades vinculadas.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Estágio não encontrado.`, `409 Não é possível excluir um estágio que possui oportunidades.`, `401`.
@@ -279,7 +319,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /deals
 - **Propósito:** Listar oportunidades do usuário autenticado (via cliente), com filtros e paginação.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** — (query: `page?`, `limit?`, `clientId?`, `stageId?`, `search?`)
 - **Resposta:** `200 { data: Deal[], meta: { total, page, limit } }` (`Deal` inclui `client: { id, name }`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
@@ -287,7 +327,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /deals/board
 - **Propósito:** Retornar todas as oportunidades do usuário autenticado, sem paginação, ordenadas por `stageId` e `position` — alimenta o Kanban.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Deal[]` (com `client: { id, name }`).
 - **Erros:** `401`.
@@ -295,7 +335,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /deals
 - **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio; `position` vai para o fim da coluna.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date }`
 - **Resposta:** `201 Deal`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` / `404 Estágio não encontrado.`, `401`.
@@ -303,7 +343,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /deals/:id
 - **Propósito:** Buscar uma oportunidade, validando que o cliente pertence ao usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Deal`.
 - **Erros:** `404 Oportunidade não encontrada.` (ou cliente de outro dono), `401`.
@@ -311,7 +351,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /deals/:id
 - **Propósito:** Atualizar parcialmente uma oportunidade (não move de estágio — usar `/move`; `clientId`/`stageId` fora do body).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** Campos parciais de `POST /deals` exceto `clientId`/`stageId`.
 - **Resposta:** `200 Deal`.
 - **Erros:** `400` (validação), `404 Oportunidade não encontrada.`, `401`.
@@ -319,7 +359,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /deals/:id/move
 - **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReason`; ao sair de um estágio `isLost` para outro, limpa `lostReason`. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ stageId: uuid, position: number (>=0), lostReason?: string }`
 - **Resposta:** `200 Deal`.
 - **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.`, `422 Informe o motivo da perda.`, `401`.
@@ -327,7 +367,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /deals/:id
 - **Propósito:** Excluir (hard delete) uma oportunidade. `Proposal`/`Activity` vinculados mantêm o registro com `dealId = null`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Oportunidade não encontrada.`, `401`.
@@ -339,7 +379,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /proposals
 - **Propósito:** Listar propostas do usuário autenticado (via cliente), com filtros e paginação. `search` filtra por número da proposta ou nome/email do cliente (contains, case-insensitive).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:ver` ou `proposta:gerenciar`.
 - **Body:** — (query: `page?`, `limit?`, `search?`, `clientId?`, `status?`)
 - **Resposta:** `200 { data: Proposal[], meta: { total, page, limit } }` (`Proposal` inclui `items[]` e `client: { id, name }`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
@@ -347,7 +387,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /proposals
 - **Propósito:** Criar uma proposta (status `DRAFT`, `version 1`); gera `number` PROP-AAAA-NNNN e calcula `total` no backend a partir dos itens e desconto.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** `{ clientId: uuid, serviceType: ServiceType, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date }`
 - **Resposta:** `201 Proposal` (com `items[]`, `total`, `number`).
 - **Erros:** `400` (validação / `Informe ao menos um item.`), `404 Cliente não encontrado.` / `Oportunidade não encontrada.`, `401`.
@@ -355,7 +395,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /proposals/:id
 - **Propósito:** Buscar uma proposta, validando que o cliente pertence ao usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:ver` ou `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Proposal` (com `items[]`).
 - **Erros:** `404 Proposta não encontrada.`, `401`.
@@ -363,7 +403,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /proposals/:id/versions
 - **Propósito:** Listar todas as versões da cadeia (mesmo `number`) da proposta informada, ordenadas por `version`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:ver` ou `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Proposal[]`.
 - **Erros:** `404 Proposta não encontrada.`, `401`.
@@ -371,7 +411,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /proposals/:id
 - **Propósito:** Atualizar parcialmente uma proposta **apenas em rascunho** (`DRAFT`). Se `items` for informado, substitui os itens e recalcula `total`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** Campos parciais de `POST /proposals` exceto `clientId`/`dealId`.
 - **Resposta:** `200 Proposal`.
 - **Erros:** `400` (validação), `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser editados. Crie uma nova versão.`, `401`.
@@ -379,7 +419,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /proposals/:id
 - **Propósito:** Excluir uma proposta **apenas em rascunho** (`DRAFT`), removendo também seus itens.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser excluídos.`, `401`.
@@ -387,7 +427,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /proposals/:id/send
 - **Propósito:** Enviar a proposta (`DRAFT` → `SENT`), setando `sentAt`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Proposal` (status `SENT`).
 - **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -395,7 +435,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /proposals/:id/accept
 - **Propósito:** Aceitar a proposta (`SENT`/`NEGOTIATING` → `ACCEPTED`), setando `decidedAt`. Se houver `dealId`, move o deal vinculado para o estágio "Ganhou" (isWon); ao mover, um Projeto é criado automaticamente a partir do deal (idempotente por `dealId`).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Proposal` (status `ACCEPTED`).
 - **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -403,7 +443,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /proposals/:id/reject
 - **Propósito:** Recusar a proposta (`SENT`/`NEGOTIATING` → `REJECTED`), setando `decidedAt`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Proposal` (status `REJECTED`).
 - **Erros:** `404 Proposta não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -411,7 +451,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /proposals/:id/new-version
 - **Propósito:** Criar uma nova versão da proposta (mesmo `number`, `version+1`, `parentId` = origem), copiando itens e campos, com status `DRAFT`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `201 Proposal` (nova versão, `DRAFT`).
 - **Erros:** `404 Proposta não encontrada.`, `401`.
@@ -421,7 +461,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /projects
 - **Propósito:** Listar projetos do usuário autenticado, paginado, com filtro opcional por cliente, status e busca por nome.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar`.
 - **Body:** — (query: `page`, `limit`, `clientId?`, `status?`, `search?`).
 - **Resposta:** `200 Paginated<Project>` (com `client` e `_count.tasks`).
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
@@ -429,7 +469,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /projects
 - **Propósito:** Criar um projeto vinculado a um cliente do usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
 - **Body:** `{ name, clientId, serviceType, proposalId?, startDate?, dueDate? }`.
 - **Resposta:** `201 Project`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
@@ -437,7 +477,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /projects/:id
 - **Propósito:** Buscar um projeto, validando que o cliente pertence ao usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Project`.
 - **Erros:** `404 Projeto não encontrado.`, `401`.
@@ -445,7 +485,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /projects/:id
 - **Propósito:** Atualizar parcialmente um projeto (nome, tipo de serviço, status, início, prazo). `clientId`/`proposalId` são imutáveis.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
 - **Body:** Campos parciais de `POST /projects` exceto `clientId`/`proposalId`, mais `status?`.
 - **Resposta:** `200 Project`.
 - **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
@@ -453,7 +493,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /projects/:id
 - **Propósito:** Excluir um projeto, desde que não possua tarefas vinculadas.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Projeto não encontrado.`, `409 Não é possível excluir um projeto que possui tarefas.`, `401`.
@@ -463,7 +503,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /tasks
 - **Propósito:** Listar tarefas do usuário autenticado, paginado, cruzando projetos ("Minhas demandas"), com filtros por projeto, cliente, status, prioridade e prazo.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** — (query: `page`, `limit`, `projectId?`, `clientId?`, `status?`, `priority?`, `dueBefore?`).
 - **Resposta:** `200 Paginated<Task>` (com `project` e `project.client`), ordenado por prazo (`dueDate asc`, nulls por último), prioridade e criação.
 - **Erros:** `400` (validação), `404 Projeto não encontrado.` (se `projectId` não for do dono), `401`.
@@ -471,7 +511,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /tasks/board
 - **Propósito:** Alimentar o Kanban de tarefas. Com `projectId`, lista as tarefas do projeto ordenadas por `(status, position)`. Sem `projectId`, lista todas as tarefas do usuário autenticado (board cross-projeto de "Minhas demandas"), ordenadas por `(status, prazo asc, prioridade desc, position)`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** — (query: `projectId` opcional).
 - **Resposta:** `200 Task[]`.
 - **Erros:** `404 Projeto não encontrado.` (quando `projectId` é informado e não pertence ao usuário), `401`.
@@ -479,7 +519,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /tasks/tags
 - **Propósito:** Listar as tags existentes do usuário autenticado (agregadas de todas as suas tarefas), com a contagem de uso de cada uma. Alimenta o autocomplete do seletor de tags. Não há catálogo próprio de tags: elas vivem como `String[]` por tarefa.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 { tag: string; count: number }[]` (ordenado por `count desc`, depois alfabético pt-BR).
 - **Erros:** `401`.
@@ -487,7 +527,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /tasks/tags/usage
 - **Propósito:** Listar as tarefas do usuário autenticado que usam determinada tag. Usado pelo modal de confirmação de exclusão para mostrar onde a tag está em uso.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** — (query: `tag` obrigatório).
 - **Resposta:** `200 { id: string; title: string; project: { id: string; name: string } }[]` (ordenado por `title asc`).
 - **Erros:** `400 Tag inválida.` (tag vazia), `401`.
@@ -495,7 +535,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /tasks/tags
 - **Propósito:** Excluir uma tag globalmente, removendo-a de todas as tarefas do usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** — (query: `tag` obrigatório).
 - **Resposta:** `200 { removed: number }` (quantidade de tarefas afetadas).
 - **Erros:** `400 Tag inválida.` (tag vazia), `401`.
@@ -503,7 +543,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /tasks
 - **Propósito:** Criar uma tarefa em um projeto do usuário autenticado, no fim da coluna de status (`position` sequencial).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** `{ projectId, title, description?, status?, priority?, dueDate?, tags?, checklist? }`.
 - **Resposta:** `201 Task`.
 - **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
@@ -511,7 +551,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /tasks/:id
 - **Propósito:** Buscar uma tarefa, validando posse via projeto→cliente do usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Task`.
 - **Erros:** `404 Tarefa não encontrada.`, `401`.
@@ -519,7 +559,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /tasks/:id
 - **Propósito:** Atualizar parcialmente uma tarefa (título, descrição, prioridade, prazo, tags, checklist). `projectId` é imutável; `status` só muda via `/move`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** Campos parciais de `POST /tasks` exceto `projectId`/`status`.
 - **Resposta:** `200 Task`.
 - **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
@@ -527,7 +567,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /tasks/:id/move
 - **Propósito:** Mover a tarefa para outra coluna/posição do board, reindexando as colunas de origem e destino em transação. Ao entrar em `DONE`, seta `completedAt`; ao sair, limpa.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** `{ status, position }`.
 - **Resposta:** `200 Task`.
 - **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
@@ -535,7 +575,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### DELETE /tasks/:id
 - **Propósito:** Excluir uma tarefa.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
 - **Erros:** `404 Tarefa não encontrada.`, `401`.
@@ -547,7 +587,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /contracts
 - **Propósito:** Listar contratos do usuário autenticado, paginado, com filtro opcional por cliente, status e regime de cobrança.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** — (query: `page`, `limit`, `clientId?`, `status?`, `billingType?`).
 - **Resposta:** `200 Paginated<Contract>` (com `client` e `payments` ordenadas por vencimento).
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
@@ -555,7 +595,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /contracts
 - **Propósito:** Criar um contrato vinculado a um cliente do usuário autenticado. Conforme o regime (`billingType`), gera a agenda de cobranças: `INSTALLMENTS` cria Entrada (se houver) + N parcelas; `ONE_TIME` cria uma cobrança única; `RECURRING` não cria nenhuma (o cron gera as mensalidades).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** `{ clientId, description, billingType, projectId?, proposalId?, ` + campos condicionais por regime: RECURRING `{ monthlyAmount, billingDay (1-28), startDate, endDate? }`; INSTALLMENTS `{ downPayment?, downPaymentDueDate?, installments, installmentAmount, firstInstallmentDueDate }`; ONE_TIME `{ amount, dueDate }` `}`.
 - **Resposta:** `201 Contract` (com `payments` já geradas conforme o regime).
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
@@ -563,7 +603,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /contracts/:id
 - **Propósito:** Buscar um contrato, validando que o cliente pertence ao usuário autenticado.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Contract` (com `payments`).
 - **Erros:** `404 Contrato não encontrado.`, `401`.
@@ -571,7 +611,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /contracts/:id
 - **Propósito:** Atualizar parcialmente um contrato (descrição, valor mensal, dia de vencimento, data de término). `clientId`/`billingType` e os campos de INSTALLMENTS já materializados em cobranças são imutáveis. Reajuste de `monthlyAmount` vale só para as mensalidades ainda não geradas.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** `{ description?, monthlyAmount?, billingDay?, endDate? }`.
 - **Resposta:** `200 Contract`.
 - **Erros:** `400` (validação), `404 Contrato não encontrado.`, `401`.
@@ -579,7 +619,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /contracts/:id/pause
 - **Propósito:** Pausar um contrato `ACTIVE` (suspende a geração de novas mensalidades pelo cron).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Contract` (`status: PAUSED`).
 - **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
@@ -587,7 +627,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /contracts/:id/resume
 - **Propósito:** Retomar um contrato `PAUSED`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Contract` (`status: ACTIVE`).
 - **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
@@ -595,7 +635,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /contracts/:id/cancel
 - **Propósito:** Cancelar um contrato. Cancela também as cobranças `PENDING`/`OVERDUE` (em aberto); as `PAID` permanecem no histórico.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Contract` (`status: CANCELED`, cobranças em aberto `CANCELED`).
 - **Erros:** `404 Contrato não encontrado.`, `422 Transição de status inválida.`, `401`.
@@ -607,7 +647,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /payments
 - **Propósito:** Listar cobranças do usuário autenticado, paginado, com busca opcional por nome do cliente ou descrição do contrato (`search`) e filtro opcional por cliente, contrato, status, regime de cobrança e período de vencimento.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** — (query: `page`, `limit`, `search?` (nome do cliente ou descrição do contrato, case-insensitive), `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`, `sortBy?`, `sortDir?`). O `status` aceita um único valor (`?status=PAID`) **ou** vários (`?status=PENDING&status=OVERDUE`) — o resultado inclui qualquer um dos status informados. `sortBy` ∈ `status | client | contract | dueDate | amount`; `sortDir` ∈ `asc | desc` (padrão `asc`).
 - **Resposta:** `200 Paginated<Payment>` (com `contract` e `contract.client`). Ordenação padrão (sem `sortBy`): status por prioridade (Vencido → Pendente → Pago → Cancelado), depois cliente, contrato e vencimento. Com `sortBy`, ordena pela coluna escolhida usando cliente/contrato/vencimento como desempate.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
@@ -615,7 +655,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### GET /payments/summary
 - **Propósito:** Totais agregados das cobranças (para os cards de recebimentos), respeitando os mesmos filtros da listagem, **exceto** status: `recebido` (Σ de PAID, usando `paidAmount`), `aReceber` (Σ de PENDING + OVERDUE) e `emAtraso` (Σ de OVERDUE).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** — (query: `search?`, `clientId?`, `contractId?`, `billingType?`, `dueFrom?`, `dueTo?`).
 - **Resposta:** `200 { recebido: number, aReceber: number, emAtraso: number }`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
@@ -623,7 +663,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### PATCH /payments/:id
 - **Propósito:** Editar uma cobrança (descrição, valor, vencimento), permitido apenas enquanto `PENDING`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** `{ description?, amount?, dueDate? }`.
 - **Resposta:** `200 Payment`.
 - **Erros:** `400` (validação), `404 Cobrança não encontrada.`, `422 Apenas cobranças pendentes podem ser editadas.`, `401`.
@@ -631,7 +671,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /payments/:id/pay
 - **Propósito:** Dar baixa numa cobrança `PENDING`/`OVERDUE` (marca `PAID`, aceita valor recebido parcial/diferente).
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** `{ method, paidAt?, paidAmount?, notes? }`.
 - **Resposta:** `200 Payment` (`status: PAID`, `paidAt`/`paidAmount`/`method` preenchidos).
 - **Erros:** `400` (validação), `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -639,7 +679,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /payments/:id/revert
 - **Propósito:** Estornar uma cobrança `PAID` (volta a `PENDING`); nunca destrutivo — o estorno fica registrado em `notes`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Payment` (`status: PENDING`, `paidAt`/`paidAmount`/`method` limpos, `notes` com o registro do estorno).
 - **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -647,7 +687,7 @@ Erros não previstos respondem `500 { statusCode: 500, message: 'Erro interno do
 
 ### POST /payments/:id/cancel
 - **Propósito:** Cancelar uma cobrança `PENDING`/`OVERDUE`.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Payment` (`status: CANCELED`).
 - **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
@@ -673,7 +713,7 @@ Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente le
 
 ### GET /dashboard/finance
 - **Propósito:** Resumo financeiro: MRR, previsto × recebido no mês, total em atraso e próximos vencimentos.
-- **Auth:** Bearer (access token).
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Query:** `month?` (`AAAA-MM`) — mês de referência dos totais previstos/recebidos; ausente → mês corrente. Só desloca `month`; `mrr`, `overdue` e `upcoming` são sempre relativos a agora.
 - **Body:** —
 - **Resposta:** `200 { mrr, month, overdue, upcoming }`, onde:
@@ -692,7 +732,7 @@ Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo
 
 ### POST /billing/checkout
 - **Propósito:** Criar (ou reaproveitar) o customer no Stripe e abrir uma sessão de Checkout no modo assinatura para o preço único configurado (`STRIPE_PRICE_ID`). Retorna a URL hospedada do Stripe.
-- **Auth:** Bearer (access token). Isenta do gate de assinatura.
+- **Auth:** Bearer (access token). Isenta do gate de assinatura. Permissão: `assinatura:gerenciar`.
 - **Body:** —
 - **Resposta:** `201 { url: string }` — URL de Checkout do Stripe (redirecionar o navegador).
 - **Erros:** `503 Cobrança não está habilitada nesta instância.` (billing off); `404 Usuário não encontrado.`; `401`.
@@ -700,7 +740,7 @@ Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo
 
 ### POST /billing/portal
 - **Propósito:** Abrir o Customer Portal do Stripe para o owner gerenciar a própria assinatura (trocar cartão, cancelar, ver faturas).
-- **Auth:** Bearer (access token). Isenta do gate de assinatura.
+- **Auth:** Bearer (access token). Isenta do gate de assinatura. Permissão: `assinatura:gerenciar`.
 - **Body:** —
 - **Resposta:** `201 { url: string }` — URL do Customer Portal do Stripe.
 - **Erros:** `503 Cobrança não está habilitada nesta instância.` (billing off); `404 Assinatura não encontrada.` (owner sem customer Stripe); `401`.
@@ -721,3 +761,121 @@ Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo
 - **Resposta:** `201 { received: true }`.
 - **Erros:** `400 Assinatura do webhook inválida.` (assinatura ausente/adulterada ou secret incorreto).
 - **Handler:** `modules/billing/api/stripe-webhook.controller.ts` → `StripeWebhookController.handle`
+
+---
+
+## Permissões
+
+### GET /permissions
+- **Propósito:** Catálogo de permissões agrupado por categoria — fonte única dos rótulos em pt-BR usados pelo editor de papéis e pelo detalhe de um papel. O frontend **não** duplica esses textos.
+- **Auth:** Bearer (access token). Sem permissão exigida: é uma lista estática de rótulos, não revela dado de ninguém.
+- **Body:** —
+- **Resposta:** `200 [{ category: string, permissions: [{ key, label, description, category }] }]` — na ordem de exibição das categorias (Clientes, Pipeline, Propostas, Operação, Financeiro, Organização). Chaves marcadas como `hidden` no catálogo ficam de fora (continuam válidas, só não são exibidas).
+- **Erros:** `401`.
+- **Handler:** `modules/access/api/permissions.controller.ts` → `PermissionsController.list`
+
+---
+
+## Papéis
+
+Papéis são escopados ao owner (RLS por `ownerId`): dois owners podem ter papéis com o mesmo nome sem se verem. O papel `system` ("Administrador") nasce com a conta, **vale sempre o catálogo inteiro** (resolvido em tempo de execução, então não desatualiza quando uma permissão nova entra) e não é editável nem excluível.
+
+### GET /roles
+- **Propósito:** Listar os papéis do owner, com a contagem de colaboradores que usam cada um. Papel do sistema primeiro, depois por nome.
+- **Auth:** Bearer (access token). Permissão: `papel:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ id, name, description, system, permissions: string[], collaboratorsCount, createdAt }]` — no papel `system`, `permissions` traz o catálogo inteiro.
+- **Erros:** `401`, `403`.
+- **Handler:** `modules/collaborators/api/roles.controller.ts` → `RolesController.list`
+
+### POST /roles
+- **Propósito:** Criar um papel para o owner atual.
+- **Auth:** Bearer (access token). Permissão: `papel:gerenciar`.
+- **Body:** `{ name: string (2–60), description?: string (≤200), permissions: string[] }` — chave fora do catálogo é **descartada** (não rejeitada), para que uma permissão removida do catálogo não impeça salvar.
+- **Resposta:** `201 { id, name, description, system: false, permissions, collaboratorsCount: 0, createdAt }`.
+- **Erros:** `409 Já existe um papel com este nome.`; `400` (validação); `401`, `403`.
+- **Handler:** `modules/collaborators/api/roles.controller.ts` → `RolesController.create`
+
+### PATCH /roles/:id
+- **Propósito:** Substituir nome, descrição e o conjunto de permissões de um papel (não é patch parcial: envia o registro completo, como o formulário do painel).
+- **Auth:** Bearer (access token). Permissão: `papel:gerenciar`.
+- **Body:** `{ name, description?, permissions: string[] }`.
+- **Resposta:** `200 { …papel }`.
+- **Erros:** `404 Papel não encontrado.` (inexistente ou de outro owner); `403 O papel do sistema não pode ser editado nem excluído.`; `409 Já existe um papel com este nome.`; `400`; `401`, `403`.
+- **Handler:** `modules/collaborators/api/roles.controller.ts` → `RolesController.update`
+
+### DELETE /roles/:id/permissions/:key
+- **Propósito:** Remover uma permissão pontual do papel, direto do detalhe expandido — sem abrir o formulário inteiro.
+- **Auth:** Bearer (access token). Permissão: `papel:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 { …papel }` (já sem a chave).
+- **Erros:** `404 Papel não encontrado.`; `403 O papel do sistema não pode ser editado nem excluído.`; `401`, `403`.
+- **Handler:** `modules/collaborators/api/roles.controller.ts` → `RolesController.removePermission`
+
+### DELETE /roles/:id
+- **Propósito:** Excluir um papel que não está em uso.
+- **Auth:** Bearer (access token). Permissão: `papel:gerenciar`.
+- **Body:** —
+- **Resposta:** `204` (sem corpo).
+- **Erros:** `404 Papel não encontrado.`; `403 O papel do sistema não pode ser editado nem excluído.`; `409 Este papel está em uso por colaboradores. Troque o papel deles antes de excluir.`; `401`, `403`.
+- **Handler:** `modules/collaborators/api/roles.controller.ts` → `RolesController.remove`
+
+---
+
+## Colaboradores
+
+Colaborador é um `User` com `ownerId` preenchido: enxerga os dados do owner (mesmo `app.owner_id`) limitado pelo papel, **não** tem assinatura própria (herda a do owner) e não pode alterar o próprio acesso. `User` fica fora do RLS (login busca por e-mail), então toda consulta aqui filtra `ownerId` explicitamente.
+
+### GET /collaborators
+- **Propósito:** Listar os colaboradores do owner atual, com papel e situação.
+- **Auth:** Bearer (access token). Permissão: `colaborador:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ id, name, email, active, status: 'PENDING' | 'ACTIVE' | 'INACTIVE', role: { id, name, system } | null, createdAt }]` — `status` é derivado: `PENDING` enquanto o convite não foi aceito. Nunca traz `passwordHash`/`refreshTokenHash`.
+- **Erros:** `401`, `403`.
+- **Handler:** `modules/collaborators/api/collaborators.controller.ts` → `CollaboratorsController.list`
+
+### POST /collaborators
+- **Propósito:** Convidar um colaborador: cria a conta **sem senha** e emite um convite de uso único (7 dias), enviado por e-mail. O link volta na resposta para o painel exibir — é o que mantém o fluxo utilizável sem SMTP configurado.
+- **Auth:** Bearer (access token). Permissão: `colaborador:gerenciar`.
+- **Body:** `{ name: string (2–120), email: string (e-mail), roleId: uuid }` — o papel tem de ser do próprio owner.
+- **Resposta:** `201 { collaborator: {…}, inviteUrl: string, inviteExpiresInDays: 7 }`.
+- **Erros:** `409 Já existe uma conta com este e-mail.` (o e-mail é único no banco inteiro); `404 Papel não encontrado.` (papel de outro owner); `400` (validação); `401`, `403`.
+- **Handler:** `modules/collaborators/api/collaborators.controller.ts` → `CollaboratorsController.create`
+
+### POST /collaborators/:id/invite
+- **Propósito:** Emitir um novo convite para quem ainda não ativou o acesso. Invalida o link anterior (só o último vale).
+- **Auth:** Bearer (access token). Permissão: `colaborador:gerenciar`.
+- **Body:** —
+- **Resposta:** `201 { inviteUrl: string, inviteExpiresInDays: 7 }`.
+- **Erros:** `404 Colaborador não encontrado.`; `409 Este colaborador já ativou o acesso. Se ele perdeu a senha, use "Esqueci minha senha".`; `401`, `403`.
+- **Handler:** `modules/collaborators/api/collaborators.controller.ts` → `CollaboratorsController.resendInvite`
+
+### PATCH /collaborators/:id
+- **Propósito:** Trocar o papel e/ou ativar–desativar um colaborador. Desativar revoga a sessão vigente (refresh token) e derruba o acesso na requisição seguinte.
+- **Auth:** Bearer (access token). Permissão: `colaborador:gerenciar`.
+- **Body:** `{ roleId?: uuid, active?: boolean }`.
+- **Resposta:** `200 { …colaborador }`.
+- **Erros:** `403 Você não pode alterar o seu próprio acesso.`; `404 Colaborador não encontrado.` (inexistente, de outro owner, ou o próprio owner — que não é colaborador de ninguém); `404 Papel não encontrado.` (papel de outro owner); `400`; `401`, `403`.
+- **Handler:** `modules/collaborators/api/collaborators.controller.ts` → `CollaboratorsController.update`
+
+---
+
+## Convite de colaborador (público)
+
+Rotas do aceite: quem abre o link ainda não tem sessão. Não têm contexto de owner, então usam o client admin (`CollaboratorInvite` tem RLS). O banco guarda apenas o **sha256** do token; o valor bruto só existe no link. Token inexistente, expirado ou já usado respondem a **mesma** mensagem — não há o que ganhar distinguindo.
+
+### GET /collaborators/invite/:token
+- **Propósito:** Dados para a tela de aceite: quem foi convidado e por qual conta.
+- **Auth:** Pública (`@Public()`). Rate limit: 10 req/min.
+- **Body:** —
+- **Resposta:** `200 { name, email, ownerName, expiresInDays: 7 }`.
+- **Erros:** `410 Este convite não é mais válido. Peça um novo ao responsável pela conta.`; `403 Este acesso foi desativado. Fale com o responsável pela conta.`
+- **Handler:** `modules/collaborators/api/invites.controller.ts` → `InvitesController.preview`
+
+### POST /collaborators/invite/:token/accept
+- **Propósito:** Definir a senha, consumir o convite (uso único) e **já autenticar** — o link chegou no e-mail do próprio colaborador, então pedir login em seguida seria atrito sem ganho.
+- **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
+- **Body:** `{ password: string (mín. 6) }`.
+- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
+- **Erros:** `410 Este convite não é mais válido. Peça um novo ao responsável pela conta.` (inclui a corrida de dois envios simultâneos do mesmo link); `403 Este acesso foi desativado. Fale com o responsável pela conta.`; `400` (senha curta).
+- **Handler:** `modules/collaborators/api/invites.controller.ts` → `InvitesController.accept`

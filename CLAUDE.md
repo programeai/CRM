@@ -53,4 +53,10 @@ Buscar o equilíbrio entre rigor arquitetural e velocidade. **Evitar over-engine
 
 ## Escopo de produto
 
-CRM interno de agência (clientes, pipeline de vendas, propostas, projetos, contratos e financeiro). É **single-tenant**: há um `ownerId` como preparação para multiusuário, mas **não** há conceito de organização/tenant nem isolamento por RLS. Não introduza multi-tenancy sem decisão explícita.
+CRM de agência (clientes, pipeline de vendas, propostas, projetos, contratos e financeiro).
+
+**Isolamento por owner.** Uma instância atende vários owners. `ownerId` é o **eixo único** de isolamento, aplicado no banco por RLS (policies por `ownerId`, fail-closed; ver `apps/api/prisma/migrations/*_enable_rls`) e no request pelo `OwnerContextInterceptor`. Cada owner é dono dos seus dados e da sua assinatura.
+
+**Colaboradores e papéis.** Um owner convida colaboradores (`User.ownerId` preenchido), cada um com um papel (`Role`) que carrega permissões granulares. Colaborador enxerga e escreve **os dados do owner** — o `app.owner_id` do RLS é o do owner, não o dele — limitado pelas permissões do papel, e herda a assinatura do owner (não paga assento). Owner tem acesso total por definição e não pode ser desativado. Regras completas em `apps/api/CLAUDE.md` → "Autorização" e `apps/web/CLAUDE.md` → "Permissões na interface".
+
+**Não** há conceito de organização/tenant como entidade separada, nem permissão por registro. Não introduza nenhum dos dois sem decisão explícita.
