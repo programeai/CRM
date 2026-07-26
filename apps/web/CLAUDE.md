@@ -80,6 +80,17 @@ Uma feature não importa o interior de outra; reaproveitamento sobe para `compon
 <FieldLabel htmlFor="name">Nome *</FieldLabel>          // errado
 ```
 
+### Permissões na interface
+
+O backend é a **autoridade** (o `AccessGuard` responde `403`); o front apenas evita mostrar o que não seria aceito. Regras:
+
+- `useCan()` (`@/hooks/use-can`) é a única porta de entrada: `can(chave)`, `canAny(chaves)`, `isOwner`, `loading`. Ele lê as permissões de `GET /auth/me`.
+- **Nunca duplique rótulos de permissão no front.** Os textos em pt-BR (nome e descrição de cada permissão) vêm de `GET /permissions` — ver `usePermissionCatalog`.
+- Item de navegação declara as chaves em `permission` (`app/nav.ts`); basta **uma** para aparecer, e grupo que ficou sem item não é renderizado.
+- Rota de feature é envolvida por `<PermissionRoute permission={[...]} />` (`app/PermissionRoute.tsx`), que manda para o Dashboard quem não tem acesso. Enquanto `loading`, **não** redirecione — expulsaria quem tem direito.
+- Abas que atravessam módulos (ex.: as de um cliente) são filtradas por quem monta a lista, com `canAny` — os primitivos de `components/ui` não conhecem a sessão.
+- Não peça dado que a pessoa não pode ver: desligue a query (`enabled`) e esconda a seção, em vez de deixar a tela exibir um bloco de erro.
+
 ### Modais — nunca um modal sobre outro
 
 - **É proibido abrir um modal por cima de outro.** Regra absoluta e geral da aplicação. Quando um modal abriria sobre outro, o de baixo é **soterrado** (ocultado visualmente, mas **montado** — preserva todo o estado de formulário) e volta ao topo intacto quando o de cima fecha. Se o de cima criou um item, o de baixo reaparece já com esse item preenchido no campo de origem (ex.: cadastro rápido de cliente no formulário de oportunidade).

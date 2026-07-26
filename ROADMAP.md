@@ -165,9 +165,16 @@ Métricas e polimento final. Ver [SPEC.md](SPEC.md) §3.7.
 
 ---
 
+## Entregue depois do MVP
+
+- [x] **Multiusuário com papéis e permissões** — colaboradores por convite, papéis com permissões
+      granulares e isolamento por owner (ver `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
+
+---
+
 ## Fora do MVP (backlog futuro)
 
-Multiusuário com papéis/permissões · PDF + link público de aceite da proposta · integração e-mail/WhatsApp ·
+PDF + link público de aceite da proposta · integração e-mail/WhatsApp ·
 gateway de pagamento (boleto/Pix automático — no MVP a baixa é manual) · emissão de nota fiscal ·
 controle de despesas · automações (lembretes, proposta expirando) · relatórios avançados e exportação CSV.
 

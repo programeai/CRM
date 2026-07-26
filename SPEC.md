@@ -45,7 +45,10 @@ Um CRM enxuto e centrado em três pilares:
 - Dashboard com métricas essenciais (comercial + financeiro)
 
 ### 2.2 Fora do MVP (backlog futuro)
-- Multiusuário com papéis e permissões
+> Multiusuário com papéis e permissões **saiu do backlog e está entregue** — colaboradores por
+> convite, papéis com permissões granulares e isolamento por owner (ver
+> `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
+
 - Geração de PDF da proposta e link público de aceite
 - Integração com e-mail (envio de proposta) e WhatsApp
 - Integração com gateway de pagamento / emissão de boleto e Pix automático (no MVP a baixa é manual)

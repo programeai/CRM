@@ -83,3 +83,16 @@ Detalhes, eventos existentes e consultas prontas em [`docs/observabilidade.md`](
 - JWT de acesso via header `Authorization: Bearer` (validado por `JwtAuthGuard`, global). Refresh token em cookie `httpOnly` no path `/api/v1/auth`, com hash (argon2) persistido para permitir revogação/logout real.
 - Rotas públicas são marcadas com o decorator `@Public()`.
 - Prefixo global das rotas: `/api/v1`.
+
+## Autorização — owner, colaborador e permissões (obrigatório)
+
+O eixo de isolamento é o **`ownerId` da workspace**, nunca o id de quem está logado. Owner (`User.ownerId` nulo) é dono dos dados e da assinatura; colaborador (`ownerId` preenchido) enxerga os mesmos dados do owner, limitado pelo papel (`Role`).
+
+Ordem dos guards globais no `app.module.ts` — **não altere**: `ThrottlerGuard` → `JwtAuthGuard` (popula `req.user`) → `AccessGuard` (publica `req.access`) → `BillingGuard` (consome `req.access.ownerId`), e o `OwnerContextInterceptor` depois deles.
+
+- **`AccessGuard`** (`modules/access/`) resolve, a cada requisição autenticada, `req.access = { userId, ownerId, isOwner, roleId, roleName, permissions }` — pelo `PrismaAdminService`, porque é essa leitura que descobre qual `ownerId` usar e `Role` tem RLS. Usuário inexistente ou colaborador desativado → `401` na hora, sem esperar o token expirar.
+- **`@CurrentOwnerId()`** para escopo de dados (tudo que é filtrado por `ownerId`); **`@CurrentUserId()`** só para identidade (perfil, senha, logout); **`@CurrentAccess()`** quando a regra depende das permissões.
+- **`@RequirePermission('chave', …)`** em toda rota de negócio; várias chaves valem como **ou** (é o que libera uma leitura para quem tem `:ver` **ou** `:gerenciar`). Sem o decorator, a rota só exige sessão válida.
+- O catálogo de permissões é **fonte única** em `shared/permissions.ts` e é exposto por `GET /permissions` — o `apps/web` consome os rótulos de lá e **nunca** duplica esses textos em pt-BR.
+- **Owner tem todas as permissões** por definição e não pode ser desativado — por isso não existe (nem é necessária) trava anti-lockout. O papel `system` ("Administrador") também vale o catálogo inteiro, resolvido em tempo de execução para não desatualizar quando uma permissão nova entra.
+- Rota que agrega módulos diferentes sem exigir permissão (ex.: `GET /dashboard/summary`) recebe as permissões da sessão e devolve `null` no bloco que o usuário não pode ver — não vaze agregado por falta de decorator.
