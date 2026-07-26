@@ -52,8 +52,8 @@ export class DealsService {
   async create(ownerId: string, dto: CreateDealDto): Promise<DealWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida que o cliente é do dono
     const stage = dto.stageId
-      ? await this.stages.findOne(dto.stageId)
-      : await this.stages.firstStage();
+      ? await this.stages.findOne(ownerId, dto.stageId)
+      : await this.stages.firstStage(ownerId);
     const position = (await this.repo.maxPositionInStage(stage.id)) + 1;
     return this.repo.create({
       ownerId,
@@ -99,7 +99,7 @@ export class DealsService {
     dto: MoveDealDto,
   ): Promise<DealWithClient> {
     const deal = await this.loadOwned(ownerId, id);
-    const targetStage = await this.stages.findOne(dto.stageId);
+    const targetStage = await this.stages.findOne(ownerId, dto.stageId);
     const stageChanged = deal.stageId !== dto.stageId;
 
     const patch: { stageMovedAt?: Date; lostReason?: string | null } = {};

@@ -244,9 +244,9 @@ export class ProposalsService {
     }
   }
 
-  /** Encontra o estágio isWon e move o deal via DealsService (posse já validada). */
+  /** Encontra o estágio isWon do owner e move o deal via DealsService. */
   private async moveDealToWon(ownerId: string, dealId: string): Promise<void> {
-    const wonStage = await this.stages.wonStage();
+    const wonStage = await this.stages.wonStage(ownerId);
     if (!wonStage) return;
     const board = await this.deals.board(ownerId);
     const deal = board.find((d) => d.id === dealId);

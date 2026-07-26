@@ -17,9 +17,12 @@ export class PrismaDashboardRepository implements DashboardRepository {
   constructor(private prisma: PrismaService) {}
 
   async funnel(ownerId: string): Promise<FunnelStageRow[]> {
-    // Estágios são globais (sem owner); os agregados vêm dos deals do dono.
+    // Estágios e agregados, ambos do owner (RLS + filtro explícito).
     const [stages, grouped] = await Promise.all([
-      this.prisma.db.pipelineStage.findMany({ orderBy: { order: 'asc' } }),
+      this.prisma.db.pipelineStage.findMany({
+        where: { ownerId },
+        orderBy: { order: 'asc' },
+      }),
       this.prisma.db.deal.groupBy({
         by: ['stageId'],
         where: { client: { ownerId } },
