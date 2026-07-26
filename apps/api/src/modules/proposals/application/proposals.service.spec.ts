@@ -117,6 +117,7 @@ describe('ProposalsService', () => {
       'p1',
       expect.objectContaining({ status: 'ACCEPTED' }),
     );
+    expect(stages.wonStage).toHaveBeenCalledWith('owner');
     expect(deals.move).toHaveBeenCalledWith('owner', 'd1', {
       stageId: 'won',
       position: 0,
