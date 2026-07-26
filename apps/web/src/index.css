@@ -89,9 +89,9 @@
 }
 
 /* Cores da marca CRM (acento teal, texto off-white, foco/bordas navy) sobre uma
-   base escura profunda inspirada no dark DoradosDaSorte. As superfícies mantêm o
-   tom frio navy (hue ~266, mesma família das bordas/texto), para que o funil e
-   os cards voltem a exibir a gradação tonal da marca em vez de cinza-neutro. */
+   base escura profunda. As superfícies mantêm o tom frio navy (hue ~266, mesma
+   família das bordas/texto), para que o funil e os cards voltem a exibir a
+   gradação tonal da marca em vez de cinza-neutro. */
 .dark {
     --background: oklch(0.155 0.02 266);
     --foreground: oklch(0.9698 0.0034 56.39);

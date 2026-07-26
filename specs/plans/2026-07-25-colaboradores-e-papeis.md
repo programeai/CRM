@@ -12,14 +12,14 @@ tags: [spec, colaboradores, papeis, permissoes, rbac, rls, nestjs, react]
 
 ## Overview
 
-Trazer para o CRM a funcionalidade de **colaboradores com papéis e permissões granulares** que já existe no painel do Dorados da Sorte, adaptada à arquitetura do CRM (NestJS + Prisma + React/Vite) e — diferença central — **preservando o isolamento por `ownerId`**.
+Trazer para o CRM a funcionalidade de **colaboradores com papéis e permissões granulares** que já existe num painel interno de outro projeto nosso, adaptada à arquitetura do CRM (NestJS + Prisma + React/Vite) e — diferença central — **preservando o isolamento por `ownerId`**.
 
 Hoje o CRM é multi-owner numa instância: cada `User` é o próprio owner e `app.owner_id` (o GUC que as policies de RLS leem) recebe `req.user.sub`. Colaborador rompe essa identidade: passa a existir usuário cujo `ownerId` **não** é o próprio id. A partir desta spec:
 
 - **Owner** = quem se cadastrou (`User.ownerId = NULL`). Dono da workspace, dos dados e da assinatura. Tem **todas** as permissões por definição, não recebe papel, não pode ser desativado.
 - **Colaborador** = usuário criado por convite (`User.ownerId = <id do owner>`), com **um papel** (`Role`) que carrega um conjunto de chaves de permissão. Enxerga **exatamente os mesmos dados do owner** (mesmo `app.owner_id`) e nada de outros owners.
 
-A inspiração técnica é o Dorados (`lib/permissoes.ts`, `lib/auth.ts`, `lib/tokens-email.ts`, `app/admin/papeis`, `app/admin/usuarios`, `app/convite/[token]`); o **design, o idioma e os padrões de código são 100% do CRM** — Modular Monolith com camadas, repository pattern, DTOs class-validator, log estruturado, TanStack Query, design system `components/ui`.
+A inspiração técnica é o **painel de origem** — dele vêm o catálogo único de permissões, o guard de autorização, os tokens de convite por e-mail e as telas de papéis, usuários e aceite de convite; o **design, o idioma e os padrões de código são 100% do CRM** — Modular Monolith com camadas, repository pattern, DTOs class-validator, log estruturado, TanStack Query, design system `components/ui`.
 
 ## Current State
 
@@ -62,10 +62,10 @@ A inspiração técnica é o Dorados (`lib/permissoes.ts`, `lib/auth.ts`, `lib/t
 - **Sem cobrança por assento (seat).** Colaborador não cria `Subscription` nem conta para o preço; herda o gate do owner.
 - **Sem transferir a titularidade** da workspace nem promover colaborador a owner.
 - **Sem colaborador via OAuth.** O aceite do convite define senha; vincular Google/GitHub a colaborador fica fora.
-- **Sem trava anti-lockout** (a do Dorados). Ela existe lá porque todo usuário tem papel; aqui o owner é total e imexível, então lockout é impossível por construção.
+- **Sem trava anti-lockout** (a do painel de origem). Ela existe lá porque todo usuário tem papel; aqui o owner é total e imexível, então lockout é impossível por construção.
 - **Sem permissão por registro** (ex.: "só os clientes que eu criei"). A granularidade é por módulo/ação, e todo colaborador vê todos os dados do owner.
 - **Sem RLS na tabela `User`.** Mantém-se a decisão vigente (login por e-mail); o isolamento de colaboradores é feito por filtro explícito `ownerId` no repositório.
-- **Sem exclusão de colaborador.** Segue o Dorados: desativa/reativa.
+- **Sem exclusão de colaborador.** Segue o painel de origem: desativa/reativa.
 - **Sem trocar o papel do próprio usuário** nem se autodesativar.
 
 ---
@@ -209,7 +209,7 @@ Toda requisição autenticada resolve `{ ownerId, isOwner, permissions }`; o RLS
 ### Changes
 
 #### `apps/api/src/shared/permissions.ts` (novo)
-Catálogo único — espelha `lib/permissoes.ts` do Dorados (chave, rótulo, descrição, categoria, `hidden?`), em pt-BR:
+Catálogo único — mesmo shape do painel de origem (chave, rótulo, descrição, categoria, `hidden?`), em pt-BR:
 
 ```ts
 export const PERMISSION_CATEGORIES = [
@@ -242,7 +242,7 @@ Mais: `PermissionKey`, `ALL_PERMISSION_KEYS`, `isPermissionKey()`, `sanitizePerm
   async resolve(userId: string): Promise<AccessContext | null>
   ```
   Lê `User` (com `role`) pelo **`PrismaAdminService`** — corre **antes** do contexto de RLS existir e `Role` tem RLS. Regras: usuário inexistente → `null`; `active === false` → `null`; owner (`ownerId == null`) → `isOwner: true`, `permissions = ALL_PERMISSION_KEYS`; colaborador → `ownerId` do vínculo e `permissions` do papel (`role.system` → catálogo inteiro; sem papel → `[]`).
-- `access.guard.ts`: pula `@Public()`; resolve pelo `req.user.sub`; `null` → `UnauthorizedException('Sessão inválida ou acesso desativado.')`; grava `req.access`; lê `@RequirePermission()` e, faltando a chave, lança `ForbiddenException('Você não tem permissão para <rótulo em minúsculas>.')` (usa o rótulo do catálogo, como o `exigirPermissao` do Dorados).
+- `access.guard.ts`: pula `@Public()`; resolve pelo `req.user.sub`; `null` → `UnauthorizedException('Sessão inválida ou acesso desativado.')`; grava `req.access`; lê `@RequirePermission()` e, faltando a chave, lança `ForbiddenException('Você não tem permissão para <rótulo em minúsculas>.')` (usa o rótulo do catálogo, como o helper equivalente do painel de origem).
 - `require-permission.decorator.ts`: `@RequirePermission(...keys: PermissionKey[])` via `SetMetadata` (OR entre as chaves — ex.: leitura liberada para quem tem `:ver` **ou** `:gerenciar`).
 - `access.module.ts`: `@Global()`, provê/exporta `AccessService`.
 
@@ -324,7 +324,7 @@ api/
 - `POST /roles` `{ name, description?, permissions[] }` → `409` se o nome repetir no owner; `permissions` saneadas pelo catálogo.
 - `PATCH /roles/:id` → `403` se `system`; `409` em conflito de nome.
 - `DELETE /roles/:id` → `403` se `system`; `409 'Este papel está em uso por colaboradores…'` se houver usuário vinculado.
-- `DELETE /roles/:id/permissions/:key` → remoção pontual (paridade com `removerPermissaoFuncao` do Dorados).
+- `DELETE /roles/:id/permissions/:key` → remoção pontual (paridade com o painel de origem).
 
 **Colaboradores — `collaborators.controller.ts` (`@RequirePermission('colaborador:gerenciar')`)**
 - `GET /collaborators` → colaboradores do owner (`ownerId` filtrado explicitamente, pois `User` não tem RLS), sem `passwordHash`/`refreshTokenHash`, com `role`, `active` e `status` derivado (`PENDING` quando `acceptedAt` nulo).
@@ -334,10 +334,10 @@ api/
 
 **Convite público — `invites.controller.ts`**
 - `GET /collaborators/invite/:token` (`@Public()`, throttle 10/min) → `{ name, email, ownerName }`; `410` em token inexistente/expirado/usado (mensagens pt-BR iguais em espírito às do reset de senha).
-- `POST /collaborators/invite/:token/accept` (`@Public()`, throttle 5/min) `{ password }` → consome o token (uso único via `updateMany` condicionado a `usedAt: null`), grava `passwordHash` (argon2), marca `acceptedAt` e **emite sessão** (access + cookie de refresh) — o convidado já entra logado, como no Dorados.
+- `POST /collaborators/invite/:token/accept` (`@Public()`, throttle 5/min) `{ password }` → consome o token (uso único via `updateMany` condicionado a `usedAt: null`), grava `passwordHash` (argon2), marca `acceptedAt` e **emite sessão** (access + cookie de refresh) — o convidado já entra logado.
 - Ambas via `PrismaAdminService` (rota pública, sem contexto de owner; `CollaboratorInvite` tem RLS).
 
-**`invites.service.ts`** — espelha `lib/tokens-email.ts` do Dorados: `randomBytes(32).toString('hex')`, sha256 no banco, `INVITE_TTL_DAYS = 7`, emissão apaga os convites anteriores do mesmo usuário, `inviteUrl = ${FRONTEND_URL}/convite/${token}`.
+**`invites.service.ts`** — mesmo desenho de token do painel de origem: `randomBytes(32).toString('hex')`, sha256 no banco, `INVITE_TTL_DAYS = 7`, emissão apaga os convites anteriores do mesmo usuário, `inviteUrl = ${FRONTEND_URL}/convite/${token}`.
 
 #### `apps/api/src/modules/auth/refresh-cookie.ts` (novo)
 Extrair `setRefreshCookie(res, token, config)` de `AuthController` (privado hoje) e reusar no aceite do convite — um único lugar definindo `httpOnly`/`sameSite`/`path`/`maxAge`. `AuthController` passa a chamar o helper. Exportar `AuthService` no `AuthModule` para o `invites.controller` emitir a sessão.
@@ -471,7 +471,7 @@ Docs em dia — parte do Definition of Done do repo.
 
 ## Performance Considerations
 
-O `AccessGuard` acrescenta **uma** consulta indexada por requisição autenticada (`User` + `role`), pelo client admin. É o mesmo custo que o Dorados paga ao ler papel/permissões do banco a cada requisição, e é deliberado: permite que troca de papel e desativação valham **na hora**, sem esperar o token expirar. Sem cache nesta fase.
+O `AccessGuard` acrescenta **uma** consulta indexada por requisição autenticada (`User` + `role`), pelo client admin. É o mesmo custo que o painel de origem paga ao ler papel/permissões do banco a cada requisição, e é deliberado: permite que troca de papel e desativação valham **na hora**, sem esperar o token expirar. Sem cache nesta fase.
 
 ## Migration Notes
 
@@ -507,6 +507,6 @@ apareceram com o código na mão:
 
 ## References
 
-- Inspiração: `DoradosDaSorte/lib/permissoes.ts`, `lib/auth.ts`, `lib/tokens-email.ts`, `app/admin/actions.ts` (§Colaboradores/§Papéis), `app/admin/papeis/papeis-client.tsx`, `app/admin/usuarios/page.tsx`, `app/convite/[token]/page.tsx`.
+- Inspiração: o painel de origem — catálogo de permissões, guard de autorização, tokens de convite por e-mail e as telas de papéis, usuários e aceite de convite. Referências de arquivo ficam no runbook privado; não são versionadas aqui porque apontam para um repositório fechado.
 - Base de isolamento do CRM: `specs/plans/2026-07-23-rls-por-ownerid.md`, `apps/api/prisma/migrations/20260724050000_enable_rls/migration.sql`.
 - Interação com billing: `specs/plans/2026-07-24-billing-stripe.md`.

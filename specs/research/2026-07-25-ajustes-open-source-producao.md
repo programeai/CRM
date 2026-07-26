@@ -66,9 +66,9 @@ cita um projeto de terceiro na mesma VPS, e a ausência total de arquivos de com
 | `apps/api/package.json:7` | Manifesto do workspace da API | `"license": "UNLICENSED"` contradiz o `LICENSE` Apache 2.0 da raiz |
 | `apps/web/package.json:1-6` | Manifesto do workspace do front | Não declara `license` nenhuma |
 | `package.json:2-3` | Manifesto da raiz (`"name": "crm"`, `"private": true`) | Também sem `license`; `private: true` é correto e deve permanecer (evita publish acidental no npm) |
-| `docs/deploy.md:3` e `docs/deploy.md:33` | Doc de deploy | Duas menções ao projeto de terceiro: *"O CRM roda na mesma VPS do Dorado da Sorte"* (L3) e *"Já atendidos pelo deploy do Dorado"* (L33) — expõem nome de outro projeto e a co-locação |
-| `docs/deploy.md:31-38, 166-200` | Pré-requisitos e operação | Expõe `/opt/traefik/traefik.yml`, `factis_resolver`, `~/programeai/prod/crm`, usuário de deploy, comandos de `pg_dump` do host |
-| `docs/observabilidade.md:5,137` | Doc de observabilidade | Cita `https://grafana.programeai.com.br` e o host de produção nos exemplos de `curl` |
+| `docs/deploy.md:3` e `docs/deploy.md:33` | Doc de deploy | Duas menções nominais ao outro projeto que divide a VPS — expõem o nome dele e a co-locação |
+| `docs/deploy.md:31-38, 166-200` | Pré-requisitos e operação | Expõe o caminho da config do Traefik no host, o nome do resolver ACME, o diretório de deploy, o usuário de deploy e comandos de `pg_dump` do host |
+| `docs/observabilidade.md:5,137` | Doc de observabilidade | Cita o host do Grafana da VPS e o host de produção nos exemplos de `curl` |
 | `CLAUDE.md` (seção "Ferramentas do monorepo") | Instruções do projeto | Diz "Postgres 16 em `localhost:5432`"; o `docker-compose.yml:11` publica em `5435` e o README já está correto |
 
 #### Frente 2 — endurecimento de produção
@@ -340,7 +340,7 @@ o seu próprio CSP pelo nginx — os dois convivem porque atendem caminhos difer
    (`captcha.service.ts:20` desliga silenciosamente quando vazia). Determina a urgência do item 1.
 3. **`APP_DB_PASSWORD` está setada na VPS?** Se não estiver, a role `crm_app` está com a senha que
    vai virar pública — nesse caso a correção não é só o hard-fail, é um `ALTER ROLE` imediato.
-4. **Até onde genericizar `docs/deploy.md`?** Remover só a menção ao "Dorado da Sorte", ou reescrever
+4. **Até onde genericizar `docs/deploy.md`?** Remover só a menção nominal ao outro projeto, ou reescrever
    o documento inteiro em termos de placeholders (`<seu-dominio>`, `<dir-de-deploy>`) e mover as
    particularidades da VPS para um doc fora do repositório?
 5. **E-mail de contato para `SECURITY.md` e o código de conduta.** `security@programeai.com.br`,
@@ -379,10 +379,10 @@ o seu próprio CSP pelo nginx — os dois convivem porque atendem caminhos difer
 - `docker-compose.prod.yml:74-79` — montagem de `DATABASE_URL`/`APP_DATABASE_URL`
 - `docker-compose.prod.yml:122,126` — router `crm-api` e prioridade `/api`
 - `docker-compose.yml:11` — Postgres de dev na porta `5435`
-- `docs/deploy.md:3,33` — menções ao "Dorado da Sorte"
+- `docs/deploy.md:3,33` — menções nominais ao outro projeto da VPS
 - `docs/deploy.md:31-38` — pré-requisitos com caminhos do host
 - `docs/deploy.md:157-164` — primeiro acesso e o aviso sobre `/auth/register` público
-- `docs/observabilidade.md:5,137` — host do Grafana e do CRM nos exemplos
+- `docs/observabilidade.md:5,137` — host do Grafana da VPS e do CRM nos exemplos
 - `.github/workflows/build.yml:22-35` — `paths-ignore`
 - `.github/workflows/deploy.yml:56-80` — passos SSH com os quatro secrets de VPS
 - `specs/plans/2026-07-24-preparar-open-source.md` — spec anterior, implementada
