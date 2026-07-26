@@ -126,7 +126,9 @@ function Showcase() {
       <div className="relative flex h-full flex-col justify-between p-12 xl:p-16">
         <Wordmark tone="dark" className="text-2xl" data-animate />
 
-        <div className="max-w-md">
+        {/* `min-h-0` mantém a marca e o rodapé ancorados em telas baixas:
+            o bloco do meio encolhe em vez de empurrar a estrutura para fora. */}
+        <div className="min-h-0 max-w-md">
           <p
             data-animate
             className="font-mono text-xs tracking-wide"
@@ -201,13 +203,16 @@ export function AuthLayout({ title, description, children }: Props) {
   return (
     <div
       data-auth-shell
-      className="grid min-h-screen bg-background text-foreground lg:grid-cols-[1.05fr_1fr]"
+      className="grid h-dvh overflow-hidden bg-background text-foreground lg:grid-cols-[1.05fr_1fr]"
       style={{ '--radius': '0.625rem' } as CSSProperties}
     >
       <Showcase />
 
-      <main className="flex flex-col items-center justify-center overflow-y-auto px-6 py-10 sm:px-10">
-        <div data-animate className="w-full max-w-sm">
+      {/* Só o formulário rola; o painel de marca fica fixo na altura da viewport.
+          Centralizar com `my-auto` (e não `justify-center`) evita que o topo do
+          conteúdo fique inalcançável quando ele passa da altura disponível. */}
+      <main className="flex flex-col overflow-y-auto px-6 py-10 sm:px-10">
+        <div data-animate className="mx-auto my-auto w-full max-w-sm">
           {/* Wordmark compacto — aparece no mobile, onde o showcase fica oculto. */}
           <div className="mb-8 lg:hidden">
             <Wordmark tone="light" className="text-xl" />
