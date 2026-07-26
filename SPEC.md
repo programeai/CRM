@@ -25,7 +25,7 @@ Um CRM enxuto e centrado em três pilares:
 | **Financeiro** | Contratos de mensalidade e projetos com entrada + parcelas; controle de recebimentos |
 
 ### 1.3 Premissas ⚠️
-- **Single-user no MVP**: apenas você usa o sistema. O modelo de dados já nasce preparado para multiusuário (campo `ownerId`), mas não haverá gestão de equipe na v1.
+- **Multi-owner**: uma instância atende vários owners, isolados por `ownerId` (RLS no banco). Cada owner é dono dos seus dados e da sua assinatura, convida colaboradores e configura o próprio funil.
 - **Monorepo**: `apps/api` (NestJS) + `apps/web` (React) no mesmo repositório.
 - **Idioma**: interface 100% em PT-BR; código, tabelas e endpoints em inglês.
 - **Moeda**: BRL apenas.
@@ -49,13 +49,18 @@ Um CRM enxuto e centrado em três pilares:
 > convite, papéis com permissões granulares e isolamento por owner (ver
 > `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
 
-- Geração de PDF da proposta e link público de aceite
-- Integração com e-mail (envio de proposta) e WhatsApp
-- Integração com gateway de pagamento / emissão de boleto e Pix automático (no MVP a baixa é manual)
-- Emissão de nota fiscal
-- Controle de despesas (o MVP cobre apenas receitas)
-- Automações (lembrete de follow-up automático, proposta expirando)
-- Relatórios avançados e exportação CSV
+O backlog pós-MVP deixou de ser uma lista solta: está organizado em fases priorizadas no
+[ROADMAP.md](ROADMAP.md) → "Evolução pós-MVP" (fases 7 a 19), que é a **fonte única** do que falta.
+Resumo do que está lá:
+
+- **P0** — funil de pipeline isolado por owner e responsável (`assigneeId`) nos registros; sessões
+  múltiplas, trilha de auditoria e lixeira
+- **P1** — PDF + link público de aceite + envio da proposta; notificações e lembretes; anexos;
+  serviços e campos customizados por owner (o enum `ServiceType` fechado é uma limitação de produto);
+  importação/exportação, busca global e duplicidade; relatórios e metas
+- **P2** — captação automática de lead, e-mail e WhatsApp registrados na timeline; despesas, cobrança
+  automática (Pix/boleto) e nota fiscal; agenda/calendário; automações e templates
+- **P3** — API pública com API key, webhooks de saída, 2FA e LGPD operacional
 
 ---
 
@@ -245,11 +250,14 @@ model Contact {
 
 model PipelineStage {
   id        String  @id @default(uuid())
+  ownerId   String
   name      String
   order     Int
   isWon     Boolean @default(false)
   isLost    Boolean @default(false)
   deals     Deal[]
+
+  @@unique([ownerId, name])
 }
 
 model Deal {
@@ -399,7 +407,7 @@ Base: `/api/v1`. Todas as rotas autenticadas exceto `/auth/login`.
 | Auth | `POST /auth/login` · `GET /auth/me` · `POST /auth/refresh` |
 | Clients | `GET/POST /clients` · `GET/PATCH /clients/:id` · `POST /clients/:id/archive` |
 | Contacts | `GET/POST /clients/:id/contacts` · `PATCH/DELETE /contacts/:id` |
-| Stages | `GET/POST /pipeline-stages` · `PATCH/DELETE /pipeline-stages/:id` |
+| Stages | `GET/POST /pipeline-stages` · `PATCH /pipeline-stages/reorder` · `PATCH/DELETE /pipeline-stages/:id` (escopo: owner) |
 | Deals | `GET/POST /deals` · `GET/PATCH/DELETE /deals/:id` · `PATCH /deals/:id/move` (stage + position) |
 | Proposals | `GET/POST /proposals` · `GET/PATCH /proposals/:id` · `POST /proposals/:id/send` · `POST /proposals/:id/accept` · `POST /proposals/:id/reject` · `POST /proposals/:id/new-version` |
 | Projects | `GET/POST /projects` · `GET/PATCH /projects/:id` |
@@ -469,7 +477,7 @@ CRM/
 ### 6.4 Infra & requisitos não-funcionais
 - `docker-compose.yml` com PostgreSQL 16 para desenvolvimento
 - Migrations versionadas (`prisma migrate`)
-- Seed inicial: usuário admin + estágios padrão do pipeline
+- Seed inicial: usuários de demonstração + funil padrão **por owner** (em produção o funil nasce na criação da conta)
 - CORS restrito ao domínio do front; rate limit no login (`@nestjs/throttler`)
 - Backup: `pg_dump` diário (script/cron no servidor)
 - Deploy alvo ⚠️: VPS com Docker (a definir)

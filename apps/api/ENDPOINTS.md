@@ -281,44 +281,47 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 
 ## Pipeline stages
 
+> O funil é **do owner**: cada workspace tem os seus estágios (`ownerId`, com RLS). Colaborador lê e
+> escreve os estágios do owner que o convidou, limitado pelas permissões do papel.
+
 ### GET /pipeline-stages
-- **Propósito:** Listar os estágios do pipeline, ordenados por `order`.
-- **Auth:** Bearer (access token).
+- **Propósito:** Listar os estágios do funil **do owner**, ordenados por `order`.
+- **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 PipelineStage[]`.
-- **Erros:** `401`.
+- **Resposta:** `200 PipelineStage[]` (cada item inclui `ownerId`).
+- **Erros:** `403 Você não tem permissão para ver pipeline.`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.list`
 
 ### POST /pipeline-stages
-- **Propósito:** Criar um novo estágio no fim da ordem atual.
+- **Propósito:** Criar um estágio no fim da ordem atual do funil do owner.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ name: string (mín. 2), isWon?: boolean, isLost?: boolean }`
 - **Resposta:** `201 PipelineStage`.
-- **Erros:** `400` (validação), `409 Já existe um estágio com este nome.`, `401`.
+- **Erros:** `400` (validação), `409 Já existe um estágio com este nome.` (nome único **por owner**), `403`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.create`
 
 ### PATCH /pipeline-stages/reorder
-- **Propósito:** Reatribuir a ordem (`order`) sequencial dos estágios conforme a lista de ids informada.
+- **Propósito:** Reatribuir a ordem (`order`) sequencial dos estágios do owner conforme a lista de ids. A lista tem de ser uma permutação exata do funil do owner.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ ids: uuid[] }`
 - **Resposta:** `200 PipelineStage[]` (já reordenados).
-- **Erros:** `400` (validação), `401`.
+- **Erros:** `400` (validação), `422 A lista de estágios não corresponde aos estágios do funil.` (id repetido, faltando, inexistente ou de outro owner), `403`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.reorder`
 
 ### PATCH /pipeline-stages/:id
-- **Propósito:** Atualizar parcialmente um estágio (nome, `isWon`, `isLost`).
+- **Propósito:** Atualizar parcialmente um estágio do owner (nome, `isWon`, `isLost`).
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** Campos parciais de `POST /pipeline-stages`.
 - **Resposta:** `200 PipelineStage`.
-- **Erros:** `400` (validação), `404 Estágio não encontrado.`, `409 Já existe um estágio com este nome.`, `401`.
+- **Erros:** `400` (validação), `404 Estágio não encontrado.` (inexistente ou de outro owner), `409 Já existe um estágio com este nome.`, `403`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.update`
 
 ### DELETE /pipeline-stages/:id
-- **Propósito:** Excluir um estágio, desde que não possua oportunidades vinculadas.
+- **Propósito:** Excluir um estágio do owner, desde que não possua oportunidades vinculadas.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
-- **Erros:** `404 Estágio não encontrado.`, `409 Não é possível excluir um estágio que possui oportunidades.`, `401`.
+- **Erros:** `404 Estágio não encontrado.` (inexistente ou de outro owner), `409 Não é possível excluir um estágio que possui oportunidades.`, `403`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.remove`
 
 ---
@@ -342,7 +345,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.board`
 
 ### POST /deals
-- **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio; `position` vai para o fim da coluna.
+- **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio **do owner**; `position` vai para o fim da coluna.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date }`
 - **Resposta:** `201 Deal`.

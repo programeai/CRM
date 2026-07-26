@@ -2,14 +2,17 @@
 
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada.
+> Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
+> **P2** evolução de produto · **P3** plataforma e governança.
 >
-> **Última atualização:** 2026-07-23
+> **Última atualização:** 2026-07-26
 
 ## Visão
 
 CRM enxuto para agência/dev full stack (software sob medida, sites, tráfego pago), centrado em
-quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Single-tenant no MVP
-(há `ownerId` como preparação, sem multi-tenancy). Interface 100% pt-BR; código/tabelas/endpoints em inglês.
+quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Uma instância atende
+vários owners, isolados por `ownerId` (RLS no banco), cada um com seus colaboradores e assinatura.
+Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 
 ## Panorama das fases
 
@@ -22,8 +25,25 @@ quatro pilares: **Clientes**, **Propostas**, **Demandas** e **Financeiro**. Sing
 | 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ✅ concluída | [research](specs/research/2026-07-23-fase-4-demandas.md) · [plan](specs/plans/2026-07-23-fase-4-demandas.md) |
 | 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ concluída | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
+| 7 | Base — funil por owner e responsável por registro (**P0**) | ⬜ não iniciada | a definir |
+| 8 | Governança — sessões, auditoria e lixeira (**P0**) | ⬜ não iniciada | a definir |
+| 9 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
+| 10 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
+| 11 | Anexos e documentos (**P1**) | ⬜ não iniciada | a definir |
+| 12 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ⬜ não iniciada | a definir |
+| 13 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ não iniciada | a definir |
+| 14 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
+| 15 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ⬜ não iniciada | a definir |
+| 16 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
+| 17 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
+| 18 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
+| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ⬜ não iniciada | a definir |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
+
+As fases 0–6 entregaram o MVP; as fases 7+ são o caminho para o CRM cobrir o que se espera de um
+CRM profissional. A ordem é a recomendada, não obrigatória — cada fase é independente das seguintes,
+exceto onde indicado em "Depende de".
 
 ---
 
@@ -172,11 +192,192 @@ Métricas e polimento final. Ver [SPEC.md](SPEC.md) §3.7.
 
 ---
 
-## Fora do MVP (backlog futuro)
+## Evolução pós-MVP — lacunas para cobrir um CRM profissional
 
-PDF + link público de aceite da proposta · integração e-mail/WhatsApp ·
-gateway de pagamento (boleto/Pix automático — no MVP a baixa é manual) · emissão de nota fiscal ·
-controle de despesas · automações (lembretes, proposta expirando) · relatórios avançados e exportação CSV.
+Levantamento de 2026-07-26 sobre o código entregue (schema, `ENDPOINTS.md`, módulos da API e features
+do web). Cada fase abaixo é uma lacuna **fechada em si mesma**, entregável isoladamente.
+
+---
+
+## Fase 7 — Base: funil por owner e responsável por registro ⬜ **P0**
+
+Dois defeitos estruturais que já afetam o uso real: o funil não é isolado por owner e nenhum registro
+tem responsável — o que esvazia o multiusuário entregue depois do MVP.
+
+**Isolamento do funil** — entregue (ver `specs/plans/2026-07-26-fase-7a-funil-por-owner.md`)
+- [x] `PipelineStage` recebe `ownerId`
+- [x] RLS em `PipelineStage` (`20260726120000_pipeline_stages_per_owner`)
+- [x] Trocar `name @unique` global por `@@unique([ownerId, name])`
+- [x] Migration de dados: replicar os estágios por owner existente e religar os `Deal`
+- [x] Seed dos estágios padrão passa a rodar na criação da conta, não na instância
+
+> **Por quê:** numa instância multi-owner, renomear/reordenar/excluir um estágio hoje afeta todos
+> os owners. Funil configurável por owner é premissa de CRM, não feature.
+
+**Responsável por registro**
+- [ ] `assigneeId` (FK → `User`, opcional) em `Deal`, `Task`, `Activity` e `Client`
+- [ ] Atribuição na criação e edição, com troca de responsável; filtro `?assigneeId=` nas listagens
+- [ ] "Minhas demandas" e o board do pipeline filtram pelo usuário logado (hoje [`MinhasDemandasPage.tsx`](apps/web/src/features/demandas/MinhasDemandasPage.tsx) mostra o workspace inteiro)
+- [ ] Permissões novas: ver/gerenciar só os próprios registros × os de todos (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts))
+- [ ] Dashboard com corte por responsável
+
+> **Por quê:** papéis definem *o que* alguém pode fazer, mas não existe *de quem* é o registro —
+> sem carteira por vendedor, sem distribuição de lead, sem métrica por pessoa.
+
+---
+
+## Fase 8 — Governança: sessões, auditoria e lixeira ⬜ **P0**
+
+**Sessões**
+- [ ] Substituir `User.refreshTokenHash` (valor único — [`schema.prisma:18`](apps/api/prisma/schema.prisma#L18)) por tabela de sessões
+- [ ] Registrar device/IP/último uso; listar sessões ativas no perfil; revogar uma ou todas
+
+> **Por quê:** hoje é uma sessão por usuário — logar no celular derruba o desktop.
+
+**Auditoria**
+- [ ] Modelo `AuditLog` (owner, autor, entidade, ação, diff, timestamp) com RLS
+- [ ] Registrar mudanças sensíveis: baixa/estorno/cancelamento de cobrança, edição de contrato,
+      aceite/recusa de proposta, papéis e colaboradores, exclusões
+- [ ] Visão de histórico por registro e tela de auditoria do owner
+
+> **Por quê:** colaboradores mexem em dinheiro (`/payments/:id/pay`, `/revert`, `/cancel`) e nada
+> registra quem fez o quê.
+
+**Lixeira**
+- [ ] Soft delete (`archivedAt`) em `Deal`, `Project`, `Task`, `Contact` — hoje só `Client` tem
+- [ ] Restauração e expurgo definitivo (com permissão própria)
+
+---
+
+## Fase 9 — Proposta que o cliente vê ⬜ **P1**
+
+- [ ] Geração de PDF da proposta (template com identidade do owner: logo, cores, dados)
+- [ ] Link público de aceite (token de uso único, expiração alinhada a `validUntil`)
+- [ ] Aceite/recusa pelo cliente na página pública → status, `decidedAt` e registro na timeline
+- [ ] Envio por e-mail com o PDF/link — hoje `POST /proposals/:id/send` só marca `sentAt`, não envia nada
+- [ ] Rastreio básico: visualizada em, aceita em
+- [ ] Templates de proposta reutilizáveis (escopo, condições, itens padrão)
+
+---
+
+## Fase 10 — Notificações e lembretes ⬜ **P1**
+
+- [ ] Central de notificações in-app (não lidas, marcar como lida)
+- [ ] Preferências por usuário (in-app / e-mail / desligado, por tipo)
+- [ ] Gatilhos: follow-up agendado vencendo, proposta a expirar, cobrança a vencer e vencida,
+      demanda atrasada, registro atribuído a você
+- [ ] Digest diário por e-mail (resumo do dia)
+- [ ] Os crons existentes ([`FinanceBillingJob`](apps/api/src/modules/finance/application/finance-billing.job.ts), [`ProposalsExpirationJob`](apps/api/src/modules/proposals/application/proposals-expiration.job.ts)) passam a notificar, não só mudar status
+
+> **Por quê:** hoje o sistema só informa quem já está olhando a tela.
+
+---
+
+## Fase 11 — Anexos e documentos ⬜ **P1**
+
+- [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
+- [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
+- [ ] Limites de tamanho/tipo, antivírus opcional, URLs assinadas de curta duração
+- [ ] Aba "Documentos" na ficha do cliente
+
+> **Por quê:** não existe upload em nenhum ponto do sistema — contrato assinado, briefing, arte e
+> comprovante de pagamento continuam no Drive/WhatsApp.
+
+---
+
+## Fase 12 — Extensibilidade do domínio ⬜ **P1**
+
+- [ ] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
+      (`SOFTWARE | WEBSITE | PAID_TRAFFIC` — [`schema.prisma:405`](apps/api/prisma/schema.prisma#L405)), com migration de dados
+- [ ] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
+- [ ] Campos customizados em cliente, oportunidade e projeto (texto, número, data, seleção, booleano),
+      exibidos nos formulários, nos filtros e na exportação
+- [ ] Motivos de perda como lista configurável (hoje `lostReason` é texto livre)
+
+> **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
+
+---
+
+## Fase 13 — Dados: importação, exportação, busca e duplicidade ⬜ **P1**
+
+- [ ] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
+- [ ] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
+- [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
+- [ ] Detecção de duplicidade por documento/e-mail/telefone na criação
+- [ ] Mesclagem de clientes duplicados (move contatos, oportunidades, propostas, contratos e timeline)
+- [ ] `document` com unicidade por owner quando informado
+
+> **Por quê:** sem import, o onboarding de um cliente real morre no primeiro dia; sem export, o
+> financeiro não fecha o mês fora da tela.
+
+---
+
+## Fase 14 — Relatórios e metas ⬜ **P1**
+
+- [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
+- [ ] Resultado por responsável, por serviço e por fonte de lead
+- [ ] Análise de perda agregada (`lostReason` é coletado e nunca somado)
+- [ ] Tempo médio por estágio e ciclo de venda (`stageMovedAt` existe e não é usado analiticamente)
+- [ ] Forecast ponderado por `probability` e valor esperado no período
+- [ ] Metas por período e por pessoa (comercial e financeira) → painel mostra "quanto falta", não só "quanto foi"
+- [ ] Exportação dos relatórios (depende da Fase 13)
+
+---
+
+## Fase 15 — Entrada de lead e comunicação ⬜ **P2**
+
+- [ ] Formulário público de captação + endpoint de entrada de lead (site, landing page)
+- [ ] Webhook de entrada para Meta Ads / Google Ads / n8n, com deduplicação
+- [ ] Roteamento do lead novo para um responsável (depende da Fase 7)
+- [ ] Envio de e-mail ao cliente pelo CRM, com a mensagem registrada na timeline
+- [ ] WhatsApp: registro da conversa na timeline e envio de mensagem/template
+- [ ] Vínculo automático da resposta do cliente ao registro correspondente
+
+> **Por quê:** vendemos tráfego pago — lead precisa entrar por integração, não por digitação. E o
+> valor de e-mail/WhatsApp está em **registrar** a interação, não só em disparar: timeline
+> alimentada à mão é timeline abandonada.
+
+---
+
+## Fase 16 — Financeiro completo ⬜ **P2**
+
+- [ ] Despesas (fixas e por projeto), categorias e fornecedores — hoje só há receita
+- [ ] DRE simplificado: receita × despesa × margem, por período e por projeto/cliente
+- [ ] Juros e multa automáticos no atraso; renegociação de cobrança
+- [ ] Cobrança automática via gateway (Pix e boleto) com baixa por webhook, eliminando a baixa manual
+- [ ] Régua de cobrança (aviso antes do vencimento, lembretes após)
+- [ ] Emissão de nota fiscal de serviço (integração com prefeitura/emissor)
+- [ ] Conciliação: extrato × cobranças
+
+---
+
+## Fase 17 — Agenda e calendário ⬜ **P2**
+
+- [ ] Visão de calendário (mês/semana/dia) cruzando follow-ups, entregas, vencimentos e reuniões
+- [ ] Compromisso com duração, local/link e participantes (hoje `Activity.scheduledFor` é só um instante)
+- [ ] Sincronia com Google Calendar (duas vias)
+- [ ] Link de agendamento para o cliente escolher horário
+
+---
+
+## Fase 18 — Automações e templates ⬜ **P2**
+
+- [ ] Cadência de follow-up (sequência de lembretes por estágio ou inatividade)
+- [ ] Regras "quando X, então Y" configuráveis pelo owner (mover estágio, criar tarefa, notificar, atribuir)
+- [ ] Checklist/tarefas padrão de projeto por tipo de serviço
+- [ ] Automatizar contrato ao ganhar (hoje só o projeto é sugerido)
+- [ ] Alerta de cliente inativo (sem atividade há N dias)
+
+---
+
+## Fase 19 — Plataforma: API pública, 2FA e LGPD ⬜ **P3**
+
+- [ ] API key por owner, com escopos e rotação
+- [ ] Webhooks de saída (eventos de negócio) para n8n/Zapier
+- [ ] 2FA/MFA no login (TOTP), com códigos de recuperação
+- [ ] LGPD operacional: exportar e excluir dados do titular, consentimento e política de retenção
+      (a [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) existe, o mecanismo não)
+- [ ] Rastreio de consentimento de comunicação (opt-out de e-mail/WhatsApp)
 
 ---
 
