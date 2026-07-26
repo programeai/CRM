@@ -1,10 +1,3 @@
-import { isAxiosError } from 'axios';
-
-export function extractApiMessage(error: unknown, fallback: string): string {
-  if (isAxiosError(error)) {
-    const msg = (error.response?.data as { message?: string | string[] })?.message;
-    if (Array.isArray(msg)) return msg[0] ?? fallback;
-    if (typeof msg === 'string') return msg;
-  }
-  return fallback;
-}
+// Helper transversal — a implementação vive em `@/lib/api-error`. Reexportado
+// aqui para manter os imports internos da feature.
+export { extractApiMessage } from '@/lib/api-error';
