@@ -89,6 +89,27 @@ describe('CollaboratorsService', () => {
       expect(repo.create).not.toHaveBeenCalled();
     });
 
+    it('cria colaborador por convite mesmo com o autocadastro fechado', async () => {
+      // Contrato explícito: REGISTRATION_ENABLED só freia AUTOcadastro (o
+      // register e a criação de conta nova por OAuth, ambos no AuthService).
+      // Convite é ação deliberada do owner e não passa por lá — este serviço
+      // não lê a flag de lugar nenhum, nem por ConfigService nem por env.
+      const anterior = process.env.REGISTRATION_ENABLED;
+      process.env.REGISTRATION_ENABLED = 'false';
+      try {
+        const result = await service.invite(OWNER, {
+          name: 'Ana',
+          email: 'ana@exemplo.com',
+          roleId: 'r1',
+        });
+        expect(repo.create).toHaveBeenCalled();
+        expect(result.inviteUrl).toBe('https://crm/convite/tok');
+      } finally {
+        if (anterior === undefined) delete process.env.REGISTRATION_ENABLED;
+        else process.env.REGISTRATION_ENABLED = anterior;
+      }
+    });
+
     it('rejeita papel que não é do owner', async () => {
       roles.findOrFail.mockRejectedValue(new NotFoundException());
 

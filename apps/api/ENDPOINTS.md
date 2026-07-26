@@ -46,7 +46,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
 - **Body:** `{ name: string (2–120), email: string (e-mail), password: string (mín. 6), captchaToken?: string }` — `captchaToken` (Cloudflare Turnstile) é obrigatório quando `TURNSTILE_SECRET_KEY` está configurado.
 - **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
-- **Erros:** `409 Já existe uma conta com este e-mail.`; `400 Confirme que você não é um robô.` / `400 Falha na verificação do captcha. Tente novamente.` (captcha); `400` (validação).
+- **Erros:** `403 O autocadastro está desativado nesta instância. Peça um convite ao responsável pela conta.` (`REGISTRATION_ENABLED=false`); `409 Já existe uma conta com este e-mail.`; `400 Confirme que você não é um robô.` / `400 Falha na verificação do captcha. Tente novamente.` (captcha); `400` (validação).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.register`
 
 ### POST /auth/login
@@ -105,6 +105,14 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.logout`
 
+### GET /auth/registration
+- **Propósito:** Informar se o autocadastro está aberto nesta instância, para a UI não oferecer a tela de registro quando a API vai recusar.
+- **Auth:** Pública (`@Public()`).
+- **Body:** —
+- **Resposta:** `200 { enabled: boolean }` — reflete `REGISTRATION_ENABLED` (default `true`).
+- **Erros:** —
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.registration`
+
 ### GET /auth/oauth/providers
 - **Propósito:** Informar quais provedores OAuth estão configurados, para a UI exibir só os botões que funcionam.
 - **Auth:** Pública (`@Public()`).
@@ -126,7 +134,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Auth:** Pública (`@Public()`); exige o cookie `oauth_state` conferindo com o `state` da query.
 - **Query:** `code: string`, `state: string`
 - **Resposta:** `302 → {FRONTEND_URL}` (autenticado) + cookie `httpOnly` `refresh_token`.
-- **Erros:** `302 → {FRONTEND_URL}/login?error=oauth` (state inválido, falha na troca, ou e-mail não verificado).
+- **Erros:** `302 → {FRONTEND_URL}/login?error=oauth` (state inválido, falha na troca, ou e-mail não verificado); `302 → {FRONTEND_URL}/login?error=cadastro_desativado` (e-mail desconhecido com `REGISTRATION_ENABLED=false`).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.oauthCallback`
 
 ---
