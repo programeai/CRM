@@ -134,7 +134,6 @@ export function TaskChecklist({ value, onChange }: Props) {
 
       <div className="flex items-center gap-2">
         <Input
-          className="h-8"
           placeholder="Adicionar um item…"
           value={adding}
           onChange={(e) => setAdding(e.target.value)}
@@ -145,7 +144,7 @@ export function TaskChecklist({ value, onChange }: Props) {
             }
           }}
         />
-        <Button type="button" variant="outline" size="sm" onClick={add} disabled={!adding.trim()}>
+        <Button type="button" variant="outline" onClick={add} disabled={!adding.trim()}>
           <Plus data-icon="inline-start" />
           Adicionar
         </Button>
