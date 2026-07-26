@@ -1,5 +1,7 @@
 -- Ativa Row-Level Security por ownerId nas 10 tabelas de dados.
--- User e PipelineStage ficam de fora (auth por email / estágios globais).
+-- User fica de fora (auth por email). PipelineStage também ficou de fora aqui,
+-- por ser catálogo global na época — passou a ter ownerId + policy própria em
+-- 20260726120000_pipeline_stages_per_owner.
 --
 -- Notas de projeto:
 --  * ownerId é TEXT → comparação texto=texto, SEM cast ::uuid.

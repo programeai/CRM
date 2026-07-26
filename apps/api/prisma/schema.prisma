@@ -36,6 +36,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   subscription     Subscription?
   ownedRoles       Role[]         @relation("OwnerRoles")
+  pipelineStages   PipelineStage[]
   invites          CollaboratorInvite[]
 
   @@index([ownerId])
@@ -180,13 +181,22 @@ model Contact {
   @@index([ownerId])
 }
 
+// Estágios do funil, por owner. Cada owner tem o seu conjunto (criado junto com
+// a conta — ver UsersService) e o configura livremente, sem afetar ninguém:
+// `@@unique([ownerId, name])` permite dois owners com um "Negociação" cada.
+// Tem RLS por ownerId (ver migration 20260726120000_pipeline_stages_per_owner).
 model PipelineStage {
-  id     String  @id @default(uuid())
-  name   String  @unique
-  order  Int
-  isWon  Boolean @default(false)
-  isLost Boolean @default(false)
-  deals  Deal[]
+  id      String  @id @default(uuid())
+  ownerId String
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name    String
+  order   Int
+  isWon   Boolean @default(false)
+  isLost  Boolean @default(false)
+  deals   Deal[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
 }
 
 model Deal {
