@@ -1,10 +1,12 @@
 import { api } from '@/lib/api';
 import type {
   Client,
+  ClientTagRef,
   Contact,
   Activity,
   Paginated,
   ListClientsParams,
+  TagUsage,
 } from './types';
 
 export const clientsApi = {
@@ -17,6 +19,16 @@ export const clientsApi = {
     api.patch<Client>(`/clients/${id}`, body).then((r) => r.data),
   archive: (id: string) =>
     api.post<Client>(`/clients/${id}/archive`).then((r) => r.data),
+  // tags (agregadas dos clientes do dono)
+  listTags: () => api.get<TagUsage[]>('/clients/tags').then((r) => r.data),
+  tagUsage: (tag: string) =>
+    api
+      .get<ClientTagRef[]>('/clients/tags/usage', { params: { tag } })
+      .then((r) => r.data),
+  deleteTag: (tag: string) =>
+    api
+      .delete<{ removed: number }>('/clients/tags', { params: { tag } })
+      .then((r) => r.data),
   // contacts
   listContacts: (clientId: string) =>
     api.get<Contact[]>(`/clients/${clientId}/contacts`).then((r) => r.data),

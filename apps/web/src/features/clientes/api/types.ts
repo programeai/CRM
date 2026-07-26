@@ -56,6 +56,17 @@ export interface Paginated<T> {
   meta: PageMeta;
 }
 
+/** Uma tag existente do dono e em quantos clientes ela é usada. */
+export interface TagUsage {
+  tag: string;
+  count: number;
+}
+/** Cliente que usa determinada tag (lista do modal de exclusão). */
+export interface ClientTagRef {
+  id: string;
+  name: string;
+}
+
 export interface ListClientsParams {
   page?: number;
   limit?: number;

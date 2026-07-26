@@ -4,6 +4,8 @@ export const queryKeys = {
     list: (params: object) => ['clients', 'list', params] as const,
     detail: (id: string) => ['clients', 'detail', id] as const,
     contacts: (clientId: string) => ['clients', clientId, 'contacts'] as const,
+    tags: ['clients', 'tags'] as const,
+    tagUsage: (tag: string) => ['clients', 'tags', 'usage', tag] as const,
   },
   activities: {
     byClient: (clientId: string) => ['activities', 'client', clientId] as const,
@@ -54,6 +56,18 @@ export const queryKeys = {
   },
   billing: {
     status: ['billing', 'status'] as const,
+  },
+  collaborators: {
+    all: ['collaborators'] as const,
+  },
+  roles: {
+    all: ['roles'] as const,
+  },
+  permissions: {
+    catalog: ['permissions', 'catalog'] as const,
+  },
+  invites: {
+    detail: (token: string) => ['invites', token] as const,
   },
   clientOptions: (search: string) => ['client-options', search] as const,
   auth: {
