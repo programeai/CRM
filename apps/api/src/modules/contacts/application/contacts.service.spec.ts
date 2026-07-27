@@ -1,11 +1,16 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import type { ContactRepository } from '../domain/contact.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('ContactsService', () => {
   let repo: jest.Mocked<ContactRepository>;
   let clients: jest.Mocked<Pick<ClientsService, 'findOne'>>;
+  let audit: { registrar: jest.Mock };
   let service: ContactsService;
 
   beforeEach(() => {
@@ -15,11 +20,18 @@ describe('ContactsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      archive: jest.fn(),
+      restore: jest.fn(),
       countByClient: jest.fn(),
       clearPrimary: jest.fn(),
     };
     clients = { findOne: jest.fn().mockResolvedValue({ id: 'client-1' }) };
-    service = new ContactsService(repo, clients as unknown as ClientsService);
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    service = new ContactsService(
+      repo,
+      clients as unknown as ClientsService,
+      audit as unknown as AuditService,
+    );
   });
 
   it('força o primeiro contato do cliente a ser principal', async () => {
@@ -69,5 +81,78 @@ describe('ContactsService', () => {
     await service.list('owner-1', 'client-1');
     expect(clients.findOne).toHaveBeenCalledWith('owner-1', 'client-1');
     expect(repo.findManyByClient).toHaveBeenCalledWith('client-1');
+  });
+
+  it('arquiva o contato e registra ARQUIVAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'ct1',
+      clientId: 'client-1',
+      name: 'Fulano',
+    } as never);
+    repo.archive.mockResolvedValue({
+      id: 'ct1',
+      archivedAt: new Date(),
+    } as never);
+
+    await service.archive('owner-1', 'ct1');
+
+    expect(repo.archive).toHaveBeenCalledWith('ct1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'CONTACT',
+        action: 'ARQUIVAR',
+        entityId: 'ct1',
+        entityLabel: 'Fulano',
+      }),
+    );
+  });
+
+  it('restaura o contato buscando com includeArchived e registra RESTAURAR', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'ct1',
+      clientId: 'client-1',
+      name: 'Fulano',
+    } as never);
+    repo.restore.mockResolvedValue({
+      id: 'ct1',
+      archivedAt: null,
+    } as never);
+
+    await service.restore('owner-1', 'ct1');
+
+    expect(repo.findById).toHaveBeenCalledWith('ct1', true);
+    expect(repo.restore).toHaveBeenCalledWith('ct1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'CONTACT', action: 'RESTAURAR' }),
+    );
+  });
+
+  it('lança UnprocessableEntityException ao expurgar contato ainda ativo', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'ct1',
+      clientId: 'client-1',
+      name: 'Fulano',
+      archivedAt: null,
+    } as never);
+    await expect(service.purge('owner-1', 'ct1')).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('expurga o contato arquivado e registra EXPURGAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'ct1',
+      clientId: 'client-1',
+      name: 'Fulano',
+      archivedAt: new Date(),
+    } as never);
+
+    await service.purge('owner-1', 'ct1');
+
+    expect(repo.delete).toHaveBeenCalledWith('ct1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'CONTACT', action: 'EXPURGAR' }),
+    );
   });
 });

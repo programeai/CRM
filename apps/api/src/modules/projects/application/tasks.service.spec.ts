@@ -6,11 +6,13 @@ import { TasksService } from './tasks.service';
 import type { TaskRepository } from '../domain/task.repository';
 import type { ProjectsService } from './projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('TasksService', () => {
   let repo: jest.Mocked<TaskRepository>;
   let projects: { findOne: jest.Mock };
   let members: { assertMember: jest.Mock };
+  let audit: { registrar: jest.Mock };
   let service: TasksService;
 
   beforeEach(() => {
@@ -24,13 +26,17 @@ describe('TasksService', () => {
       delete: jest.fn(),
       maxPositionInStatus: jest.fn(),
       move: jest.fn(),
+      archive: jest.fn(),
+      restore: jest.fn(),
     };
     projects = { findOne: jest.fn() };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     service = new TasksService(
       repo,
       projects as unknown as ProjectsService,
       members as unknown as WorkspaceMembersService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -132,6 +138,80 @@ describe('TasksService', () => {
     expect(repo.update).toHaveBeenCalledWith(
       't1',
       expect.not.objectContaining({ assigneeId: expect.anything() }),
+    );
+  });
+
+  it('arquiva a tarefa e registra ARQUIVAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 't1',
+      projectId: 'proj1',
+      title: 'Tarefa X',
+    } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    repo.archive.mockResolvedValue({
+      id: 't1',
+      archivedAt: new Date(),
+    } as never);
+
+    await service.archive('owner', 't1');
+
+    expect(repo.archive).toHaveBeenCalledWith('t1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'TASK',
+        action: 'ARQUIVAR',
+        entityId: 't1',
+        entityLabel: 'Tarefa X',
+      }),
+    );
+  });
+
+  it('restaura a tarefa buscando com includeArchived e registra RESTAURAR', async () => {
+    repo.findById.mockResolvedValue({
+      id: 't1',
+      projectId: 'proj1',
+      title: 'Tarefa X',
+    } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    repo.restore.mockResolvedValue({ id: 't1', archivedAt: null } as never);
+
+    await service.restore('owner', 't1');
+
+    expect(repo.findById).toHaveBeenCalledWith('t1', expect.anything(), true);
+    expect(repo.restore).toHaveBeenCalledWith('t1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'TASK', action: 'RESTAURAR' }),
+    );
+  });
+
+  it('lança UnprocessableEntityException ao expurgar tarefa ainda ativa', async () => {
+    repo.findById.mockResolvedValue({
+      id: 't1',
+      projectId: 'proj1',
+      title: 'Tarefa X',
+      archivedAt: null,
+    } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    await expect(service.purge('owner', 't1')).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('expurga a tarefa arquivada e registra EXPURGAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 't1',
+      projectId: 'proj1',
+      title: 'Tarefa X',
+      archivedAt: new Date(),
+    } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+
+    await service.purge('owner', 't1');
+
+    expect(repo.delete).toHaveBeenCalledWith('t1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'TASK', action: 'EXPURGAR' }),
     );
   });
 });

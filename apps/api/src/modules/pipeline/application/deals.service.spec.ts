@@ -8,6 +8,7 @@ import type { ClientsService } from '../../clients/application/clients.service';
 import type { PipelineStagesService } from './pipeline-stages.service';
 import type { ProjectsService } from '../../projects/application/projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
@@ -15,6 +16,7 @@ describe('DealsService', () => {
   let stages: { findOne: jest.Mock; firstStage: jest.Mock };
   let projects: { createFromDeal: jest.Mock };
   let members: { assertMember: jest.Mock };
+  let audit: { registrar: jest.Mock };
   let service: DealsService;
 
   beforeEach(() => {
@@ -27,17 +29,21 @@ describe('DealsService', () => {
       delete: jest.fn(),
       maxPositionInStage: jest.fn(),
       move: jest.fn(),
+      archive: jest.fn(),
+      restore: jest.fn(),
     };
     clients = { findOne: jest.fn() };
     stages = { findOne: jest.fn(), firstStage: jest.fn() };
     projects = { createFromDeal: jest.fn() };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
       stages as unknown as PipelineStagesService,
       projects as unknown as ProjectsService,
       members as unknown as WorkspaceMembersService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -157,5 +163,86 @@ describe('DealsService', () => {
     repo.move.mockResolvedValue({ id: 'd1', stageId: 'won' } as never);
     await service.move('owner', 'd1', { stageId: 'won', position: 1 });
     expect(projects.createFromDeal).not.toHaveBeenCalled();
+  });
+
+  it('arquiva o deal e registra ARQUIVAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      title: 'Site novo',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.archive.mockResolvedValue({
+      id: 'd1',
+      archivedAt: new Date(),
+    } as never);
+
+    await service.archive('owner', 'd1');
+
+    expect(repo.archive).toHaveBeenCalledWith('d1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'DEAL',
+        action: 'ARQUIVAR',
+        entityId: 'd1',
+        entityLabel: 'Site novo',
+      }),
+    );
+  });
+
+  it('restaura o deal buscando com includeArchived e registra RESTAURAR', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      title: 'Site novo',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.restore.mockResolvedValue({ id: 'd1', archivedAt: null } as never);
+
+    await service.restore('owner', 'd1');
+
+    expect(repo.findById).toHaveBeenCalledWith('d1', expect.anything(), true);
+    expect(repo.restore).toHaveBeenCalledWith('d1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'DEAL', action: 'RESTAURAR' }),
+    );
+  });
+
+  it('lança UnprocessableEntityException ao expurgar deal ainda ativo', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      title: 'Site novo',
+      archivedAt: null,
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    await expect(service.purge('owner', 'd1')).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('lança NotFoundException ao expurgar deal de outro owner', async () => {
+    repo.findById.mockResolvedValue(null);
+    await expect(service.purge('owner', 'nope')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('expurga o deal arquivado e registra EXPURGAR na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      title: 'Site novo',
+      archivedAt: new Date(),
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+
+    await service.purge('owner', 'd1');
+
+    expect(repo.delete).toHaveBeenCalledWith('d1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'DEAL', action: 'EXPURGAR' }),
+    );
   });
 });
