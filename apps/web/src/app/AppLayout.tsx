@@ -35,6 +35,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useMe } from "@/features/perfil/api/hooks";
 import { PerfilDialog } from "@/features/perfil/PerfilDialog";
+import { SinoDeNotificacoes } from "@/features/notificacoes/SinoDeNotificacoes";
 import { useSubscription } from "@/features/billing/useSubscription";
 import { useCan } from "@/hooks/use-can";
 import { NAV_GROUPS } from "./nav";
@@ -118,6 +119,7 @@ export default function AppLayout() {
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="size-9 [&_svg]:size-6 [&_svg]:stroke-[1.5]" />
           <div className="ml-auto flex items-center gap-1">
+            <SinoDeNotificacoes />
             <Tooltip>
               <TooltipTrigger
                 render={

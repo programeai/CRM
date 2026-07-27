@@ -149,6 +149,7 @@ export const AUDIT_ENTITY_LABELS = {
   ROLE: 'Papel',
   USER: 'Colaborador',
   SUBSCRIPTION: 'Assinatura',
+  ACTIVITY: 'Atividade',
 } as const;
 export const translateAuditEntity = make(AUDIT_ENTITY_LABELS);
 
@@ -188,3 +189,25 @@ export const TRASH_TYPE_LABELS = {
   TASK: 'Demanda',
 } as const;
 export const translateTrashType = make(TRASH_TYPE_LABELS);
+
+// --- notificações (Fase 9) ---
+
+export const NOTIFICATION_TYPE_LABELS = {
+  FOLLOW_UP_DUE: 'Follow-up de hoje',
+  PROPOSAL_EXPIRING: 'Proposta a expirar',
+  PAYMENT_DUE: 'Cobrança a vencer',
+  PAYMENT_OVERDUE: 'Cobrança vencida',
+  TASK_OVERDUE: 'Demanda atrasada',
+  RECORD_ASSIGNED: 'Atribuído a você',
+} as const;
+export const translateNotificationType = make(NOTIFICATION_TYPE_LABELS);
+
+export const NOTIFICATION_CHANNEL_KIND_LABELS = {
+  IN_APP: 'Central de notificações',
+  EMAIL: 'E-mail',
+  WEBHOOK: 'Webhook',
+  SLACK: 'Slack',
+} as const;
+export const translateNotificationChannelKind = make(
+  NOTIFICATION_CHANNEL_KIND_LABELS,
+);
