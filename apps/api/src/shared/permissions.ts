@@ -166,6 +166,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     category: 'Organização',
   },
   {
+    key: 'notificacao:integrar',
+    label: 'Integrar notificações',
+    description:
+      'Enviar as próprias notificações para um webhook ou canal do Slack. O conteúdo carrega nome de cliente e valor de cobrança',
+    category: 'Organização',
+  },
+  {
     key: 'assinatura:gerenciar',
     label: 'Gerenciar assinatura',
     description: 'Ver e alterar o plano de assinatura do CRM',
