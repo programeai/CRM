@@ -25,7 +25,7 @@ export interface AlvoDeLembrete {
 }
 
 export interface NotificationTriggersRepository {
-  /** (a) FOLLOW_UP: `type=FOLLOW_UP`, não concluído, `scheduledFor` HOJE. */
+  /** (a) Follow-up: tipo com `isFollowUp` no catálogo do owner, não concluído, `scheduledFor` HOJE. */
   followUpsDoDia(de: Date, ate: Date): Promise<AlvoDeLembrete[]>;
   /** (b) `status IN (SENT, NEGOTIATING)`, `validUntil` em (agora, agora+Nd]. */
   propostasAExpirar(de: Date, ate: Date): Promise<AlvoDeLembrete[]>;
