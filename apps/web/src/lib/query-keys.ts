@@ -72,6 +72,10 @@ export const queryKeys = {
     byEntity: (entity: string, id: string) =>
       ['audit', 'entity', entity, id] as const,
   },
+  trash: {
+    all: ['trash'] as const,
+    list: (params: object) => ['trash', 'list', params] as const,
+  },
   invites: {
     detail: (token: string) => ['invites', token] as const,
   },

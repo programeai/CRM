@@ -177,3 +177,14 @@ export const AUDIT_ACTION_LABELS = {
   VENCER: 'Marcou como vencida',
 } as const;
 export const translateAuditAction = make(AUDIT_ACTION_LABELS);
+
+// --- lixeira (Fase 8C) ---
+
+export const TRASH_TYPE_LABELS = {
+  CLIENT: 'Cliente',
+  CONTACT: 'Contato',
+  DEAL: 'Oportunidade',
+  PROJECT: 'Projeto',
+  TASK: 'Demanda',
+} as const;
+export const translateTrashType = make(TRASH_TYPE_LABELS);
