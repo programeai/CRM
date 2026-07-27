@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { dashboardApi } from './dashboard.api';
 
-export function useDashboardSummary() {
+/** `onlyMine` entra na query key: os dois recortes convivem no cache. */
+export function useDashboardSummary(params: { onlyMine?: boolean } = {}) {
   return useQuery({
-    queryKey: queryKeys.dashboard.summary,
-    queryFn: () => dashboardApi.summary(),
+    queryKey: queryKeys.dashboard.summary(params),
+    queryFn: () => dashboardApi.summary(params),
   });
 }
 
