@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ScrollText,
   Trash2,
+  BookMarked,
   type LucideIcon,
 } from "lucide-react"
 
@@ -60,6 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/colaboradores", label: "Colaboradores", icon: UserCog, permission: ["colaborador:gerenciar"] },
       { to: "/papeis", label: "Papéis", icon: ShieldCheck, permission: ["papel:gerenciar"] },
+      { to: "/catalogos", label: "Catálogos", icon: BookMarked, permission: ["catalogo:gerenciar"] },
       { to: "/auditoria", label: "Auditoria", icon: ScrollText, permission: ["auditoria:ver"] },
       { to: "/lixeira", label: "Lixeira", icon: Trash2, permission: ["lixeira:ver"] },
     ],

@@ -1,0 +1,62 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
+import { catalogosApi } from './catalogos.api';
+import type {
+  CatalogKind,
+  CreateCatalogItemBody,
+  UpdateCatalogItemBody,
+} from './types';
+
+/**
+ * Invalidação: renomear ou desativar um item muda o rótulo **embutido** em todo
+ * registro que o usa, então a mutação precisa derrubar também as listas de
+ * negócio daquele catálogo. Sem isso a tela de clientes continuaria exibindo o
+ * nome antigo até um refetch por outro motivo.
+ */
+const DEPENDENTES: Record<CatalogKind, readonly unknown[][]> = {
+  servicos: [['deals', 'board'], ['proposals'], ['projects']],
+  'fontes-de-lead': [['clients']],
+  'tipos-de-atividade': [['activities'], ['dashboard']],
+  'motivos-de-perda': [['deals', 'board']],
+};
+
+export function useCatalogo(kind: CatalogKind, opts: { incluirInativos?: boolean } = {}) {
+  const incluirInativos = opts.incluirInativos ?? false;
+  return useQuery({
+    queryKey: queryKeys.catalogos.list(kind, incluirInativos),
+    queryFn: () => catalogosApi.list(kind, incluirInativos),
+  });
+}
+
+function invalidateCatalogo(qc: ReturnType<typeof useQueryClient>, kind: CatalogKind) {
+  // Prefixo: derruba as duas variações (incluirInativos true/false) de uma vez.
+  void qc.invalidateQueries({ queryKey: ['catalogos', kind] });
+  for (const key of DEPENDENTES[kind]) {
+    void qc.invalidateQueries({ queryKey: key });
+  }
+}
+
+export function useCreateCatalogItem(kind: CatalogKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCatalogItemBody) => catalogosApi.create(kind, body),
+    onSuccess: () => invalidateCatalogo(qc, kind),
+  });
+}
+
+export function useUpdateCatalogItem(kind: CatalogKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateCatalogItemBody }) =>
+      catalogosApi.update(kind, id, body),
+    onSuccess: () => invalidateCatalogo(qc, kind),
+  });
+}
+
+export function useDeleteCatalogItem(kind: CatalogKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => catalogosApi.remove(kind, id),
+    onSuccess: () => invalidateCatalogo(qc, kind),
+  });
+}
