@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/components/ui/stat-card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +13,7 @@ import { formatMoney, formatDate } from '@/lib/format';
 import { translateTaskPriority, translateActivityType } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/hooks/use-can';
+import { booleanFilter, useUrlFilters } from '@/hooks/use-url-filters';
 import { useDashboardFinance, useDashboardSummary } from './api/hooks';
 import { Funnel } from './components/Funnel';
 import type {
@@ -27,6 +29,11 @@ const PRIORITY_BADGE: Record<UpcomingTask['priority'], 'default' | 'secondary' |
   MEDIUM: 'secondary',
   HIGH: 'default',
   URGENT: 'destructive',
+};
+
+/** Recorte por responsável persistido na URL (sobrevive à ida/volta de outra tela). */
+const DASHBOARD_FILTERS = {
+  onlyMine: booleanFilter(),
 };
 
 function formatPercent(rate: number): string {
@@ -346,15 +353,34 @@ export default function DashboardPage() {
   const [month, setMonth] = useState(currentMonthValue);
   // A seção financeira só existe para quem tem acesso ao financeiro: sem isso o
   // colaborador veria um bloco de erro (a API responde 403 em /dashboard/finance).
-  const { canAny } = useCan();
+  const { can, canAny } = useCan();
   const canSeeFinance = canAny(['financeiro:ver', 'financeiro:gerenciar']);
+  // Quem não tem nenhuma chave ampla já está recortado pelo backend — o
+  // alternador não faria nada e por isso nem aparece.
+  const seesAll =
+    can('oportunidade:ver_todas') ||
+    can('demanda:ver_todas') ||
+    can('cliente:ver_todos');
 
-  const summary = useDashboardSummary();
+  const { values, set } = useUrlFilters(DASHBOARD_FILTERS);
+  const onlyMine = seesAll && values.onlyMine;
+
+  const summary = useDashboardSummary({ onlyMine });
   const finance = useDashboardFinance(month, canSeeFinance);
 
   return (
     <div className="flex flex-col gap-8">
-      <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
+        {seesAll && (
+          <Button
+            variant={onlyMine ? 'default' : 'outline'}
+            onClick={() => set({ onlyMine: !onlyMine })}
+          >
+            Somente meus
+          </Button>
+        )}
+      </div>
       <ComercialSection q={summary} />
       {canSeeFinance && (
         <FinanceiroSection q={finance} month={month} onMonthChange={setMonth} />
