@@ -167,7 +167,7 @@ export function PapelFormDialog({
                         {group.permissions.map((permission) => (
                           <label
                             key={permission.key}
-                            className="flex items-start gap-3 text-sm"
+                            className="flex cursor-pointer items-start gap-3 text-sm"
                           >
                             <Checkbox
                               className="mt-0.5"
