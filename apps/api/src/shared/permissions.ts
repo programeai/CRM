@@ -145,6 +145,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     category: 'Organização',
   },
   {
+    key: 'auditoria:ver',
+    label: 'Ver a auditoria',
+    description:
+      'Consultar a trilha de mudanças sensíveis do CRM — quem alterou o quê e quando',
+    category: 'Organização',
+  },
+  {
     key: 'assinatura:gerenciar',
     label: 'Gerenciar assinatura',
     description: 'Ver e alterar o plano de assinatura do CRM',
