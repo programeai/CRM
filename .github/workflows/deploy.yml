@@ -133,6 +133,15 @@ jobs:
             STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
             EOF
 
+            # Um "$" dentro de um secret quebra o compose em silêncio: ele
+            # interpola os valores lidos do .env, então `abc$FOO123` chega ao
+            # container como `abc` — o resto virou "variável não definida" e foi
+            # substituído por vazio. Em 27/07/2026 isso truncou SMTP_PASSWORD de
+            # 32 para 13 caracteres e derrubou todo o envio de e-mail (incluindo
+            # a redefinição de senha) sem um único erro no boot.
+            # `$$` é o escape que o compose desfaz de volta para um "$" literal.
+            sed -i 's/\$/$$/g' .env
+
             # Puxa as imagens da tag escolhida e reinicia os serviços
             docker compose -f docker-compose.prod.yml pull api web
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
