@@ -168,17 +168,18 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### GET /clients
 - **Propósito:** Listar clientes do usuário autenticado (não arquivados), com busca e filtros, paginado. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
-- **Body:** — (query: `page?`, `limit?`, `search?`, `status?`, `source?`, `assigneeId?: uuid`)
-- **Resposta:** `200 { data: Client[], meta: { total, page, limit } }`.
+- **Body:** — (query: `page?`, `limit?`, `search?`, `status?`, `sourceId?: uuid`, `assigneeId?: uuid`)
+- **Resposta:** `200 { data: Client[], meta: { total, page, limit } }` (cada item inclui `source: { id, name, active } | null`).
 - **Erros:** `400` (query inválida), `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.list`
 
 ### POST /clients
 - **Propósito:** Criar um cliente para o usuário autenticado (`ownerId` derivado do token).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ name: string (mín. 2), personType: PersonType, tradeName?, document?, email?, phone?, website?, source?, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state?, assigneeId?: uuid | null }`
-- **Resposta:** `201 Client` (com `assignee: { id, name } | null`).
-- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `422 Responsável inválido: escolha alguém da sua equipe.`, `401`.
+- **Body:** `{ name: string (mín. 2), tradeName?, document?, email?, phone?, website?, sourceId?: uuid | null, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state?, assigneeId?: uuid | null }`
+  `personType` **não** entra no corpo: é deduzido do `document` (11 dígitos = CPF → `INDIVIDUAL`, 14 = CNPJ → `COMPANY`). Sem documento, vale o default do schema (`COMPANY`). `sourceId` referencia um item **ativo** de `GET /catalogos/fontes-de-lead` do mesmo owner.
+- **Resposta:** `201 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
+- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.create`
 
 ### GET /clients/tags
@@ -209,16 +210,16 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Buscar um cliente do usuário autenticado pelo id. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 Client` (com `assignee: { id, name } | null`).
+- **Resposta:** `200 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
 - **Erros:** `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.findOne`
 
 ### PATCH /clients/:id
 - **Propósito:** Atualizar parcialmente um cliente do usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar; `assigneeId: null` limpa o responsável, o campo ausente preserva.
-- **Resposta:** `200 Client` (com `assignee: { id, name } | null`).
-- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.`, `401`.
+- **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar; `assigneeId: null` limpa o responsável, o campo ausente preserva. Trocar o `document` reclassifica o `personType`; limpá-lo preserva a classificação atual.
+- **Resposta:** `200 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
+- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Cliente não encontrado.` / `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.update`
 
 ### POST /clients/:id/archive
@@ -305,23 +306,23 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Listar atividades (timeline), filtrando por `clientId` e/ou `dealId`, em ordem `createdAt desc`, paginado. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** — (query: `page?`, `limit?`, `clientId?`, `dealId?`, `assigneeId?: uuid`)
-- **Resposta:** `200 { data: Activity[], meta: { total, page, limit } }` (cada item com `assignee: { id, name } | null`).
+- **Resposta:** `200 { data: Activity[], meta: { total, page, limit } }` (cada item com `assignee: { id, name } | null` e `type: { id, name, active, isFollowUp }`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.list`
 
 ### POST /activities
-- **Propósito:** Criar uma atividade/anotação na timeline de um cliente. Com `type: FOLLOW_UP` e `scheduledFor`, registra um follow-up.
+- **Propósito:** Criar uma atividade/anotação na timeline de um cliente. Com um `typeId` marcado como `isFollowUp` no catálogo e `scheduledFor`, registra um follow-up (é essa marca — não o nome do tipo — que o cron das 6h e o dashboard consultam).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ clientId: uuid, type: ActivityType, content: string, dealId?: uuid, scheduledFor?: ISO date, assigneeId?: uuid | null }`
-- **Resposta:** `201 Activity` (com `assignee: { id, name } | null`).
+- **Body:** `{ clientId: uuid, typeId: uuid, content: string, dealId?: uuid, scheduledFor?: ISO date, assigneeId?: uuid | null }` (`typeId` referencia um item **ativo** de `GET /catalogos/tipos-de-atividade` do mesmo owner)
+- **Resposta:** `201 Activity` (com `assignee: { id, name } | null` e `type: { id, name, active, isFollowUp }`).
 - **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.create`
 
 ### PATCH /activities/:id
 - **Propósito:** Atualizar parcialmente uma atividade (não permite mover de cliente — `clientId` omitido).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ type?, content?, dealId?, scheduledFor?, assigneeId? }`. `assigneeId: null` limpa o responsável, o campo ausente preserva.
-- **Resposta:** `200 Activity` (com `assignee: { id, name } | null`).
+- **Body:** `{ typeId?: uuid, content?, dealId?, scheduledFor?, assigneeId? }`. `assigneeId: null` limpa o responsável, o campo ausente preserva.
+- **Resposta:** `200 Activity` (com `assignee: { id, name } | null` e `type: { id, name, active, isFollowUp }`).
 - **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.update`
 
@@ -332,6 +333,60 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Resposta:** `200 Activity` (com `completedAt` preenchido).
 - **Erros:** `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.complete`
+
+---
+
+## Catálogos
+
+> Os catálogos são **do owner**: cada workspace tem os seus itens (`ownerId`, com RLS), criados junto
+> com a conta e configuráveis sem afetar ninguém. `kind` ∈ `{ servicos, fontes-de-lead,
+> tipos-de-atividade, motivos-de-perda }`. A **leitura não exige permissão de
+> módulo** (só sessão válida): o `Select` de um catálogo aparece em formulários de módulos diferentes.
+> A escrita exige `catalogo:gerenciar`. Exclusão é hard-delete; item em uso responde `409` instruindo a
+> desativar. `active: false` não é arquivamento — o item some dos formulários de cadastro, mas
+> continua rotulando os registros antigos que já o usam.
+
+### GET /catalogos/:kind
+- **Propósito:** Listar os itens do catálogo do owner, ordenados por `name`. `incluirInativos=true`
+  inclui os desativados (usado pela tela de configuração); por padrão só devolve os ativos.
+- **Auth:** Bearer (access token). Sem `@RequirePermission` — só exige sessão válida.
+- **Body:** — (query: `incluirInativos?: 'true'`)
+- **Resposta:** `200 CatalogItem[]` (`{ id, name, active, isFollowUp? }`; `isFollowUp` só em
+  `tipos-de-atividade`).
+- **Erros:** `404 Catálogo não encontrado.` (`kind` desconhecido), `401`.
+- **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.list`
+
+### POST /catalogos/:kind
+- **Propósito:** Criar um item no catálogo do owner.
+- **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
+- **Body:** `{ name: string (2-60), isFollowUp?: boolean }` (`isFollowUp` só aceito em
+  `tipos-de-atividade`).
+- **Resposta:** `201 CatalogItem`.
+- **Erros:** `400` (validação), `404 Catálogo não encontrado.`, `409 Já existe um <item> com este
+  nome.`, `422 Marcar follow-up só vale para tipos de atividade.`, `403`, `401`.
+- **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.create`
+
+### PATCH /catalogos/:kind/:id
+- **Propósito:** Atualizar parcialmente um item do catálogo do owner — renomear, ativar/desativar ou
+  (só em `tipos-de-atividade`) marcar `isFollowUp`.
+- **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
+- **Body:** Campos parciais de `POST /catalogos/:kind` + `active?: boolean`.
+- **Resposta:** `200 CatalogItem`.
+- **Erros:** `400` (validação), `404 Catálogo não encontrado.` / `404 <Item> não encontrado no
+  catálogo.` (inexistente ou de outro owner), `409 Já existe um <item> com este nome.`, `422 Marcar
+  follow-up só vale para tipos de atividade.`, `403`, `401`.
+- **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.update`
+
+### DELETE /catalogos/:kind/:id
+- **Propósito:** Excluir em definitivo um item do catálogo do owner, desde que não haja nenhum
+  registro apontando para ele (a contagem inclui arquivados — as FKs são `RESTRICT`).
+- **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Catálogo não encontrado.` / `404 <Item> não encontrado no catálogo.` (inexistente ou
+  de outro owner), `409 Não é possível excluir um <item> em uso por N registro(s), inclusive
+  arquivados. Desative-o para tirá-lo dos formulários sem perder o histórico.`, `403`, `401`.
+- **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.remove`
 
 ---
 
@@ -403,7 +458,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /deals
 - **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio **do owner**; `position` vai para o fim da coluna.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
-- **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date, assigneeId?: uuid | null }`
+- **Body:** `{ title: string (mín. 2), clientId: uuid, serviceTypeId: uuid, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date, assigneeId?: uuid | null }`
 - **Resposta:** `201 Deal` (com `assignee: { id, name } | null`).
 - **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.` / `404 Estágio não encontrado.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.create`
@@ -425,11 +480,11 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.update`
 
 ### PATCH /deals/:id/move
-- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReason`; ao sair de um estágio `isLost` para outro, limpa `lostReason`. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
+- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReasonId` (item **ativo** de `GET /catalogos/motivos-de-perda` do mesmo owner); ao sair de um estágio `isLost` para outro, limpa o motivo. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
-- **Body:** `{ stageId: uuid, position: number (>=0), lostReason?: string }`
-- **Resposta:** `200 Deal`.
-- **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.`, `422 Informe o motivo da perda.`, `401`.
+- **Body:** `{ stageId: uuid, position: number (>=0), lostReasonId?: uuid }`
+- **Resposta:** `200 Deal` (com `lostReason: { id, name, active } | null`).
+- **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.` / `404 Motivo de perda não encontrado no catálogo.`, `422 Informe o motivo da perda.` / `422 Este motivo de perda está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.move`
 
 ### POST /deals/:id/archive
@@ -471,7 +526,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /proposals
 - **Propósito:** Criar uma proposta (status `DRAFT`, `version 1`); gera `number` PROP-AAAA-NNNN e calcula `total` no backend a partir dos itens e desconto.
 - **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
-- **Body:** `{ clientId: uuid, serviceType: ServiceType, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date }`
+- **Body:** `{ clientId: uuid, serviceTypeId: uuid, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date }`
 - **Resposta:** `201 Proposal` (com `items[]`, `total`, `number`).
 - **Erros:** `400` (validação / `Informe ao menos um item.`), `404 Cliente não encontrado.` / `Oportunidade não encontrada.`, `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.create`
@@ -553,7 +608,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /projects
 - **Propósito:** Criar um projeto vinculado a um cliente do usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
-- **Body:** `{ name, clientId, serviceType, proposalId?, startDate?, dueDate? }`.
+- **Body:** `{ name, clientId, serviceTypeId: uuid, proposalId?, startDate?, dueDate? }`. `serviceTypeId` referencia um item **ativo** de `GET /catalogos/servicos` do mesmo owner.
 - **Resposta:** `201 Project`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.create`
