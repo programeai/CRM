@@ -22,6 +22,9 @@ describe('ClientsService', () => {
       findManyAndCount: jest.fn(),
       update: jest.fn(),
       archive: jest.fn(),
+      restore: jest.fn(),
+      delete: jest.fn(),
+      countChildren: jest.fn(),
       existsByDocument: jest.fn(),
       listOwnerTags: jest.fn(),
       findByTag: jest.fn(),
@@ -110,6 +113,72 @@ describe('ClientsService', () => {
     repo.findById.mockResolvedValue(null);
     await expect(service.archive('owner-1', 'nope')).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('registra a restauração na trilha de auditoria', async () => {
+    repo.findById.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+    repo.restore.mockResolvedValue({ id: 'c1', archivedAt: null } as never);
+
+    await service.restore('owner-1', 'c1');
+
+    expect(repo.restore).toHaveBeenCalledWith('c1', 'owner-1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'CLIENT',
+        action: 'RESTAURAR',
+        entityId: 'c1',
+        entityLabel: 'Acme',
+      }),
+    );
+  });
+
+  it('lança UnprocessableEntityException ao expurgar cliente ainda ativo', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Acme',
+      archivedAt: null,
+    } as never);
+    await expect(service.purge('owner-1', 'c1')).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('lança ConflictException com a descrição dos vínculos ao expurgar cliente com registros', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Acme',
+      archivedAt: new Date(),
+    } as never);
+    repo.countChildren.mockResolvedValue({
+      total: 2,
+      descricao: '1 oportunidade(s), 1 contrato(s)',
+    });
+    await expect(service.purge('owner-1', 'c1')).rejects.toThrow(
+      /1 oportunidade\(s\), 1 contrato\(s\)/,
+    );
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('expurga o cliente arquivado sem vínculos e registra na trilha', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Acme',
+      archivedAt: new Date(),
+    } as never);
+    repo.countChildren.mockResolvedValue({ total: 0, descricao: '' });
+
+    await service.purge('owner-1', 'c1');
+
+    expect(repo.delete).toHaveBeenCalledWith('c1');
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'CLIENT',
+        action: 'EXPURGAR',
+        entityId: 'c1',
+        entityLabel: 'Acme',
+      }),
     );
   });
 
