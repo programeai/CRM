@@ -926,3 +926,25 @@ Rotas do aceite: quem abre o link ainda não tem sessão. Não têm contexto de 
 - **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
 - **Erros:** `410 Este convite não é mais válido. Peça um novo ao responsável pela conta.` (inclui a corrida de dois envios simultâneos do mesmo link); `403 Este acesso foi desativado. Fale com o responsável pela conta.`; `400` (senha curta).
 - **Handler:** `modules/collaborators/api/invites.controller.ts` → `InvitesController.accept`
+
+## Auditoria
+
+Trilha de mudanças sensíveis de estado, por owner. É **somente leitura** pela API: a tabela tem RLS por `ownerId` e a aplicação (`crm_app`) só tem `SELECT`/`INSERT` — não existe rota de editar nem de excluir uma entrada, por desenho.
+
+Uma linha nasce a cada mudança instrumentada (baixa/estorno/cancelamento de cobrança, contrato, proposta, papel, colaborador, arquivamento de cliente) e também nas mudanças **sem ator humano**: os crons diários (`actorType: CRON`), o webhook do Stripe (`WEBHOOK`) e o aceite de convite (`USER`, com o convidado como autor).
+
+### GET /audit
+- **Propósito:** Listar a trilha de auditoria do owner, paginada e ordenada da mais recente para a mais antiga, com filtro opcional por entidade, registro, autor, ação e período.
+- **Auth:** Bearer (access token). Permissão: `auditoria:ver`.
+- **Body:** — (query: `page`, `limit`, `entity?`, `entityId?`, `actorId?`, `action?`, `from?` (`AAAA-MM-DD`), `to?` (`AAAA-MM-DD`, inclui o dia inteiro)).
+- **Resposta:** `200 Paginated<AuditLog>` — cada item traz `actorType`, `actorId`, `actorName`, `entity`, `entityId`, `entityLabel`, `action`, `diff`, `requestId`, `createdAt`. `actorName` e `entityLabel` são o que valia **no momento da ação**.
+- **Erros:** `400` (validação), `403 Você não tem permissão para ver a auditoria.`, `401`.
+- **Handler:** `modules/audit/api/audit.controller.ts` → `AuditController.list`
+
+### GET /audit/entities/:entity/:id
+- **Propósito:** Histórico completo de um registro específico (até 100 entradas), para a visão "quem mexeu neste cliente/cobrança/contrato".
+- **Auth:** Bearer (access token). Permissão: `auditoria:ver`.
+- **Body:** — (`entity` ∈ `CLIENT | CONTACT | DEAL | PROPOSAL | PROJECT | TASK | CONTRACT | PAYMENT | ROLE | USER | SUBSCRIPTION`).
+- **Resposta:** `200 AuditLog[]` (mais recente primeiro).
+- **Erros:** `400` (entidade fora do enum), `403`, `401`.
+- **Handler:** `modules/audit/api/audit.controller.ts` → `AuditController.byEntity`

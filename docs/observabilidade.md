@@ -68,6 +68,8 @@ longo do tempo. Os que existem hoje:
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
 | `sessao.revogada` | uma sessão encerrada pelo próprio usuário | `info` |
 | `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
+| `auditoria.sem_contexto` | `AuditService.registrar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
+| `auditoria.registro_falhou` | falha ao gravar trilha de ação do sistema (cron/webhook) — o lote continua | `error` |
 
 O front (`service=web`) emite `http.acesso` pelo nginx, **só para 4xx e 5xx** —
 servidor de arquivo estático em modo "loga tudo" seria só ruído. Para registrar
@@ -112,6 +114,19 @@ Regras:
   linha vive 30 dias.
 - `debug` não é emitido em produção.
 - Nada de `console.log`.
+
+### O log **não** é a trilha de auditoria
+
+As duas convivem e respondem perguntas diferentes. O Loki responde **"o que o
+sistema fez"** nos últimos 30 dias, em texto livre e sem visão por registro. A
+tabela `AuditLog` (ver `modules/audit/`) responde **"quem mudou este registro,
+quando e do quê para quê"**, sem limite de tempo, isolada por `ownerId` no RLS e
+imutável para a aplicação (`crm_app` só tem `SELECT`/`INSERT`).
+
+Ao instrumentar uma mudança sensível de estado, faça as duas coisas: o `evento`
+estruturado continua valendo para operação e alerta, e o `audit.registrar(…)`
+grava a trilha — na mesma transação da mudança, então uma requisição que falha
+não deixa registro órfão.
 
 Em código transversal (middleware, filtro, bootstrap), onde não há DI, use
 `registrarLog('info', { evento: … })` direto de `shared/logging/log.ts`.
