@@ -4,9 +4,10 @@ import { ClientsService } from './application/clients.service';
 import { CLIENT_REPOSITORY } from './domain/client.repository';
 import { PrismaClientRepository } from './infra/prisma-client.repository';
 import { WorkspaceModule } from '../workspace/workspace.module';
+import { CatalogosModule } from '../catalogos/catalogos.module';
 
 @Module({
-  imports: [WorkspaceModule],
+  imports: [WorkspaceModule, CatalogosModule],
   controllers: [ClientsController],
   providers: [
     ClientsService,
