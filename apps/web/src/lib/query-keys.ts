@@ -76,6 +76,12 @@ export const queryKeys = {
     all: ['trash'] as const,
     list: (params: object) => ['trash', 'list', params] as const,
   },
+  notificacoes: {
+    all: ['notificacoes'] as const,
+    list: (params: object) => ['notificacoes', 'list', params] as const,
+    unreadCount: ['notificacoes', 'unread-count'] as const,
+    targets: ['notificacoes', 'targets'] as const,
+  },
   invites: {
     detail: (token: string) => ['invites', token] as const,
   },
