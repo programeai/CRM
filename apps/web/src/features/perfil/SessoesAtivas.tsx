@@ -10,13 +10,9 @@ import { formatRelativeTime } from '@/lib/format';
 import { useRevokeOtherSessions, useRevokeSession, useSessions } from './api/hooks';
 import type { Session } from './api/perfil.api';
 
-interface SessoesAtivasProps {
-  /** Só busca quando o diálogo está aberto — evita requisição em tela fechada. */
-  enabled: boolean;
-}
-
-export function SessoesAtivas({ enabled }: SessoesAtivasProps) {
-  const { data: sessions, isLoading, isError } = useSessions({ enabled });
+/** Aba "Dispositivos" de `/configuracoes`: as sessões abertas nesta conta. */
+export function SessoesAtivas() {
+  const { data: sessions, isLoading, isError } = useSessions();
   const revoke = useRevokeSession();
   const revokeOthers = useRevokeOtherSessions();
 
@@ -49,11 +45,11 @@ export function SessoesAtivas({ enabled }: SessoesAtivasProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3 border-t pt-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-medium">Sessões ativas</h3>
-          <p className="text-xs text-muted-foreground">
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-semibold">Dispositivos</h2>
+          <p className="text-sm text-muted-foreground">
             Dispositivos com acesso à sua conta. Encerrar uma sessão desconecta
             aquele dispositivo na próxima ação dele.
           </p>
@@ -62,7 +58,6 @@ export function SessoesAtivas({ enabled }: SessoesAtivasProps) {
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={() => setOthersOpen(true)}
           >
             <LogOut data-icon="inline-start" />
@@ -121,8 +116,6 @@ export function SessoesAtivas({ enabled }: SessoesAtivasProps) {
         </ul>
       )}
 
-      {/* ConfirmDialog participa da pilha `modal-stack`: o PerfilDialog é
-          soterrado (mantendo o estado do formulário) e volta ao fechar. */}
       <ConfirmDialog
         open={!!revoking}
         onOpenChange={(open) => !open && setRevoking(null)}
@@ -146,6 +139,6 @@ export function SessoesAtivas({ enabled }: SessoesAtivasProps) {
         pending={revokeOthers.isPending}
         onConfirm={() => void confirmRevokeOthers()}
       />
-    </div>
+    </section>
   );
 }
