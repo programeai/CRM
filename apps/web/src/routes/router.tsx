@@ -32,6 +32,7 @@ import PaywallPage from '@/features/billing/PaywallPage';
 import ColaboradoresPage from '@/features/organizacao/ColaboradoresPage';
 import PapeisPage from '@/features/organizacao/PapeisPage';
 import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
+import LixeiraPage from '@/features/lixeira/LixeiraPage';
 
 // Chaves de permissão por área — as mesmas do `app/nav.ts` e do
 // `@RequirePermission` da API. Basta uma delas para a rota abrir.
@@ -130,6 +131,10 @@ export const router = createBrowserRouter([
           {
             element: <PermissionRoute permission={['auditoria:ver']} />,
             children: [{ path: '/auditoria', element: <AuditoriaPage /> }],
+          },
+          {
+            element: <PermissionRoute permission={['lixeira:ver']} />,
+            children: [{ path: '/lixeira', element: <LixeiraPage /> }],
           },
         ],
       },
