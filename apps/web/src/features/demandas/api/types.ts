@@ -6,6 +6,12 @@ export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'DONE' | 'CANCELED';
 export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
+/** Responsável, quando houver. Shape mínimo devolvido junto do registro. */
+export interface Assignee {
+  id: string;
+  name: string;
+}
+
 export interface ChecklistItem {
   text: string;
   done: boolean;
@@ -39,6 +45,8 @@ export interface Task {
   tags: string[];
   checklist?: ChecklistItem[] | null;
   completedAt?: string | null;
+  assigneeId?: string | null;
+  assignee?: Assignee | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,13 +72,18 @@ export interface CreateTaskBody {
   dueDate?: string;
   tags?: string[];
   checklist?: ChecklistItem[];
+  assigneeId?: string | null;
 }
 export type UpdateTaskBody = Partial<
-  Omit<CreateTaskBody, 'projectId' | 'status' | 'description' | 'dueDate'>
+  Omit<
+    CreateTaskBody,
+    'projectId' | 'status' | 'description' | 'dueDate' | 'assigneeId'
+  >
 > & {
   /** `null` limpa o campo no backend; `undefined`/ausente preserva. */
   description?: string | null;
   dueDate?: string | null;
+  assigneeId?: string | null;
 };
 export interface MoveTaskBody {
   status: TaskStatus;
@@ -104,4 +117,5 @@ export interface ListTasksParams {
   status?: TaskStatus;
   priority?: TaskPriority;
   dueBefore?: string;
+  assigneeId?: string;
 }

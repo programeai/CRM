@@ -12,6 +12,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Spinner } from '@/components/ui/spinner';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { TASK_PRIORITY_LABELS, translateTaskPriority } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -30,6 +31,8 @@ interface FormState {
   dueDate: string;
   tags: string[];
   checklist: ChecklistItem[];
+  /** `null` = sem responsável. */
+  assigneeId: string | null;
 }
 
 const emptyForm = (projectId: string): FormState => ({
@@ -40,6 +43,7 @@ const emptyForm = (projectId: string): FormState => ({
   dueDate: '',
   tags: [],
   checklist: [],
+  assigneeId: null,
 });
 
 const fromTask = (task: Task): FormState => ({
@@ -50,6 +54,7 @@ const fromTask = (task: Task): FormState => ({
   dueDate: task.dueDate?.slice(0, 10) ?? '',
   tags: task.tags,
   checklist: task.checklist ?? [],
+  assigneeId: task.assigneeId ?? null,
 });
 
 interface Props {
@@ -181,6 +186,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
         dueDate: form.dueDate || undefined,
         tags: form.tags,
         checklist: form.checklist,
+        assigneeId: form.assigneeId,
       });
       toast.success('Tarefa criada.');
       onOpenChange(false);
@@ -339,6 +345,15 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
                     ))}
                   </SelectContent>
                 </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel>Responsável</FieldLabel>
+                <AssigneeSelect
+                  value={form.assigneeId}
+                  onValueChange={(assigneeId) => setField({ assigneeId }, { assigneeId })}
+                  current={task?.assignee}
+                />
               </Field>
 
               <Field>

@@ -16,7 +16,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger,
 } from '@/components/ui/select';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { AssigneeFilterSelect } from '@/components/ui/assignee-filter-select';
 import { TASK_PRIORITY_LABELS } from '@/lib/labels';
+import { useResolvedAssigneeFilter } from '@/lib/members-lookup';
 import { useMoveMyTask, useMyBoard } from './api/hooks';
 import { KanbanColumn } from './components/KanbanColumn';
 import { SortableTaskCard } from './components/SortableTaskCard';
@@ -41,6 +43,8 @@ const DEMANDAS_FILTERS = {
   priority: enumFilter(Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[], 'ALL' as const),
   projectIds: stringArrayFilter(),
   dueBefore: stringFilter(),
+  /** `''` = todos; `'me'` = o usuário logado; senão o id de um membro. */
+  assignee: stringFilter(),
 };
 
 const getTaskId = (t: Task) => t.id;
@@ -70,8 +74,12 @@ export default function MinhasDemandasPage() {
     }
   }, [debouncedClientSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data: tasks, isLoading } = useMyBoard();
-  const moveTask = useMoveMyTask();
+  // Diferente dos demais filtros (client-side), o de responsável é do servidor:
+  // o recorte precisa valer também para quem não tem a chave ampla.
+  const assigneeId = useResolvedAssigneeFilter(values.assignee);
+  const boardParams = assigneeId ? { assigneeId } : {};
+  const { data: tasks, isLoading } = useMyBoard(boardParams);
+  const moveTask = useMoveMyTask(boardParams);
 
   /** Projetos presentes nas demandas carregadas, únicos e ordenados por nome. */
   const projectOptions = useMemo(() => {
@@ -184,6 +192,11 @@ export default function MinhasDemandasPage() {
           placeholder="Todos os projetos"
           searchPlaceholder="Buscar projeto…"
           emptyText="Nenhum projeto encontrado."
+        />
+        <AssigneeFilterSelect
+          className="w-56"
+          value={values.assignee}
+          onValueChange={(assignee) => set({ assignee })}
         />
         <input
           type="date"
