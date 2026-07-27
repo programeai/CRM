@@ -10,16 +10,53 @@ PRISMA="node apps/api/node_modules/prisma/build/index.js"
 SCHEMA="apps/api/prisma/schema.prisma"
 
 # ---------------------------------------------------------------------------
+# 0. Falha de boot é log estruturado
+# ---------------------------------------------------------------------------
+# Uma linha JSON por aborto, para a queda cair em `{stack="crm", level="error"}`
+# no Grafana. Sem isso, API que morre aqui não emite NENHUMA linha de erro — o
+# painel de erros fica zerado justamente quando a aplicação está fora, que foi o
+# que deixou a queda de 27/07/2026 passar 11 horas sem ninguém notar.
+# `msg` entra literal no JSON: use texto simples, sem aspas nem barra invertida.
+abortar() {
+  printf '{"level":"error","time":"%s","evento":"%s","msg":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2"
+  exit 1
+}
+
+# ---------------------------------------------------------------------------
 # 1. Migrations
 # ---------------------------------------------------------------------------
-# `migrate deploy` já falha se o banco não responder; tentamos algumas vezes
-# para tolerar o intervalo entre o Postgres subir e aceitar conexões.
+# Só erro de conexão é transitório e merece nova tentativa — é o intervalo entre
+# o Postgres subir e aceitar conexões. Migration que falhou (P3009), SQL inválido
+# ou permissão negada não melhoram com insistência: repetir dez vezes só enterra
+# a causa real sob dez cópias de "banco indisponível", que foi exatamente o que
+# atrasou o diagnóstico da queda de 27/07/2026.
 echo "==> Aplicando migrations..."
 tentativa=1
-until $PRISMA migrate deploy --schema="$SCHEMA"; do
+while :; do
+  if saida=$($PRISMA migrate deploy --schema="$SCHEMA" 2>&1); then
+    printf '%s\n' "$saida"
+    break
+  fi
+  printf '%s\n' "$saida" >&2
+
+  case "$saida" in
+    *P3009*)
+      echo "!! Há migration marcada como FALHA no banco; nenhuma nova será aplicada." >&2
+      echo "   1) veja o erro original que derrubou a migration:" >&2
+      echo "      select migration_name, started_at, logs from _prisma_migrations where finished_at is null;" >&2
+      echo "   2) se a transação reverteu por inteiro (o normal), marque como revertida e corrija a causa:" >&2
+      echo "      prisma migrate resolve --rolled-back <nome_da_migration>" >&2
+      abortar 'app.migracao_falhou' 'Migration marcada como falha no banco (P3009). A API nao sobe ate resolver.'
+      ;;
+    *P1001*|*P1002*) ;;
+    *)
+      abortar 'app.migracao_falhou' 'Falha ao aplicar migrations que nao e de conexao. Ver stderr do container.'
+      ;;
+  esac
+
   if [ "$tentativa" -ge 10 ]; then
-    echo "!! Banco indisponível após $tentativa tentativas. Abortando." >&2
-    exit 1
+    abortar 'app.falhou_ao_iniciar' 'Banco inalcancavel apos 10 tentativas.'
   fi
   echo "   banco ainda indisponível (tentativa $tentativa) — nova tentativa em 3s..."
   tentativa=$((tentativa + 1))
@@ -39,9 +76,8 @@ if [ -n "$APP_DB_PASSWORD" ]; then
   # apóstrofo quebraria o comando (e permitiria injeção), então recusamos.
   case "$APP_DB_PASSWORD" in
     *"'"*|*'\'*)
-      echo "!! APP_DB_PASSWORD não pode conter apóstrofo (') nem barra invertida." >&2
       echo "   Gere com: openssl rand -hex 32" >&2
-      exit 1
+      abortar 'app.falhou_ao_iniciar' 'APP_DB_PASSWORD nao pode conter apostrofo nem barra invertida.'
       ;;
   esac
   echo "==> Alinhando a senha da role crm_app..."
@@ -49,11 +85,10 @@ if [ -n "$APP_DB_PASSWORD" ]; then
     | $PRISMA db execute --stdin --schema="$SCHEMA"
   echo "==> Role crm_app atualizada."
 else
-  echo "!! APP_DB_PASSWORD não definida." >&2
-  echo "   Sem ela a role crm_app fica com a senha de desenvolvimento gravada" >&2
-  echo "   pela migration — que é pública neste repositório." >&2
+  echo "   Sem APP_DB_PASSWORD a role crm_app fica com a senha de desenvolvimento" >&2
+  echo "   gravada pela migration — que é pública neste repositório." >&2
   echo "   Gere com: openssl rand -hex 32   (sem apóstrofo nem barra invertida)" >&2
-  exit 1
+  abortar 'app.falhou_ao_iniciar' 'APP_DB_PASSWORD nao definida.'
 fi
 
 echo "==> Iniciando a API..."
