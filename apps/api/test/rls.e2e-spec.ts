@@ -79,14 +79,14 @@ describe('Isolamento por ownerId (e2e)', () => {
       expect(desprotegidas).toEqual([]);
     });
 
-    it('as 18 tabelas protegidas hoje continuam protegidas', async () => {
+    it('as 22 tabelas protegidas hoje continuam protegidas', async () => {
       // Contagem-âncora: pega remoção acidental de policy numa migration.
       // Subir este número junto com a migration que adiciona a tabela nova é
       // parte do trabalho — é o momento de perguntar se ela precisa de RLS.
       const [{ total }] = await clientAdmin().$queryRaw<{ total: bigint }[]>`
         SELECT count(*) AS total FROM pg_policies WHERE schemaname = 'public'
       `;
-      expect(Number(total)).toBe(18);
+      expect(Number(total)).toBe(22);
     });
 
     it('crm_app sem app.owner_id definido não enxerga linha nenhuma (fail-closed)', async () => {
@@ -179,6 +179,32 @@ describe('Isolamento por ownerId (e2e)', () => {
         where: { id: clienteDoB.id },
       });
       expect(depois?.archivedAt).toBeNull();
+    });
+
+    it('a listagem de catálogo devolve só as fontes de lead do próprio owner', async () => {
+      // `criarOwner` não passa pelo UsersService (bypassa o provisionamento),
+      // então as fontes de cada owner são semeadas aqui, à mão.
+      const a = await clientAdmin().user.findUniqueOrThrow({
+        where: { email: 'a@teste.local' },
+      });
+      const b = await clientAdmin().user.findUniqueOrThrow({
+        where: { email: 'b@teste.local' },
+      });
+      await clientAdmin().leadSourceCatalog.create({
+        data: { ownerId: a.id, name: 'Fonte do A' },
+      });
+      await clientAdmin().leadSourceCatalog.create({
+        data: { ownerId: b.id, name: 'Fonte do B' },
+      });
+
+      const token = await logar('a@teste.local');
+      const resposta = await http()
+        .get('/api/v1/catalogos/fontes-de-lead')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const corpo: { name: string }[] = resposta.body;
+      expect(corpo.map((item) => item.name)).toEqual(['Fonte do A']);
     });
   });
 
