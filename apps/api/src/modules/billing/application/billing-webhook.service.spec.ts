@@ -1,6 +1,7 @@
 import { BillingWebhookService } from './billing-webhook.service';
 import type { StripeService } from './stripe.service';
 import type { SubscriptionRepository } from '../domain/subscription.repository';
+import type { AuditService } from '../../audit/audit.service';
 
 /** Monta um objeto mínimo de Stripe.Subscription para os testes. */
 function subscription(over: Record<string, unknown> = {}) {
@@ -18,6 +19,7 @@ function subscription(over: Record<string, unknown> = {}) {
 describe('BillingWebhookService', () => {
   let repo: jest.Mocked<SubscriptionRepository>;
   let stripe: { client: { subscriptions: { retrieve: jest.Mock } } };
+  let audit: { registrarPeloSistema: jest.Mock };
   let service: BillingWebhookService;
 
   beforeEach(() => {
@@ -26,12 +28,15 @@ describe('BillingWebhookService', () => {
       findByOwnerIdForGate: jest.fn(),
       getUserStripeCustomerId: jest.fn(),
       setUserStripeCustomerId: jest.fn(),
-      upsertByStripeCustomerId: jest.fn(),
+      // Sem owner mapeável por padrão: os testes de mapeamento não precisam de trilha.
+      upsertByStripeCustomerId: jest.fn().mockResolvedValue(null),
     };
     stripe = { client: { subscriptions: { retrieve: jest.fn() } } };
+    audit = { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
     service = new BillingWebhookService(
       stripe as unknown as StripeService,
       repo,
+      audit as unknown as AuditService,
     );
   });
 
@@ -101,5 +106,55 @@ describe('BillingWebhookService', () => {
   it('evento não tratado → nenhum upsert', async () => {
     await process('invoice.paid', {});
     expect(repo.upsertByStripeCustomerId).not.toHaveBeenCalled();
+  });
+
+  it('registra na trilha quando a sincronização muda alguma coisa', async () => {
+    repo.upsertByStripeCustomerId.mockResolvedValue({
+      ownerId: 'owner-1',
+      antes: {
+        status: 'TRIALING',
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      },
+      depois: {
+        status: 'ACTIVE',
+        trialEndsAt: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      },
+    });
+
+    await process('customer.subscription.updated', subscription());
+
+    expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 'owner-1',
+        actorType: 'WEBHOOK',
+        actorName: 'Webhook do Stripe',
+        entity: 'SUBSCRIPTION',
+        entityId: 'owner-1',
+        entityLabel: 'Ativa', // rótulo em pt-BR, nunca o identificador do enum
+        action: 'ATUALIZAR',
+      }),
+    );
+  });
+
+  it('reentrega do MESMO evento não cria linha nova (nada mudou)', async () => {
+    const igual = {
+      status: 'ACTIVE' as const,
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+    };
+    repo.upsertByStripeCustomerId.mockResolvedValue({
+      ownerId: 'owner-1',
+      antes: igual,
+      depois: igual,
+    });
+
+    await process('customer.subscription.updated', subscription());
+
+    expect(audit.registrarPeloSistema).not.toHaveBeenCalled();
   });
 });

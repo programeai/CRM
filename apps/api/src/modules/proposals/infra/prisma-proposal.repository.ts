@@ -5,6 +5,7 @@ import { PrismaAdminService } from '../../../prisma/prisma-admin.service';
 import type {
   ProposalListFilter,
   ProposalRepository,
+  PropostaExpirada,
 } from '../domain/proposal.repository';
 
 const withItems = {
@@ -130,15 +131,24 @@ export class PrismaProposalRepository implements ProposalRepository {
     });
   }
 
-  async expireOverdue(now: Date): Promise<number> {
+  async expireOverdue(now: Date): Promise<PropostaExpirada[]> {
     // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
-    const r = await this.admin.proposal.updateMany({
-      where: {
-        status: { in: ['SENT', 'NEGOTIATING'] },
-        validUntil: { lt: now },
-      },
+    // Carrega antes de atualizar: `updateMany` só devolve o `count`, e a trilha
+    // precisa de uma linha por proposta, com o status ANTERIOR no diff. Mesmo
+    // filtro nos dois — ver a nota de corrida em PrismaPaymentRepository.markOverdue.
+    const where = {
+      status: { in: ['SENT' as const, 'NEGOTIATING' as const] },
+      validUntil: { lt: now },
+    };
+    const alvos = await this.admin.proposal.findMany({
+      where,
+      select: { id: true, ownerId: true, number: true, status: true },
+    });
+    if (alvos.length === 0) return [];
+    await this.admin.proposal.updateMany({
+      where,
       data: { status: 'EXPIRED' },
     });
-    return r.count;
+    return alvos;
   }
 }

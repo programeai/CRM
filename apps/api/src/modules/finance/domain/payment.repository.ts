@@ -55,6 +55,13 @@ export interface PaymentStatusSum {
   paidAmount: number; // Σ paidAmount (0 quando ausente)
 }
 
+/** Cobrança marcada como vencida pela rotina — o mínimo para a trilha. */
+export interface PaymentVencido {
+  id: string;
+  ownerId: string;
+  description: string;
+}
+
 export interface PaymentRepository {
   findById(id: string): Promise<PaymentWithContract | null>;
   findManyAndCount(
@@ -72,6 +79,6 @@ export interface PaymentRepository {
   create(
     data: Prisma.PaymentUncheckedCreateInput,
   ): Promise<PaymentWithContract>;
-  /** Marca OVERDUE toda PENDING com dueDate < now. Retorna quantas. (cron) */
-  markOverdue(now: Date): Promise<number>;
+  /** Marca as pendentes vencidas e devolve **quais** foram (a trilha precisa dos ids). */
+  markOverdue(now: Date): Promise<PaymentVencido[]>;
 }

@@ -7,6 +7,7 @@ import type {
   PaymentListFilter,
   PaymentRepository,
   PaymentSortField,
+  PaymentVencido,
   SortDirection,
 } from '../domain/payment.repository';
 
@@ -217,12 +218,20 @@ export class PrismaPaymentRepository implements PaymentRepository {
     return this.admin.payment.create({ data, include: withContract });
   }
 
-  async markOverdue(now: Date): Promise<number> {
+  async markOverdue(now: Date): Promise<PaymentVencido[]> {
     // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
-    const r = await this.admin.payment.updateMany({
-      where: { status: 'PENDING', dueDate: { lt: now } },
-      data: { status: 'OVERDUE' },
+    // Carrega antes de atualizar: `updateMany` só devolve o `count`, e a trilha
+    // precisa de uma linha por cobrança (é ela que responde "por que esta
+    // cobrança virou OVERDUE"). O SELECT e o UPDATE usam o MESMO filtro; uma
+    // cobrança paga entre os dois simplesmente não é atualizada e a trilha teria
+    // uma linha a mais — corrida improvável às 3h e sem consequência de negócio.
+    const where = { status: 'PENDING' as const, dueDate: { lt: now } };
+    const alvos = await this.admin.payment.findMany({
+      where,
+      select: { id: true, ownerId: true, description: true },
     });
-    return r.count;
+    if (alvos.length === 0) return [];
+    await this.admin.payment.updateMany({ where, data: { status: 'OVERDUE' } });
+    return alvos;
   }
 }

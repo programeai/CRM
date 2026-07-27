@@ -5,7 +5,22 @@ import {
   SUBSCRIPTION_REPOSITORY,
   type SubscriptionRepository,
   type SubscriptionStatusValue,
+  type SubscriptionSyncResult,
 } from '../domain/subscription.repository';
+import { AuditService } from '../../audit/audit.service';
+import { calcularDiff } from '../../../shared/audit-diff';
+
+/** Nome exibido na tela de auditoria para o ator não-humano deste caminho. */
+const ATOR_WEBHOOK = 'Webhook do Stripe';
+
+/** Rótulo em pt-BR do status — a trilha nunca exibe identificador técnico. */
+const ROTULO_STATUS: Record<SubscriptionStatusValue, string> = {
+  TRIALING: 'Em teste',
+  ACTIVE: 'Ativa',
+  PAST_DUE: 'Pagamento atrasado',
+  CANCELED: 'Cancelada',
+  INCOMPLETE: 'Incompleta',
+};
 
 /**
  * Processa os eventos do Stripe e mantém o `Subscription` local em sincronia.
@@ -21,6 +36,7 @@ export class BillingWebhookService {
     private readonly stripe: StripeService,
     @Inject(SUBSCRIPTION_REPOSITORY)
     private readonly repo: SubscriptionRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async process(event: Stripe.Event): Promise<void> {
@@ -45,11 +61,15 @@ export class BillingWebhookService {
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
-        await this.repo.upsertByStripeCustomerId(this.customerId(sub), {
-          status: 'CANCELED',
-          stripeSubscriptionId: sub.id,
-          cancelAtPeriodEnd: sub.cancel_at_period_end,
-        });
+        const resultado = await this.repo.upsertByStripeCustomerId(
+          this.customerId(sub),
+          {
+            status: 'CANCELED',
+            stripeSubscriptionId: sub.id,
+            cancelAtPeriodEnd: sub.cancel_at_period_end,
+          },
+        );
+        await this.registrarNaTrilha(resultado);
         break;
       }
       default:
@@ -63,12 +83,44 @@ export class BillingWebhookService {
 
   /** Mapeia uma `Stripe.Subscription` para o snapshot local e persiste. */
   private async syncSubscription(sub: Stripe.Subscription): Promise<void> {
-    await this.repo.upsertByStripeCustomerId(this.customerId(sub), {
-      status: this.mapStatus(sub.status),
-      stripeSubscriptionId: sub.id,
-      trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
-      currentPeriodEnd: this.periodEnd(sub),
-      cancelAtPeriodEnd: sub.cancel_at_period_end,
+    const resultado = await this.repo.upsertByStripeCustomerId(
+      this.customerId(sub),
+      {
+        status: this.mapStatus(sub.status),
+        stripeSubscriptionId: sub.id,
+        trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+        currentPeriodEnd: this.periodEnd(sub),
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+      },
+    );
+    await this.registrarNaTrilha(resultado);
+  }
+
+  /**
+   * Registra a sincronização na trilha, **só quando algo mudou**: o Stripe
+   * reenvia eventos, e N linhas idênticas por retentativa seriam ruído.
+   */
+  private async registrarNaTrilha(
+    resultado: SubscriptionSyncResult | null,
+  ): Promise<void> {
+    if (!resultado) return; // evento sem owner mapeável
+    const { ownerId, antes, depois } = resultado;
+    // Spread: `SubscriptionSnapshot` é uma interface e, sem index signature,
+    // não é atribuível a `Record<string, unknown>`.
+    const estadoAnterior: Record<string, unknown> = { ...(antes ?? {}) };
+    const estadoNovo: Record<string, unknown> = { ...depois };
+    const diff = calcularDiff(estadoAnterior, estadoNovo);
+    if (!diff) return; // reentrega do mesmo evento: nada mudou, nada a registrar
+    await this.audit.registrarPeloSistema({
+      ownerId,
+      actorType: 'WEBHOOK',
+      actorName: ATOR_WEBHOOK,
+      entity: 'SUBSCRIPTION',
+      entityId: ownerId, // Subscription é 1:1 com o owner
+      entityLabel: ROTULO_STATUS[depois.status],
+      action: 'ATUALIZAR',
+      antes: estadoAnterior,
+      depois: estadoNovo,
     });
   }
 
