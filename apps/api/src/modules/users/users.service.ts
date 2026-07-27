@@ -7,6 +7,13 @@ import {
   defaultPipelineStages,
 } from '../../shared/default-pipeline-stages';
 import {
+  defaultLeadSourceCatalog,
+  defaultLostReasonCatalog,
+  defaultActivityTypeCatalog,
+  defaultServiceCatalog,
+  totalDeItensDeCatalogo,
+} from '../../shared/default-catalogs';
+import {
   NOTIFICATION_TARGET_REPOSITORY,
   type NotificationTargetRepository,
 } from '../notifications/domain/notification-target.repository';
@@ -77,6 +84,19 @@ export class UsersService {
   }
 
   /**
+   * Log do provisionamento dos catálogos — vale para os dois caminhos de
+   * cadastro. Um só evento para as quatro listas: elas nascem juntas.
+   */
+  private logCatalogsProvisioned(ownerId: string, quantidade: number) {
+    this.logger.log({
+      evento: 'catalogo.itens_provisionados',
+      msg: 'Catálogos padrão criados para a conta nova.',
+      ownerId,
+      quantidade,
+    });
+  }
+
+  /**
    * Destinos de notificação padrão da conta nova. O in-app é um canal como os
    * outros (D1): sem esta linha o sino nunca receberia nada. `ownerId` = `id` do
    * próprio usuário, porque owner tem `User.ownerId` nulo — ele É a workspace.
@@ -114,12 +134,17 @@ export class UsersService {
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
         pipelineStages: { create: this.defaultStages() },
+        leadSourceCatalog: { create: defaultLeadSourceCatalog() },
+        lostReasonCatalog: { create: defaultLostReasonCatalog() },
+        serviceCatalog: { create: defaultServiceCatalog() },
+        activityTypeCatalog: { create: defaultActivityTypeCatalog() },
         // `ownerId` do destino não pode sair daqui (o id ainda não existe) — é
         // preenchido logo abaixo, no único ponto do projeto onde ele é conhecido.
       },
     });
     await this.provisionarDestinos(user.id, user.email);
     this.logStagesProvisioned(user.id);
+    this.logCatalogsProvisioned(user.id, totalDeItensDeCatalogo());
     return user;
   }
   findByEmail(email: string) {
@@ -170,10 +195,15 @@ export class UsersService {
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
         pipelineStages: { create: this.defaultStages() },
+        leadSourceCatalog: { create: defaultLeadSourceCatalog() },
+        lostReasonCatalog: { create: defaultLostReasonCatalog() },
+        serviceCatalog: { create: defaultServiceCatalog() },
+        activityTypeCatalog: { create: defaultActivityTypeCatalog() },
       },
     });
     await this.provisionarDestinos(user.id, user.email);
     this.logStagesProvisioned(user.id);
+    this.logCatalogsProvisioned(user.id, totalDeItensDeCatalogo());
     return user;
   }
   findById(id: string) {

@@ -145,6 +145,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     category: 'Organização',
   },
   {
+    key: 'catalogo:gerenciar',
+    label: 'Gerenciar catálogos',
+    description:
+      'Editar as listas do domínio da workspace: tipos de serviço, fontes de lead, tipos de atividade e motivos de perda',
+    category: 'Organização',
+  },
+  {
     key: 'auditoria:ver',
     label: 'Ver a auditoria',
     description:
