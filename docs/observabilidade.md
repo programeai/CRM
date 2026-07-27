@@ -29,11 +29,27 @@ Consultas do dia a dia (**Explore → Loki**):
 | Erros do CRM | `{stack="crm", level="error"}` |
 | Erros que ninguém previu | `{stack="crm"} \| evento="erro.nao_tratado"` |
 | Uma requisição inteira | `{stack="crm"} \| json \| requestId="<id>"` |
-| Requisições lentas (>2s) | `{stack="crm", service="api"} \| json \| evento="http.requisicao" \| ms > 2000` |
-| Uma rota específica | `{stack="crm", service="api"} \| json \| rota="/api/v1/clients"` |
+| Requisições lentas (>2s) | `{stack="crm", service="api"} \| evento="http.requisicao" \| json \| ms > 2000` |
+| Uma rota específica | `{stack="crm", service="api"} \| json \| rota="/api/v1/clients/:id"` |
+| Um registro específico | `{stack="crm", service="api"} \| json \| caminho=~".*/<uuid>.*"` |
 | Tudo de um usuário | `{stack="crm", service="api"} \| json \| usuarioId="<id>"` |
+| Tudo de uma workspace | `{stack="crm", service="api"} \| json \| ownerId="<id>"` |
 | 404 de asset no front | `{stack="crm", service="web"} \| json \| status=404` |
 | Erros por tipo, na última hora | `sum by (evento) (count_over_time({stack="crm", level="error"}[1h]))` |
+| p95 por rota, na última hora | `quantile_over_time(0.95, {stack="crm", service="api"} \| evento="http.requisicao" \| json \| unwrap ms [1h]) by (rota)` |
+
+## Dashboard
+
+O dia a dia sai do dashboard **CRM — visão geral** (pasta *Plataforma*), versionado
+no repositório de observabilidade em
+`grafana/provisioning/dashboards/arquivos/crm.json`. Ele cobre saúde da API (erros,
+taxa de 5xx, p95/p99), rotas mais lentas e com mais erro, credencial recusada e
+rate limit por IP, as rotinas diárias e três painéis de investigação — inclusive
+um que recebe o `x-request-id` e devolve a requisição inteira.
+
+Mudança na convenção de log deste repositório que quebre uma consulta do
+dashboard tem de ser refletida naquele JSON — os dois evoluem juntos. Para
+investigação fora do que o dashboard cobre, **Explore → Loki**.
 
 ## `requestId`: o fio que liga tudo
 
@@ -60,16 +76,39 @@ longo do tempo. Os que existem hoje:
 | `erro.nao_tratado` | exceção não prevista chegando à borda HTTP; inclui `stack` | `error` |
 | `processo.excecao_nao_capturada` | erro fora do ciclo de requisição — o processo cai em seguida | `error` |
 | `processo.promessa_rejeitada` | promessa rejeitada sem `catch` | `error` |
-| `app.iniciada` / `app.falhou_ao_iniciar` | bootstrap | `info` / `error` |
+| `app.iniciada` / `app.falhou_ao_iniciar` | bootstrap (o segundo também vem do `entrypoint.sh`, antes do Nest existir) | `info` / `error` |
+| `app.migracao_falhou` | `prisma migrate deploy` falhou no start do container — a API não sobe até resolver | `error` |
 | `email.envio_falhou` / `email.smtp_desabilitado` | envio de e-mail | `error` / `warn` |
 | `financeiro.mensalidades_geradas` / `financeiro.cobrancas_vencidas` | rotina diária das 3h | `info` |
 | `propostas.expiradas` | rotina diária das 3h | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
+| `cadastro.bloqueado` | autocadastro tentado com `REGISTRATION_ENABLED=false` | `warn` |
+| `colaborador.convidado` / `colaborador.convite_reemitido` / `colaborador.convite_aceito` | ciclo do convite de colaborador | `info` |
+| `colaborador.papel_alterado` | troca de papel de um colaborador | `info` |
+| `papel.criado` / `papel.atualizado` / `papel.excluido` | manutenção de papéis e permissões | `info` |
 | `sessao.revogada` | uma sessão encerrada pelo próprio usuário | `info` |
 | `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
 | `auditoria.sem_contexto` | `AuditService.registrar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
 | `auditoria.registro_falhou` | falha ao gravar trilha de ação do sistema (cron/webhook) — o lote continua | `error` |
+
+### Os campos do `http.requisicao`
+
+| Campo | O que é |
+| --- | --- |
+| `rota` | o **molde** da rota (`/api/v1/clients/:id/contacts`) |
+| `caminho` | o caminho cru, **só quando difere** do molde |
+| `metodo`, `status`, `ms` | verbo, status HTTP e duração |
+| `usuarioId` | quem chamou (do `JwtAuthGuard`) |
+| `ownerId` | a workspace afetada (do `AccessGuard`) |
+| `ip`, `ua` | cliente — ver [O campo `ip`](#o-campo-ip) |
+
+`rota` é **normalizada** de propósito: uuid vira `:id`, número vira `:n` e token
+opaco vira `:token`. Sem isso, `sum by (rota)` daria uma série por registro do
+banco e o painel de rota mais lenta seria uma lista de uuids. Quando a rota tem
+parâmetro, o caminho cru — que diz *qual* registro a requisição tocou — fica em
+`caminho`. Segmento de baixa cardinalidade (`google`, `permissions`) **não** é
+normalizado: é ele que distingue uma rota da outra.
 
 O front (`service=web`) emite `http.acesso` pelo nginx, **só para 4xx e 5xx** —
 servidor de arquivo estático em modo "loga tudo" seria só ruído. Para registrar
@@ -175,7 +214,14 @@ throttler falam do mesmo cliente.
 - **Sem alerta.** É consulta sob demanda: ninguém avisa quando `erro.nao_tratado`
   aparece. O caminho é uma regra no Grafana
   (`sum(count_over_time({stack="crm", level="error"}[15m])) > 0`), versionada no
-  repositório de observabilidade.
+  repositório de observabilidade. Foi o que custou caro em 27/07/2026: a API
+  ficou fora 11 horas por migration falha e ninguém soube — a queda era visível
+  no Grafana, mas visível não é o mesmo que avisado.
+- **API fora não gera erro, gera silêncio.** Com log-only, aplicação parada não
+  emite linha nenhuma — o sinal é a *ausência* dela. Por isso o entrypoint emite
+  `app.migracao_falhou`/`app.falhou_ao_iniciar` em JSON ao abortar: sem isso, o
+  container morre calado e o painel de erros fica zerado justamente na queda. O
+  outro sinal é o painel "Requisições na API" em zero.
 - **Sem métrica nem trace.** Só log. Latência por rota sai do campo `ms` do
   `http.requisicao`, que resolve a maior parte das dúvidas de performance.
 - **Consulta lenta de banco não aparece isolada.** O sintoma chega como `ms` alto
