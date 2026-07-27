@@ -9,6 +9,7 @@ import type { PipelineStagesService } from './pipeline-stages.service';
 import type { ProjectsService } from '../../projects/application/projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
@@ -17,6 +18,7 @@ describe('DealsService', () => {
   let projects: { createFromDeal: jest.Mock };
   let members: { assertMember: jest.Mock };
   let audit: { registrar: jest.Mock };
+  let notifications: { notificar: jest.Mock };
   let service: DealsService;
 
   beforeEach(() => {
@@ -37,6 +39,7 @@ describe('DealsService', () => {
     projects = { createFromDeal: jest.fn() };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
@@ -44,6 +47,7 @@ describe('DealsService', () => {
       projects as unknown as ProjectsService,
       members as unknown as WorkspaceMembersService,
       audit as unknown as AuditService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -149,6 +153,55 @@ describe('DealsService', () => {
     expect(repo.update).toHaveBeenCalledWith(
       'd1',
       expect.not.objectContaining({ assigneeId: expect.anything() }),
+    );
+    expect(notifications.notificar).not.toHaveBeenCalled();
+  });
+
+  it('notifica o novo responsável ao criar já atribuído', async () => {
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.firstStage.mockResolvedValue({ id: 'stage-0', isLost: false });
+    repo.maxPositionInStage.mockResolvedValue(-1);
+    repo.create.mockResolvedValue({ id: 'd1', title: 'Projeto X' } as never);
+
+    await service.create('owner', {
+      title: 'Projeto X',
+      clientId: 'cli',
+      serviceType: 'SOFTWARE',
+      assigneeId: 'u2',
+    } as never);
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'DEAL',
+          entityId: 'd1',
+          entityLabel: 'Projeto X',
+        }),
+      }),
+    );
+  });
+
+  it('notifica quando o responsável muda no update', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      assigneeId: 'u1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'd1', title: 'Projeto X' } as never);
+
+    await service.update('owner', 'd1', { assigneeId: 'u2' });
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'DEAL',
+        }),
+      }),
     );
   });
 

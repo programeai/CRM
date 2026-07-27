@@ -8,11 +8,13 @@ import { ClientsService } from './clients.service';
 import type { ClientRepository } from '../domain/client.repository';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
 
 describe('ClientsService', () => {
   let repo: jest.Mocked<ClientRepository>;
   let members: jest.Mocked<WorkspaceMembersService>;
   let audit: { registrar: jest.Mock };
+  let notifications: { notificar: jest.Mock };
   let service: ClientsService;
 
   beforeEach(() => {
@@ -35,10 +37,12 @@ describe('ClientsService', () => {
       assertMember: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<WorkspaceMembersService>;
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
     service = new ClientsService(
       repo,
       members,
       audit as unknown as AuditService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -219,6 +223,51 @@ describe('ClientsService', () => {
       'c1',
       'owner-1',
       expect.not.objectContaining({ assigneeId: expect.anything() }),
+    );
+    expect(notifications.notificar).not.toHaveBeenCalled();
+  });
+
+  it('notifica o novo responsável ao criar já atribuído', async () => {
+    repo.existsByDocument.mockResolvedValue(false);
+    repo.create.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+    await service.create('owner-1', {
+      name: 'Acme',
+      personType: 'COMPANY',
+      assigneeId: 'u2',
+    } as never);
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'CLIENT',
+          entityId: 'c1',
+          entityLabel: 'Acme',
+        }),
+      }),
+    );
+  });
+
+  it('notifica quando o responsável muda no update', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      personType: 'COMPANY',
+      assigneeId: 'u1',
+    } as never);
+    repo.update.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+    await service.update('owner-1', 'c1', { assigneeId: 'u2' });
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'CLIENT',
+        }),
+      }),
     );
   });
 });
