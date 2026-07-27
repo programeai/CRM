@@ -79,14 +79,14 @@ describe('Isolamento por ownerId (e2e)', () => {
       expect(desprotegidas).toEqual([]);
     });
 
-    it('as 15 tabelas protegidas hoje continuam protegidas', async () => {
+    it('as 18 tabelas protegidas hoje continuam protegidas', async () => {
       // Contagem-âncora: pega remoção acidental de policy numa migration.
       // Subir este número junto com a migration que adiciona a tabela nova é
       // parte do trabalho — é o momento de perguntar se ela precisa de RLS.
       const [{ total }] = await clientAdmin().$queryRaw<{ total: bigint }[]>`
         SELECT count(*) AS total FROM pg_policies WHERE schemaname = 'public'
       `;
-      expect(Number(total)).toBe(15);
+      expect(Number(total)).toBe(18);
     });
 
     it('crm_app sem app.owner_id definido não enxerga linha nenhuma (fail-closed)', async () => {
