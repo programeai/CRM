@@ -11,6 +11,7 @@ import {
   type ContractWithPayments,
 } from '../domain/contract.repository';
 import { ClientsService } from '../../clients/application/clients.service';
+import { AuditService } from '../../audit/audit.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { buildInstallmentSchedule, buildOneTimeSchedule } from './schedule';
 import type { CreateContractDto } from '../api/dto/create-contract.dto';
@@ -30,6 +31,7 @@ export class ContractsService {
   constructor(
     @Inject(CONTRACT_REPOSITORY) private readonly repo: ContractRepository,
     private readonly clients: ClientsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string, query: ListContractsQueryDto) {
@@ -77,6 +79,31 @@ export class ContractsService {
       status: 'ACTIVE' as const,
     };
 
+    const criado = await this.createByBillingType(ownerId, dto, base);
+    await this.audit.registrar({
+      entity: 'CONTRACT',
+      entityId: criado.id,
+      entityLabel: criado.description,
+      action: 'CRIAR',
+      extra: { cobrancasGeradas: criado.payments.length },
+    });
+    return criado;
+  }
+
+  /** Cada tipo de cobrança monta o seu cronograma; o registro sai igual nos três. */
+  private createByBillingType(
+    ownerId: string,
+    dto: CreateContractDto,
+    base: {
+      ownerId: string;
+      clientId: string;
+      projectId: string | null;
+      proposalId: string | null;
+      description: string;
+      billingType: CreateContractDto['billingType'];
+      status: 'ACTIVE';
+    },
+  ): Promise<ContractWithPayments> {
     if (dto.billingType === 'INSTALLMENTS') {
       const charges = buildInstallmentSchedule({
         downPayment: dto.downPayment,
@@ -134,8 +161,8 @@ export class ContractsService {
     id: string,
     dto: UpdateContractDto,
   ): Promise<ContractWithPayments> {
-    await this.loadOwned(ownerId, id);
-    return this.repo.update(id, {
+    const c = await this.loadOwned(ownerId, id);
+    const atualizado = await this.repo.update(id, {
       ...(dto.description !== undefined
         ? { description: dto.description }
         : {}),
@@ -147,25 +174,55 @@ export class ContractsService {
         ? { endDate: dto.endDate ? new Date(dto.endDate) : null }
         : {}),
     });
+    await this.audit.registrar({
+      entity: 'CONTRACT',
+      entityId: id,
+      entityLabel: c.description,
+      action: 'ATUALIZAR',
+      antes: c,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   async pause(ownerId: string, id: string): Promise<ContractWithPayments> {
     const c = await this.loadOwned(ownerId, id);
     this.assertTransition(c.status, 'PAUSED');
-    return this.repo.update(id, { status: 'PAUSED' });
+    const atualizado = await this.repo.update(id, { status: 'PAUSED' });
+    await this.audit.registrar({
+      entity: 'CONTRACT',
+      entityId: id,
+      entityLabel: c.description,
+      action: 'PAUSAR',
+      antes: c,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   async resume(ownerId: string, id: string): Promise<ContractWithPayments> {
     const c = await this.loadOwned(ownerId, id);
     this.assertTransition(c.status, 'ACTIVE');
-    return this.repo.update(id, { status: 'ACTIVE' });
+    const atualizado = await this.repo.update(id, { status: 'ACTIVE' });
+    await this.audit.registrar({
+      entity: 'CONTRACT',
+      entityId: id,
+      entityLabel: c.description,
+      action: 'RETOMAR',
+      antes: c,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   /** Cancela o contrato e as cobranças em aberto (PENDING/OVERDUE); as PAID ficam no histórico. */
   async cancel(ownerId: string, id: string): Promise<ContractWithPayments> {
     const c = await this.loadOwned(ownerId, id);
     this.assertTransition(c.status, 'CANCELED');
-    return this.repo.update(id, {
+    const emAberto = c.payments.filter(
+      (p) => p.status === 'PENDING' || p.status === 'OVERDUE',
+    ).length;
+    const cancelado = await this.repo.update(id, {
       status: 'CANCELED',
       payments: {
         updateMany: {
@@ -174,6 +231,19 @@ export class ContractsService {
         },
       },
     });
+    // Um registro agregado, não N: a pergunta é "quem cancelou o contrato e
+    // quantas cobranças caíram junto", e N linhas de Payment com o mesmo autor
+    // e o mesmo instante seriam ruído na tela de auditoria.
+    await this.audit.registrar({
+      entity: 'CONTRACT',
+      entityId: id,
+      entityLabel: c.description,
+      action: 'CANCELAR',
+      antes: c,
+      depois: cancelado,
+      extra: { cobrancasCanceladas: emAberto },
+    });
+    return cancelado;
   }
 
   /** Carrega o contrato garantindo que o cliente pertence ao usuário (404 caso contrário). */

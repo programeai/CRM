@@ -5,10 +5,12 @@ import {
 import { PaymentsService } from './payments.service';
 import type { PaymentRepository } from '../domain/payment.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('PaymentsService', () => {
   let repo: jest.Mocked<PaymentRepository>;
   let clients: { findOne: jest.Mock };
+  let audit: { registrar: jest.Mock };
   let service: PaymentsService;
 
   beforeEach(() => {
@@ -22,7 +24,12 @@ describe('PaymentsService', () => {
       markOverdue: jest.fn(),
     };
     clients = { findOne: jest.fn() };
-    service = new PaymentsService(repo, clients as unknown as ClientsService);
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    service = new PaymentsService(
+      repo,
+      clients as unknown as ClientsService,
+      audit as unknown as AuditService,
+    );
   });
 
   it('lança NotFoundException para cobrança inexistente', async () => {
@@ -142,6 +149,30 @@ describe('PaymentsService', () => {
     ]);
     const totals = await service.summary('owner', {});
     expect(totals).toEqual({ recebido: 950, aReceber: 500, emAtraso: 200 });
+  });
+
+  it('registra a baixa na trilha de auditoria', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      status: 'PENDING',
+      amount: 500,
+      description: 'Mensalidade 07/2026',
+      notes: null,
+      contract: { clientId: 'cli' },
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'p1', status: 'PAID' } as never);
+
+    await service.pay('owner', 'p1', { method: 'PIX' });
+
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'PAYMENT',
+        action: 'PAGAR',
+        entityId: 'p1',
+        entityLabel: 'Mensalidade 07/2026',
+      }),
+    );
   });
 
   it('cancela cobrança PENDING', async () => {

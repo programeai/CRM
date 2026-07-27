@@ -16,6 +16,7 @@ import {
   type RoleRepository,
   type RoleWithUsage,
 } from '../domain/role.repository';
+import { AuditService } from '../../audit/audit.service';
 
 /** Papel como o front consome: permissões já resolvidas e sem as ocultas. */
 export interface RoleResponse {
@@ -34,6 +35,7 @@ export class RolesService {
 
   constructor(
     @Inject(ROLE_REPOSITORY) private readonly roles: RoleRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string): Promise<RoleResponse[]> {
@@ -60,6 +62,13 @@ export class RolesService {
       papelId: role.id,
       permissoes: role.permissions.length,
     });
+    await this.audit.registrar({
+      entity: 'ROLE',
+      entityId: role.id,
+      entityLabel: role.name,
+      action: 'CRIAR',
+      extra: { permissoes: role.permissions },
+    });
     return this.toResponse({ ...role, collaboratorsCount: 0 });
   }
 
@@ -84,6 +93,24 @@ export class RolesService {
       msg: 'Papel atualizado.',
       papelId: id,
       permissoes: role.permissions.length,
+    });
+    // O log estruturado só guarda a CONTAGEM de permissões; a trilha guarda o
+    // diff de verdade — é justamente isso que a auditoria de papéis precisa mostrar.
+    await this.audit.registrar({
+      entity: 'ROLE',
+      entityId: id,
+      entityLabel: role.name,
+      action: 'ATUALIZAR',
+      antes: {
+        nome: current.name,
+        descricao: current.description,
+        permissoes: current.permissions,
+      },
+      depois: {
+        nome: role.name,
+        descricao: role.description,
+        permissoes: role.permissions,
+      },
     });
     return this.toResponse({
       ...role,
@@ -111,6 +138,14 @@ export class RolesService {
       papelId: id,
       permissoes: role.permissions.length,
     });
+    await this.audit.registrar({
+      entity: 'ROLE',
+      entityId: id,
+      entityLabel: role.name,
+      action: 'ATUALIZAR',
+      antes: { permissoes: current.permissions },
+      depois: { permissoes: role.permissions },
+    });
     return this.toResponse({
       ...role,
       collaboratorsCount: current.collaboratorsCount,
@@ -130,6 +165,12 @@ export class RolesService {
       evento: 'papel.excluido',
       msg: 'Papel excluído.',
       papelId: id,
+    });
+    await this.audit.registrar({
+      entity: 'ROLE',
+      entityId: id,
+      entityLabel: role.name,
+      action: 'EXCLUIR',
     });
   }
 

@@ -10,6 +10,7 @@ import type {
 } from '../domain/collaborator.repository';
 import type { InvitesService } from './invites.service';
 import type { RolesService } from './roles.service';
+import type { AuditService } from '../../audit/audit.service';
 
 const OWNER = 'owner-1';
 
@@ -32,6 +33,7 @@ describe('CollaboratorsService', () => {
   let repo: jest.Mocked<CollaboratorRepository>;
   let roles: jest.Mocked<Pick<RolesService, 'findOrFail'>>;
   let invites: jest.Mocked<Pick<InvitesService, 'issue'>>;
+  let audit: { registrar: jest.Mock };
   let service: CollaboratorsService;
 
   beforeEach(() => {
@@ -51,10 +53,13 @@ describe('CollaboratorsService', () => {
     };
     invites = { issue: jest.fn().mockResolvedValue('https://crm/convite/tok') };
 
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+
     service = new CollaboratorsService(
       repo,
       roles as unknown as RolesService,
       invites as unknown as InvitesService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -174,6 +179,45 @@ describe('CollaboratorsService', () => {
       });
 
       expect(repo.revokeSessions).toHaveBeenCalledWith('c1', OWNER);
+    });
+
+    it('registra a desativação na trilha de auditoria', async () => {
+      repo.findByIdAndOwner.mockResolvedValue(collaborator());
+      repo.update.mockResolvedValue(collaborator({ active: false }));
+
+      await service.update({ ownerId: OWNER, requesterId: OWNER }, 'c1', {
+        active: false,
+      });
+
+      expect(audit.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity: 'USER',
+          action: 'DESATIVAR',
+          entityId: 'c1',
+          entityLabel: 'Ana',
+        }),
+      );
+    });
+
+    it('registra a troca de papel com o NOME do papel no diff', async () => {
+      repo.findByIdAndOwner.mockResolvedValue(collaborator());
+      repo.update.mockResolvedValue(
+        collaborator({ role: { id: 'r2', name: 'Financeiro', system: false } }),
+      );
+
+      await service.update({ ownerId: OWNER, requesterId: OWNER }, 'c1', {
+        roleId: 'r2',
+      });
+
+      expect(audit.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity: 'USER',
+          action: 'ALTERAR_PAPEL',
+          entityId: 'c1',
+          antes: { papel: 'Comercial' },
+          depois: { papel: 'Financeiro' },
+        }),
+      );
     });
 
     it('não revoga a sessão ao apenas trocar o papel', async () => {

@@ -16,6 +16,7 @@ import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { AuditService } from '../../audit/audit.service';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
 import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
@@ -25,6 +26,7 @@ export class ClientsService {
   constructor(
     @Inject(CLIENT_REPOSITORY) private readonly repo: ClientRepository,
     private readonly members: WorkspaceMembersService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(
@@ -90,8 +92,15 @@ export class ClientsService {
   }
 
   async archive(ownerId: string, id: string): Promise<ClientWithAssignee> {
-    await this.findOne(ownerId, id);
-    return this.repo.archive(id, ownerId);
+    const client = await this.findOne(ownerId, id);
+    const arquivado = await this.repo.archive(id, ownerId);
+    await this.audit.registrar({
+      entity: 'CLIENT',
+      entityId: id,
+      entityLabel: client.name,
+      action: 'ARQUIVAR',
+    });
+    return arquivado;
   }
 
   /** Tags existentes do dono (agregadas dos clientes) com contagem de uso. */

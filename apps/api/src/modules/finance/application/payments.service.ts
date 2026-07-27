@@ -11,6 +11,7 @@ import {
   type PaymentWithContract,
 } from '../domain/payment.repository';
 import { ClientsService } from '../../clients/application/clients.service';
+import { AuditService } from '../../audit/audit.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import type { ListPaymentsQueryDto } from '../api/dto/list-payments-query.dto';
 import type { PaymentSummaryQueryDto } from '../api/dto/payment-summary-query.dto';
@@ -29,6 +30,7 @@ export class PaymentsService {
   constructor(
     @Inject(PAYMENT_REPOSITORY) private readonly repo: PaymentRepository,
     private readonly clients: ClientsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string, query: ListPaymentsQueryDto) {
@@ -88,13 +90,22 @@ export class PaymentsService {
         'Apenas cobranças pendentes podem ser editadas.',
       );
     }
-    return this.repo.update(id, {
+    const atualizado = await this.repo.update(id, {
       ...(dto.description !== undefined
         ? { description: dto.description }
         : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.dueDate !== undefined ? { dueDate: new Date(dto.dueDate) } : {}),
     });
+    await this.audit.registrar({
+      entity: 'PAYMENT',
+      entityId: id,
+      entityLabel: p.description,
+      action: 'ATUALIZAR',
+      antes: p,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   /** Baixa: PENDING|OVERDUE → PAID. */
@@ -105,13 +116,22 @@ export class PaymentsService {
   ): Promise<PaymentWithContract> {
     const p = await this.loadOwned(ownerId, id);
     this.assertTransition(p.status, 'PAID');
-    return this.repo.update(id, {
+    const atualizado = await this.repo.update(id, {
       status: 'PAID',
       paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
       paidAmount: dto.paidAmount ?? p.amount, // aceita valor parcial/diferente
       method: dto.method,
       ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
     });
+    await this.audit.registrar({
+      entity: 'PAYMENT',
+      entityId: id,
+      entityLabel: p.description,
+      action: 'PAGAR',
+      antes: p,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   /** Estorno: PAID → PENDING; nunca exclui; registra em notes. */
@@ -119,20 +139,38 @@ export class PaymentsService {
     const p = await this.loadOwned(ownerId, id);
     this.assertTransition(p.status, 'PENDING');
     const stamp = `Estorno em ${new Date().toISOString().slice(0, 10)}`;
-    return this.repo.update(id, {
+    const atualizado = await this.repo.update(id, {
       status: 'PENDING',
       paidAt: null,
       paidAmount: null,
       method: null,
       notes: p.notes ? `${p.notes}\n${stamp}` : stamp,
     });
+    await this.audit.registrar({
+      entity: 'PAYMENT',
+      entityId: id,
+      entityLabel: p.description,
+      action: 'ESTORNAR',
+      antes: p,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   /** Cancelar: PENDING|OVERDUE → CANCELED. */
   async cancel(ownerId: string, id: string): Promise<PaymentWithContract> {
     const p = await this.loadOwned(ownerId, id);
     this.assertTransition(p.status, 'CANCELED');
-    return this.repo.update(id, { status: 'CANCELED' });
+    const atualizado = await this.repo.update(id, { status: 'CANCELED' });
+    await this.audit.registrar({
+      entity: 'PAYMENT',
+      entityId: id,
+      entityLabel: p.description,
+      action: 'CANCELAR',
+      antes: p,
+      depois: atualizado,
+    });
+    return atualizado;
   }
 
   /** Carrega a cobrança garantindo que o cliente (via contrato) pertence ao usuário. */

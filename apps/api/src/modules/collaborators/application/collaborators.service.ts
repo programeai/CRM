@@ -13,6 +13,7 @@ import {
 } from '../domain/collaborator.repository';
 import { InvitesService } from './invites.service';
 import { RolesService } from './roles.service';
+import { AuditService } from '../../audit/audit.service';
 
 /** Situação do colaborador, derivada — não é coluna no banco. */
 export type CollaboratorStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE';
@@ -36,6 +37,7 @@ export class CollaboratorsService {
     private readonly collaborators: CollaboratorRepository,
     private readonly roles: RolesService,
     private readonly invites: InvitesService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string): Promise<CollaboratorResponse[]> {
@@ -82,6 +84,13 @@ export class CollaboratorsService {
       msg: 'Colaborador convidado.',
       colaboradorId: created.id,
       papelId: role.id,
+    });
+    await this.audit.registrar({
+      entity: 'USER',
+      entityId: created.id,
+      entityLabel: created.name,
+      action: 'CONVIDAR',
+      extra: { papelId: role.id, papel: role.name },
     });
     return { collaborator: toResponse(created), inviteUrl };
   }
@@ -155,6 +164,15 @@ export class CollaboratorsService {
         colaboradorId: id,
         papelId: data.roleId,
       });
+      // O diff guarda o NOME do papel, não o id: é o que a tela precisa mostrar.
+      await this.audit.registrar({
+        entity: 'USER',
+        entityId: id,
+        entityLabel: current.name,
+        action: 'ALTERAR_PAPEL',
+        antes: { papel: current.role?.name ?? null },
+        depois: { papel: updated.role?.name ?? null },
+      });
     }
     if (data.active !== undefined && data.active !== current.active) {
       this.logger.log({
@@ -163,6 +181,12 @@ export class CollaboratorsService {
           : 'colaborador.desativado',
         msg: data.active ? 'Colaborador reativado.' : 'Colaborador desativado.',
         colaboradorId: id,
+      });
+      await this.audit.registrar({
+        entity: 'USER',
+        entityId: id,
+        entityLabel: current.name,
+        action: data.active ? 'ATIVAR' : 'DESATIVAR',
       });
     }
     return toResponse(updated);

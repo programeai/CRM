@@ -7,12 +7,14 @@ import type { ProposalRepository } from '../domain/proposal.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { DealsService } from '../../pipeline/application/deals.service';
 import type { PipelineStagesService } from '../../pipeline/application/pipeline-stages.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('ProposalsService', () => {
   let repo: jest.Mocked<ProposalRepository>;
   let clients: { findOne: jest.Mock };
   let deals: { findOne: jest.Mock; move: jest.Mock; board: jest.Mock };
   let stages: { wonStage: jest.Mock };
+  let audit: { registrar: jest.Mock };
   let service: ProposalsService;
 
   beforeEach(() => {
@@ -30,11 +32,13 @@ describe('ProposalsService', () => {
     clients = { findOne: jest.fn() };
     deals = { findOne: jest.fn(), move: jest.fn(), board: jest.fn() };
     stages = { wonStage: jest.fn() };
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     service = new ProposalsService(
       repo,
       clients as unknown as ClientsService,
       deals as unknown as DealsService,
       stages as unknown as PipelineStagesService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -166,7 +170,11 @@ describe('ProposalsService', () => {
       items: [{ description: 'A', quantity: 1, unitPrice: 100, order: 0 }],
     } as never);
     clients.findOne.mockResolvedValue({ id: 'cli' });
-    repo.create.mockResolvedValue({ id: 'p2' } as never);
+    repo.create.mockResolvedValue({
+      id: 'p2',
+      number: 'PROP-2026-0001',
+      version: 2,
+    } as never);
     await service.newVersion('owner', 'p1');
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -174,6 +182,33 @@ describe('ProposalsService', () => {
         version: 2,
         parentId: 'p1',
         status: 'DRAFT',
+      }),
+    );
+  });
+
+  it('registra UM aceite na trilha, com o movimento do deal como consequência', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      clientId: 'cli',
+      status: 'SENT',
+      number: 'PROP-2026-0042',
+      dealId: 'd1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'p1', status: 'ACCEPTED' } as never);
+    stages.wonStage.mockResolvedValue({ id: 'won', isWon: true });
+    deals.board.mockResolvedValue([{ id: 'd1', stageId: 's1' }]);
+
+    await service.accept('owner', 'p1');
+
+    expect(audit.registrar).toHaveBeenCalledTimes(1);
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'PROPOSAL',
+        action: 'ACEITAR',
+        entityId: 'p1',
+        entityLabel: 'PROP-2026-0042',
+        extra: { dealMovidoParaGanhou: true },
       }),
     );
   });
