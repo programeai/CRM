@@ -109,3 +109,30 @@ Além disso, todo seam de infraestrutura tem cobertura e2e (`test/*.e2e-spec.ts`
 `ownerId`. Rota nova que rode FORA da transação do `OwnerContextInterceptor`
 (ou seja, marcada com `@Public()`) entra no `auth.e2e-spec.ts` no mesmo PR —
 é o caminho que já quebrou uma vez com a suíte inteira verde.
+
+## Migration é validada com dado dentro (obrigatório)
+
+**Banco vazio não valida migration.** O `global-setup.ts` do e2e cria o banco e
+roda `migrate deploy` numa base limpa: migration de backfill nem percorre o
+caminho perigoso ali. Foi assim que `20260726120000_pipeline_stages_per_owner`
+saiu verde do CI e derrubou a API em produção por 11 horas — ela replica o funil
+por owner com um `CROSS JOIN` sobre `User`, e sem nenhum `User` o `CROSS JOIN`
+não insere nada, então o índice único que ela violava nunca era tocado.
+
+O portão é `scripts/validar-migrations-com-dados.sh`, rodado pelo CI a cada push
+que toca a API: aplica o init, insere `prisma/fixtures/banco-populado.sql` (dois
+owners, clientes, o funil e deals dos dois) e só então aplica o resto das
+migrations, terminando nas invariantes de `prisma/fixtures/invariantes.sql`.
+
+Regras ao escrever migration nova:
+
+- Rode o portão localmente antes de abrir o PR:
+  `DATABASE_URL=postgresql://crm_user:crm_password@localhost:5435/crm_db apps/api/scripts/validar-migrations-com-dados.sh`
+- Migration que faz backfill ou troca constraint **precisa** de uma invariante
+  nova em `invariantes.sql` afirmando o que o dado deve satisfazer depois. "Não
+  estourou" é portão fraco: backfill pode terminar com exit 0 e dado errado.
+- Se o portão ficar vermelho porque a fixture não tem coluna nova NOT NULL, o
+  conserto é dar default ou fazer o backfill **na migration** — em produção ela
+  falharia igual. Não enfraqueça a fixture para o CI passar.
+- A fixture usa só colunas do `init`, porque é inserida logo depois dele. Não
+  acrescente ali coluna criada por migration posterior.

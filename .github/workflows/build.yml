@@ -180,6 +180,23 @@ jobs:
         if: steps.detectar.outputs.api == 'true'
         run: pnpm --filter api test:e2e
 
+      # O e2e acima aplica as migrations num banco RECÉM-CRIADO, e é por isso que
+      # ele não substitui este passo: migration de backfill se comporta diferente
+      # com dado, e banco vazio faz o caminho perigoso não ser percorrido. Foi
+      # essa lacuna que deixou 20260726120000_pipeline_stages_per_owner sair verde
+      # daqui e derrubar a API em produção por 11 horas em 27/07/2026.
+      #
+      # O script aplica o init, insere uma fixture com dois owners e deals, e só
+      # então roda o resto das migrations — depois confere invariantes de dado
+      # (nenhum deal apontando para estágio de outro owner, RLS ainda de pé).
+      # Roda sempre que a API é afetada, não só quando há migration nova: o que
+      # quebra também pode ser um schema.prisma que saiu de sincronia.
+      - name: Migrations contra banco com dados
+        if: steps.detectar.outputs.api == 'true'
+        env:
+          DATABASE_URL: postgresql://crm_user:crm_password@localhost:5435/crm_db?schema=public
+        run: apps/api/scripts/validar-migrations-com-dados.sh
+
       # -----------------------------------------------------------------------
       # Build e push das imagens que mudaram (tags `latest` e `<sha>`).
       # -----------------------------------------------------------------------
