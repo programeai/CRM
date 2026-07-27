@@ -152,6 +152,20 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     category: 'Organização',
   },
   {
+    key: 'lixeira:ver',
+    label: 'Ver a lixeira',
+    description:
+      'Consultar os registros arquivados e restaurá-los para as listagens',
+    category: 'Organização',
+  },
+  {
+    key: 'lixeira:expurgar',
+    label: 'Excluir em definitivo',
+    description:
+      'Apagar da lixeira, sem volta, um registro arquivado. Ação destrutiva e irreversível',
+    category: 'Organização',
+  },
+  {
     key: 'assinatura:gerenciar',
     label: 'Gerenciar assinatura',
     description: 'Ver e alterar o plano de assinatura do CRM',
