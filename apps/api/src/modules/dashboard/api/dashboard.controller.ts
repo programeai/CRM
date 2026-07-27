@@ -7,6 +7,7 @@ import {
 import { RequirePermission } from '../../access/require-permission.decorator';
 import type { AccessContext } from '../../access/domain/access-context';
 import { FinanceQueryDto } from './dto/finance-query.dto';
+import { SummaryQueryDto } from './dto/summary-query.dto';
 
 @Controller('dashboard')
 export class DashboardController {
@@ -20,8 +21,9 @@ export class DashboardController {
   @Get('summary') summary(
     @CurrentOwnerId() ownerId: string,
     @CurrentAccess() access: AccessContext,
+    @Query() query: SummaryQueryDto,
   ) {
-    return this.dashboard.summary(ownerId, access.permissions);
+    return this.dashboard.summary(ownerId, access, query.onlyMine ?? false);
   }
 
   @RequirePermission('financeiro:ver', 'financeiro:gerenciar')

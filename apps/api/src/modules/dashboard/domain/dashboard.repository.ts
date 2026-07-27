@@ -4,6 +4,7 @@ import type {
   TaskPriority,
   ActivityType,
 } from '@prisma/client';
+import type { AssigneeScope } from '../../../shared/record-scope';
 
 export const DASHBOARD_REPOSITORY = Symbol('DASHBOARD_REPOSITORY');
 
@@ -65,8 +66,11 @@ export interface UpcomingPaymentRow {
  */
 export interface DashboardRepository {
   // --- Comercial ---
-  /** Funil: cada estágio (na ordem) com contagem e valor das oportunidades. */
-  funnel(ownerId: string): Promise<FunnelStageRow[]>;
+  /**
+   * Funil: cada estágio (na ordem) com contagem e valor das oportunidades.
+   * O `scope` recorta os **deals**, não os estágios (estágio é do owner).
+   */
+  funnel(ownerId: string, scope?: AssigneeScope): Promise<FunnelStageRow[]>;
   /** Propostas em aberto (DRAFT | SENT | NEGOTIATING): quantidade e valor. */
   proposalsOpen(ownerId: string): Promise<{ count: number; amount: number }>;
   /** Propostas ACEITAS com `decidedAt` no intervalo `[from, to)`. */
@@ -83,20 +87,29 @@ export interface DashboardRepository {
 
   // --- Demandas ---
   /** Tarefas em andamento (`IN_PROGRESS`). */
-  tasksInProgressCount(ownerId: string): Promise<number>;
+  tasksInProgressCount(ownerId: string, scope?: AssigneeScope): Promise<number>;
   /** Tarefas atrasadas (não concluídas com `dueDate < now`). */
-  tasksOverdueCount(ownerId: string, now: Date): Promise<number>;
+  tasksOverdueCount(
+    ownerId: string,
+    now: Date,
+    scope?: AssigneeScope,
+  ): Promise<number>;
   /** Tarefas não concluídas com entrega em `[now, until]`, ordenadas por prazo. */
   upcomingTasks(
     ownerId: string,
     now: Date,
     until: Date,
     take: number,
+    scope?: AssigneeScope,
   ): Promise<UpcomingTaskRow[]>;
 
   // --- Próximas ações ---
   /** Follow-ups agendados e não concluídos, ordenados por `scheduledFor`. */
-  upcomingActions(ownerId: string, take: number): Promise<UpcomingActionRow[]>;
+  upcomingActions(
+    ownerId: string,
+    take: number,
+    scope?: AssigneeScope,
+  ): Promise<UpcomingActionRow[]>;
 
   // --- Financeiro ---
   /** MRR: Σ das mensalidades de contratos ATIVOS recorrentes. */
