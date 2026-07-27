@@ -52,6 +52,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     description: 'Criar, editar e arquivar clientes, contatos e atividades',
     category: 'Clientes',
   },
+  {
+    key: 'cliente:ver_todos',
+    label: 'Ver clientes de todos',
+    description:
+      'Ver clientes e atividades de qualquer responsável — sem esta permissão, vê apenas os seus e os sem responsável',
+    category: 'Clientes',
+  },
   // Pipeline
   {
     key: 'oportunidade:ver',
@@ -63,6 +70,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     key: 'oportunidade:gerenciar',
     label: 'Gerenciar oportunidades',
     description: 'Criar, mover, ganhar e perder oportunidades',
+    category: 'Pipeline',
+  },
+  {
+    key: 'oportunidade:ver_todas',
+    label: 'Ver oportunidades de todos',
+    description:
+      'Ver oportunidades de qualquer responsável — sem esta permissão, vê apenas as suas e as sem responsável',
     category: 'Pipeline',
   },
   // Propostas
@@ -95,6 +109,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     key: 'demanda:gerenciar',
     label: 'Gerenciar demandas',
     description: 'Criar, mover e concluir as demandas dos projetos',
+    category: 'Operação',
+  },
+  {
+    key: 'demanda:ver_todas',
+    label: 'Ver demandas de todos',
+    description:
+      'Ver demandas de qualquer responsável — sem esta permissão, vê apenas as suas e as sem responsável',
     category: 'Operação',
   },
   // Financeiro

@@ -91,8 +91,10 @@ async function main() {
       permissions: [
         'cliente:ver',
         'cliente:gerenciar',
+        'cliente:ver_todos',
         'oportunidade:ver',
         'oportunidade:gerenciar',
+        'oportunidade:ver_todas',
         'proposta:ver',
         'proposta:gerenciar',
       ],
