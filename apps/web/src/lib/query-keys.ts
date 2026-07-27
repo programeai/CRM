@@ -12,7 +12,7 @@ export const queryKeys = {
   },
   deals: {
     all: ['deals'] as const,
-    board: ['deals', 'board'] as const,
+    board: (params: object = {}) => ['deals', 'board', params] as const,
     byClient: (clientId: string) => ['deals', 'client', clientId] as const,
   },
   stages: {
@@ -34,7 +34,7 @@ export const queryKeys = {
   tasks: {
     all: ['tasks'] as const,
     board: (projectId: string) => ['tasks', 'board', projectId] as const,
-    myBoard: ['tasks', 'board', 'me'] as const,
+    myBoard: (params: object = {}) => ['tasks', 'board', 'me', params] as const,
     list: (params: object) => ['tasks', 'list', params] as const,
     tags: ['tasks', 'tags'] as const,
     tagUsage: (tag: string) => ['tasks', 'tags', 'usage', tag] as const,
@@ -51,7 +51,7 @@ export const queryKeys = {
     summary: (params: object) => ['payments', 'summary', params] as const,
   },
   dashboard: {
-    summary: ['dashboard', 'summary'] as const,
+    summary: (params: object = {}) => ['dashboard', 'summary', params] as const,
     finance: (month?: string) => ['dashboard', 'finance', month ?? 'current'] as const,
   },
   billing: {
@@ -70,6 +70,7 @@ export const queryKeys = {
     detail: (token: string) => ['invites', token] as const,
   },
   clientOptions: (search: string) => ['client-options', search] as const,
+  workspaceMembers: ['workspace', 'members'] as const,
   auth: {
     oauthProviders: ['auth', 'oauth-providers'] as const,
     registration: ['auth', 'registration'] as const,

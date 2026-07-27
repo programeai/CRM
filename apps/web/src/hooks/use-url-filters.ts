@@ -48,6 +48,14 @@ export function numberFilter(fallback: number): FilterCodec<number> {
   };
 }
 
+/** Alternador ligado/desligado (ex.: "Somente meus"). `false` é omitido da URL. */
+export function booleanFilter(): FilterCodec<boolean> {
+  return {
+    decode: (raw) => raw === 'true',
+    encode: (value) => (value ? 'true' : null),
+  };
+}
+
 /** Lista de strings serializada como valores separados por vírgula. Vazia → omitida. */
 export function stringArrayFilter(): FilterCodec<string[]> {
   return {
