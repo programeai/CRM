@@ -30,7 +30,8 @@ export interface DestinoDeNotificacao {
   label: string;
   /**
    * Resumo da config — a API **nunca** devolve a config crua. `null` no `IN_APP`,
-   * o endereço no `EMAIL`, e só o host no `WEBHOOK`/`SLACK` (a URL é o segredo).
+   * o endereço no `EMAIL`, e só o host nos destinos de integração (a URL é o
+   * segredo: no Telegram ela carrega o token do bot).
    */
   configResumo: string | null;
   types: NotificationType[];
@@ -57,7 +58,12 @@ export interface AtualizarDestinoBody {
  */
 export interface CriarIntegracaoBody {
   label: string;
-  kind: 'WEBHOOK' | 'SLACK' | 'DISCORD';
+  kind: 'WEBHOOK' | 'SLACK' | 'DISCORD' | 'TELEGRAM';
+  /**
+   * No `TELEGRAM` é o `sendMessage` da Bot API com o `chat_id` na query — quem
+   * monta é o formulário, a partir do token e do chat id (ver `montarUrlTelegram`).
+   * Nos demais, é a URL de webhook que o usuário colou.
+   */
   url: string;
   types?: NotificationType[];
 }
