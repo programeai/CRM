@@ -4,8 +4,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { OAuthProvider } from '@prisma/client';
+import type { Session } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
+import { SessionsService } from './sessions.service';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
 import { JwtService } from '@nestjs/jwt';
@@ -22,12 +24,17 @@ describe('AuthService', () => {
       | 'createWithOAuth'
       | 'findByProviderAccount'
       | 'linkOAuthAccount'
-      | 'setRefreshTokenHash'
       | 'updatePassword'
       | 'createPasswordResetToken'
       | 'findResetTokenByHash'
       | 'markResetTokenUsed'
       | 'deletePendingResetTokens'
+    >
+  >;
+  let sessions: jest.Mocked<
+    Pick<
+      SessionsService,
+      'create' | 'findById' | 'rotate' | 'revoke' | 'revokeAll'
     >
   >;
   let jwt: jest.Mocked<Pick<JwtService, 'signAsync'>>;
@@ -43,12 +50,18 @@ describe('AuthService', () => {
       createWithOAuth: jest.fn(),
       findByProviderAccount: jest.fn(),
       linkOAuthAccount: jest.fn().mockResolvedValue(undefined),
-      setRefreshTokenHash: jest.fn().mockResolvedValue(undefined),
       updatePassword: jest.fn().mockResolvedValue(undefined),
       createPasswordResetToken: jest.fn().mockResolvedValue(undefined),
       findResetTokenByHash: jest.fn(),
       markResetTokenUsed: jest.fn().mockResolvedValue(undefined),
       deletePendingResetTokens: jest.fn().mockResolvedValue(undefined),
+    };
+    sessions = {
+      create: jest.fn().mockResolvedValue(undefined),
+      findById: jest.fn(),
+      rotate: jest.fn().mockResolvedValue(undefined),
+      revoke: jest.fn().mockResolvedValue(true),
+      revokeAll: jest.fn().mockResolvedValue(1),
     };
     jwt = { signAsync: jest.fn().mockResolvedValue('token') };
     mail = { sendPasswordReset: jest.fn().mockResolvedValue(undefined) };
@@ -60,6 +73,7 @@ describe('AuthService', () => {
     } as unknown as ConfigService;
     service = new AuthService(
       users as unknown as UsersService,
+      sessions as unknown as SessionsService,
       jwt as unknown as JwtService,
       config,
       mail as unknown as MailService,
@@ -91,9 +105,11 @@ describe('AuthService', () => {
       } as any);
       const result = await service.login('a@b.com', 'senha-correta');
       expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
-      expect(users.setRefreshTokenHash).toHaveBeenCalledWith(
-        'u1',
-        expect.any(String),
+      expect(sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'u1',
+          tokenHash: expect.any(String),
+        }),
       );
     });
 
@@ -172,47 +188,75 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    it('rejeita quando refreshTokenHash é null', async () => {
-      users.findById.mockResolvedValue({
-        id: 'u1',
-        refreshTokenHash: null,
-      } as any);
-      await expect(service.refresh('u1', 'algum-token')).rejects.toBeInstanceOf(
+    const sessaoValida = async (over: Partial<Session> = {}) => ({
+      id: 's1',
+      userId: 'u1',
+      tokenHash: await argon2.hash('refresh-valido'),
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      ...over,
+    });
+
+    it('rejeita quando a sessão não existe', async () => {
+      sessions.findById.mockResolvedValue(null);
+      await expect(service.refresh('s1', 'u1', 't')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
     });
 
-    it('rejeita quando o refresh token não confere com o hash', async () => {
-      const refreshTokenHash = await argon2.hash('token-antigo');
-      users.findById.mockResolvedValue({ id: 'u1', refreshTokenHash } as any);
-      await expect(service.refresh('u1', 'token-novo')).rejects.toBeInstanceOf(
-        UnauthorizedException,
+    it('rejeita sessão de outro usuário (sid roubado)', async () => {
+      sessions.findById.mockResolvedValue(
+        (await sessaoValida({ userId: 'u2' })) as any,
       );
+      await expect(
+        service.refresh('s1', 'u1', 'refresh-valido'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
-    it('emite novos tokens quando o refresh confere', async () => {
-      const token = 'refresh-valido';
-      const refreshTokenHash = await argon2.hash(token);
-      users.findById.mockResolvedValue({
-        id: 'u1',
-        refreshTokenHash,
-        active: true,
-      } as any);
-      const result = await service.refresh('u1', token);
-      expect(result).toEqual({ accessToken: 'token', refreshToken: 'token' });
+    it('rejeita sessão revogada', async () => {
+      sessions.findById.mockResolvedValue(
+        (await sessaoValida({ revokedAt: new Date() })) as any,
+      );
+      await expect(
+        service.refresh('s1', 'u1', 'refresh-valido'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejeita sessão expirada', async () => {
+      sessions.findById.mockResolvedValue(
+        (await sessaoValida({ expiresAt: new Date(Date.now() - 1) })) as any,
+      );
+      await expect(
+        service.refresh('s1', 'u1', 'refresh-valido'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejeita token que não confere com o hash vigente (já rotacionado)', async () => {
+      sessions.findById.mockResolvedValue((await sessaoValida()) as any);
+      await expect(
+        service.refresh('s1', 'u1', 'token-antigo'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rotaciona na MESMA sessão quando o refresh confere', async () => {
+      sessions.findById.mockResolvedValue((await sessaoValida()) as any);
+      users.findById.mockResolvedValue({ id: 'u1', active: true } as any);
+      const r = await service.refresh('s1', 'u1', 'refresh-valido');
+      expect(r).toEqual({ accessToken: 'token', refreshToken: 'token' });
+      expect(sessions.rotate).toHaveBeenCalledWith(
+        's1',
+        expect.any(String),
+        expect.anything(),
+      );
+      expect(sessions.create).not.toHaveBeenCalled();
     });
 
     it('rejeita o refresh de colaborador desativado', async () => {
-      const token = 'refresh-valido';
-      const refreshTokenHash = await argon2.hash(token);
-      users.findById.mockResolvedValue({
-        id: 'u1',
-        refreshTokenHash,
-        active: false,
-      } as any);
-      await expect(service.refresh('u1', token)).rejects.toThrow(
-        'Seu acesso ao CRM foi desativado',
-      );
+      sessions.findById.mockResolvedValue((await sessaoValida()) as any);
+      users.findById.mockResolvedValue({ id: 'u1', active: false } as any);
+      await expect(
+        service.refresh('s1', 'u1', 'refresh-valido'),
+      ).rejects.toThrow('Seu acesso ao CRM foi desativado');
     });
   });
 
@@ -292,7 +336,7 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(GoneException);
     });
 
-    it('troca a senha, marca o token como usado e revoga a sessão', async () => {
+    it('troca a senha, marca o token como usado e revoga todas as sessões', async () => {
       users.findResetTokenByHash.mockResolvedValue({
         id: 't1',
         userId: 'u1',
@@ -308,7 +352,21 @@ describe('AuthService', () => {
         't1',
         expect.any(Date),
       );
-      expect(users.setRefreshTokenHash).toHaveBeenCalledWith('u1', null);
+      expect(sessions.revokeAll).toHaveBeenCalledWith('u1');
+    });
+  });
+
+  describe('logout', () => {
+    it('com sid, revoga só aquela sessão', async () => {
+      await service.logout('u1', 's1');
+      expect(sessions.revoke).toHaveBeenCalledWith('s1', 'u1');
+      expect(sessions.revokeAll).not.toHaveBeenCalled();
+    });
+
+    it('sem sid (access token anterior à Fase 8A), revoga todas', async () => {
+      await service.logout('u1', undefined);
+      expect(sessions.revokeAll).toHaveBeenCalledWith('u1');
+      expect(sessions.revoke).not.toHaveBeenCalled();
     });
   });
 });
