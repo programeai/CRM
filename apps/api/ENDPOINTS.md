@@ -45,7 +45,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Autocadastro de usuário: cria a conta e já autentica, emitindo access token e refresh token.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
 - **Body:** `{ name: string (2–120), email: string (e-mail), password: string (mín. 6), captchaToken?: string }` — `captchaToken` (Cloudflare Turnstile) é obrigatório quando `TURNSTILE_SECRET_KEY` está configurado.
-- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
+- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`) + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
 - **Erros:** `403 O autocadastro está desativado nesta instância. Peça um convite ao responsável pela conta.` (`REGISTRATION_ENABLED=false`); `409 Já existe uma conta com este e-mail.`; `400 Confirme que você não é um robô.` / `400 Falha na verificação do captcha. Tente novamente.` (captcha); `400` (validação).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.register`
 
@@ -53,7 +53,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Autenticar por e-mail e senha, emitindo um access token e um refresh token.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
 - **Body:** `{ email: string (e-mail), password: string (mín. 6) }`
-- **Resposta:** `200 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
+- **Resposta:** `200 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`) + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
 - **Erros:** `401 Credenciais inválidas`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.login`
 
@@ -77,7 +77,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Renovar o access token a partir do refresh token em cookie, rotacionando o refresh.
 - **Auth:** Pública (`@Public()`); exige o cookie `refresh_token` válido.
 - **Body:** — (lê o cookie `refresh_token`)
-- **Resposta:** `200 { accessToken: string }` + novo cookie `refresh_token`.
+- **Resposta:** `200 { accessToken: string }` + novo cookie `refresh_token` + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
 - **Erros:** `401` (cookie ausente, inválido ou não confere com o hash persistido).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.refresh`
 
@@ -106,10 +106,10 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.logout`
 
 ### GET /auth/sessions
-- **Propósito:** Listar as sessões ativas (dispositivos logados) do próprio usuário, da mais usada recentemente para a mais antiga.
+- **Propósito:** Listar as sessões ativas (dispositivos logados) do próprio usuário, da mais usada recentemente para a mais antiga. **Uma linha por aparelho**: o login novo revoga a sessão anterior do mesmo `device_id` (ver `modules/auth/device-cookie.ts`).
 - **Auth:** Bearer (access token). Sem permissão — é dado de identidade do próprio usuário.
 - **Body:** —
-- **Resposta:** `200 Array<{ id, device, ip, createdAt, lastUsedAt, current }>`. `device` é um rótulo derivado do User-Agent ("Chrome no Windows"); `current: true` marca a sessão que fez esta requisição (ausente em access token emitido antes da Fase 8A).
+- **Resposta:** `200 Array<{ id, device, ip, createdAt, lastUsedAt, current }>`. `device` é um rótulo derivado do User-Agent ("Chrome no Windows"); `current: true` marca a sessão que fez esta requisição (ausente em access token emitido antes da Fase 8A). Sessão criada antes do cookie `device_id` não tem aparelho associado e só colapsa depois do primeiro refresh, que a adota.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.sessions`
 
@@ -157,7 +157,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Retorno do provedor: valida o `state`, troca o `code` por perfil, entra ou cadastra (vínculo por e-mail verificado) e volta ao frontend. Emite o refresh token em cookie; o access token é obtido pelo frontend via `POST /auth/refresh`.
 - **Auth:** Pública (`@Public()`); exige o cookie `oauth_state` conferindo com o `state` da query.
 - **Query:** `code: string`, `state: string`
-- **Resposta:** `302 → {FRONTEND_URL}` (autenticado) + cookie `httpOnly` `refresh_token`.
+- **Resposta:** `302 → {FRONTEND_URL}` (autenticado) + cookie `httpOnly` `refresh_token` + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
 - **Erros:** `302 → {FRONTEND_URL}/login?error=oauth` (state inválido, falha na troca, ou e-mail não verificado); `302 → {FRONTEND_URL}/login?error=cadastro_desativado` (e-mail desconhecido com `REGISTRATION_ENABLED=false`).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.oauthCallback`
 
@@ -1003,7 +1003,7 @@ Rotas do aceite: quem abre o link ainda não tem sessão. Não têm contexto de 
 - **Propósito:** Definir a senha, consumir o convite (uso único) e **já autenticar** — o link chegou no e-mail do próprio colaborador, então pedir login em seguida seria atrito sem ganho.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
 - **Body:** `{ password: string (mín. 6) }`.
-- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`).
+- **Resposta:** `201 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`) + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
 - **Erros:** `410 Este convite não é mais válido. Peça um novo ao responsável pela conta.` (inclui a corrida de dois envios simultâneos do mesmo link); `403 Este acesso foi desativado. Fale com o responsável pela conta.`; `400` (senha curta).
 - **Handler:** `modules/collaborators/api/invites.controller.ts` → `InvitesController.accept`
 
