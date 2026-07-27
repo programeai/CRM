@@ -95,15 +95,13 @@ const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   TELEGRAM: Send,
 };
 
-interface PreferenciasDeNotificacaoProps {
-  /** Só busca quando o diálogo está aberto — evita requisição em tela fechada. */
-  enabled: boolean;
-}
-
-export function PreferenciasDeNotificacao({
-  enabled,
-}: PreferenciasDeNotificacaoProps) {
-  const { data: destinos, isLoading, isError } = useDestinos({ enabled });
+/**
+ * Aba "Notificações" de `/configuracoes`: os destinos de e-mail e as
+ * integrações (Slack, Discord, Telegram, webhook) numa lista só — é uma lista
+ * só no servidor, e o que muda entre elas é o `kind`.
+ */
+export function PreferenciasDeNotificacao() {
+  const { data: destinos, isLoading, isError } = useDestinos();
   const atualizar = useAtualizarDestino();
   const excluir = useExcluirDestino();
   const verificar = useVerificarDestino();
@@ -164,11 +162,11 @@ export function PreferenciasDeNotificacao({
   };
 
   return (
-    <div className="flex flex-col gap-3 border-t pt-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-medium">Notificações</h3>
-          <p className="text-xs text-muted-foreground">
+    <section className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-semibold">Notificações</h2>
+          <p className="text-sm text-muted-foreground">
             Escolha onde receber cada aviso. Desativar um destino para de
             entregar nele — o histórico continua na central.
           </p>
@@ -178,7 +176,6 @@ export function PreferenciasDeNotificacao({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => setNovoAberto(true)}
             >
               <Plus data-icon="inline-start" />
@@ -189,7 +186,6 @@ export function PreferenciasDeNotificacao({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => setIntegracaoAberta(true)}
             >
               <Webhook data-icon="inline-start" />
@@ -294,8 +290,6 @@ export function PreferenciasDeNotificacao({
         </ul>
       )}
 
-      {/* ConfirmDialog participa da pilha `modal-stack`: o PerfilDialog é
-          soterrado (mantendo o estado do formulário) e volta ao fechar. */}
       <ConfirmDialog
         open={!!excluindo}
         onOpenChange={(open) => !open && setExcluindo(null)}
@@ -307,7 +301,7 @@ export function PreferenciasDeNotificacao({
         pending={excluir.isPending}
         onConfirm={() => void confirmarExclusao()}
       />
-    </div>
+    </section>
   );
 }
 

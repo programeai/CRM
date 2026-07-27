@@ -29,6 +29,10 @@ import ContratosListPage from '@/features/financeiro/ContratosListPage';
 import ContratoDetalhePage from '@/features/financeiro/ContratoDetalhePage';
 import ContratosDoClienteTab from '@/features/financeiro/ContratosDoClienteTab';
 import PaywallPage from '@/features/billing/PaywallPage';
+import ConfiguracoesLayout from '@/features/configuracoes/ConfiguracoesLayout';
+import PerfilTab from '@/features/perfil/PerfilTab';
+import { SessoesAtivas } from '@/features/perfil/SessoesAtivas';
+import { PreferenciasDeNotificacao } from '@/features/notificacoes/PreferenciasDeNotificacao';
 import ColaboradoresPage from '@/features/organizacao/ColaboradoresPage';
 import PapeisPage from '@/features/organizacao/PapeisPage';
 import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
@@ -66,6 +70,18 @@ export const router = createBrowserRouter([
           // colaborador e a tela que explica um bloqueio de assinatura.
           { path: '/', element: <DashboardPage /> },
           { path: '/assinatura', element: <PaywallPage /> },
+          // Configurações da própria conta: fora do gating por permissão, como
+          // o Dashboard — todo colaborador edita o próprio perfil, vê os
+          // próprios dispositivos e escolhe onde ser avisado.
+          {
+            path: '/configuracoes',
+            element: <ConfiguracoesLayout />,
+            children: [
+              { index: true, element: <PerfilTab /> },
+              { path: 'dispositivos', element: <SessoesAtivas /> },
+              { path: 'notificacoes', element: <PreferenciasDeNotificacao /> },
+            ],
+          },
           {
             element: <PermissionRoute permission={CLIENTES} />,
             children: [

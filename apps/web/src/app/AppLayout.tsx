@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "next-themes";
-import { CreditCard, LogOut, Moon, Sun, UserRound } from "lucide-react";
+import { CreditCard, LogOut, Moon, Settings, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useMe } from "@/features/perfil/api/hooks";
-import { PerfilDialog } from "@/features/perfil/PerfilDialog";
 import { SinoDeNotificacoes } from "@/features/notificacoes/SinoDeNotificacoes";
 import { useSubscription } from "@/features/billing/useSubscription";
 import { useCan } from "@/hooks/use-can";
@@ -49,8 +48,6 @@ export default function AppLayout() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const isDark = mounted && resolvedTheme === "dark";
-
-  const [perfilOpen, setPerfilOpen] = useState(false);
 
   const { data: me } = useMe();
   const userLabel = me?.name ?? "Minha conta";
@@ -174,9 +171,9 @@ export default function AppLayout() {
                   )}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setPerfilOpen(true)}>
-                  <UserRound />
-                  Perfil
+                <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
+                  <Settings />
+                  Configurações
                 </DropdownMenuItem>
                 {billingEnabled && can("assinatura:gerenciar") && (
                   <DropdownMenuItem onClick={() => navigate("/assinatura")}>
@@ -222,8 +219,6 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </SidebarInset>
-
-      <PerfilDialog open={perfilOpen} onOpenChange={setPerfilOpen} />
     </SidebarProvider>
   );
 }

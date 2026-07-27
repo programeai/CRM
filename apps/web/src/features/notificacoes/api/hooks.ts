@@ -28,7 +28,7 @@ export function useNotificacoes(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.notificacoes.list({ limit: LIMITE_DO_POPOVER }),
     queryFn: () => notificacoesApi.list({ limit: LIMITE_DO_POPOVER }),
-    // Só busca a lista quando o popover abre — precedente do PerfilDialog:124.
+    // Só busca a lista quando o popover abre — evita requisição a cada tela.
     enabled: options?.enabled ?? true,
   });
 }
@@ -59,7 +59,6 @@ export function useDestinos(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.notificacoes.targets,
     queryFn: () => notificacoesApi.targets(),
-    // Como o `SessoesAtivas`: a query só roda quando o diálogo abre.
     enabled: options?.enabled ?? true,
   });
 }
