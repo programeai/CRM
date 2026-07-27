@@ -150,6 +150,21 @@ export class SessionsService {
     return count;
   }
 
+  /**
+   * Apaga sessões vencidas antes de `cutoff`. Só alcança linha morta: a consulta
+   * do perfil já filtra por `expiresAt > agora`, então nada aqui muda o que o
+   * usuário vê — é a tabela que para de crescer para sempre.
+   *
+   * Revogada não precisa de regra própria: revogar não mexe no `expiresAt`, e a
+   * linha cai por aqui no máximo 7 dias depois (o TTL da sessão).
+   */
+  async purgeExpiredBefore(cutoff: Date): Promise<number> {
+    const { count } = await this.db.session.deleteMany({
+      where: { expiresAt: { lt: cutoff } },
+    });
+    return count;
+  }
+
   /** Lista as sessões ativas do usuário, marcando qual é a corrente. */
   async listForUser(
     userId: string,
