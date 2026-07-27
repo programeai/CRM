@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Bell, Mail, MessageCircle, Plus, Trash2, Webhook } from 'lucide-react';
+import {
+  Bell,
+  Mail,
+  MessageCircle,
+  Plus,
+  Send,
+  Trash2,
+  Webhook,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -84,6 +92,7 @@ const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   WEBHOOK: Webhook,
   SLACK: Webhook,
   DISCORD: MessageCircle,
+  TELEGRAM: Send,
 };
 
 interface PreferenciasDeNotificacaoProps {
@@ -367,8 +376,23 @@ const KIND_INTEGRACAO = {
   WEBHOOK: 'Webhook',
   SLACK: 'Slack',
   DISCORD: 'Discord',
+  TELEGRAM: 'Telegram',
 } as const;
 type KindIntegracao = keyof typeof KIND_INTEGRACAO;
+
+/**
+ * Monta o `sendMessage` da Bot API a partir do que o usuário tem em mãos: o
+ * token que o @BotFather entrega e o id do chat. É o front que monta porque a
+ * `config` do destino guarda só `{ url }` — assim o Telegram entra sem um
+ * segundo campo no banco, na API e no DTO.
+ *
+ * O `chat_id` vai na query, e o adapter da API o move para o corpo JSON. O
+ * `encodeURIComponent` importa: chat de canal pode ser `@nome`, e o `@` cru
+ * quebraria a query.
+ */
+function montarUrlTelegram(token: string, chatId: string): string {
+  return `https://api.telegram.org/bot${token}/sendMessage?chat_id=${encodeURIComponent(chatId)}`;
+}
 
 /**
  * Formulário de um destino de integração. Só é renderizado para quem tem
@@ -380,9 +404,19 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
   const [label, setLabel] = useState('');
   const [kind, setKind] = useState<KindIntegracao>('SLACK');
   const [url, setUrl] = useState('');
+  // O Telegram não é "cole uma URL": a Bot API quer um token e um chat_id, que é
+  // o que o usuário tem em mãos. A URL sai destes dois no `salvar`.
+  const [token, setToken] = useState('');
+  const [chatId, setChatId] = useState('');
   // Nasce com os seis marcados: é o mesmo padrão que a API aplica quando o corpo
   // não manda `types` (`TIPOS_PADRAO`). Quem quiser menos, desmarca aqui.
   const [types, setTypes] = useState<NotificationType[]>(TIPOS);
+
+  const ehTelegram = kind === 'TELEGRAM';
+  // O que falta preencher, por serviço — o Telegram tem dois campos no lugar da URL.
+  const destinoIncompleto = ehTelegram
+    ? !token.trim() || !chatId.trim()
+    : !url.trim();
 
   // O `filter` sobre TIPOS (em vez de um push) mantém a ordem do catálogo mesmo
   // depois de desmarcar e remarcar.
@@ -399,7 +433,9 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
       await criar.mutateAsync({
         label: label.trim(),
         kind,
-        url: url.trim(),
+        url: ehTelegram
+          ? montarUrlTelegram(token.trim(), chatId.trim())
+          : url.trim(),
         types,
       });
       toast.success(
@@ -415,11 +451,12 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
     <div className="flex flex-col gap-3 rounded-md border border-dashed p-3">
       <p className="text-xs text-muted-foreground">
         <strong className="font-medium text-foreground">
-          A URL é o segredo.
+          {ehTelegram ? 'O token é o segredo.' : 'A URL é o segredo.'}
         </strong>{' '}
-        Quem tiver esse endereço consegue escrever no seu canal — trate-o como
-        uma senha. O conteúdo enviado carrega nome de cliente e valor de
-        cobrança, então use só um destino que você controla.
+        Quem tiver {ehTelegram ? 'esse token' : 'esse endereço'} consegue
+        escrever no seu canal — trate-o como uma senha. O conteúdo enviado
+        carrega nome de cliente e valor de cobrança, então use só um destino que
+        você controla.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field>
@@ -455,18 +492,51 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
           </Select>
         </Field>
       </div>
-      <Field>
-        <FieldLabel htmlFor="integracao-url" required>
-          URL (HTTPS)
-        </FieldLabel>
-        <Input
-          id="integracao-url"
-          type="url"
-          placeholder="https://hooks.slack.com/services/…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-        />
-      </Field>
+      {ehTelegram ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="integracao-token" required>
+              Token do bot
+            </FieldLabel>
+            <Input
+              id="integracao-token"
+              placeholder="123456789:AAE…"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+            <FieldDescription>
+              O que o @BotFather devolve ao criar o bot.
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="integracao-chat" required>
+              Chat ID
+            </FieldLabel>
+            <Input
+              id="integracao-chat"
+              placeholder="-1001234567890"
+              value={chatId}
+              onChange={(e) => setChatId(e.target.value)}
+            />
+            <FieldDescription>
+              O id do chat ou do grupo. Em canal público vale o @nome.
+            </FieldDescription>
+          </Field>
+        </div>
+      ) : (
+        <Field>
+          <FieldLabel htmlFor="integracao-url" required>
+            URL (HTTPS)
+          </FieldLabel>
+          <Input
+            id="integracao-url"
+            type="url"
+            placeholder="https://hooks.slack.com/services/…"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </Field>
+      )}
       <Field aria-labelledby="integracao-tipos">
         <FieldLabel id="integracao-tipos" required>
           Eventos
@@ -490,7 +560,7 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
           disabled={
             criar.isPending ||
             !label.trim() ||
-            !url.trim() ||
+            destinoIncompleto ||
             types.length === 0
           }
           onClick={() => void salvar()}
