@@ -436,6 +436,39 @@ model Activity {
   @@index([ownerId, assigneeId])
 }
 
+/// Trilha de auditoria: uma linha por mudança sensível de estado.
+///
+/// Tem RLS por ownerId (template `owner_isolation`) e é IMUTÁVEL para a
+/// aplicação: a migration revoga UPDATE/DELETE de `crm_app`. Uma trilha que o
+/// próprio app pode reescrever tem valor limitado.
+///
+/// `actorName` e `entityLabel` são DENORMALIZADOS de propósito: a tela de
+/// auditoria não faz join, e o registro guarda o que era verdade no momento da
+/// ação — renomear um colaborador ou um contrato não reescreve o passado.
+model AuditLog {
+  id          String         @id @default(uuid())
+  ownerId     String
+  actorType   AuditActorType @default(USER)
+  /// `null` quando actorType != USER. Sem FK: apagar um usuário não pode apagar a trilha.
+  actorId     String?
+  /// Nome de quem agiu no momento da ação ("Rotina diária", "Webhook do Stripe" no caso não-humano).
+  actorName   String
+  entity      AuditEntity
+  entityId    String
+  /// Rótulo humano do registro no momento da ação ("Mensalidade 07/2026").
+  entityLabel String
+  action      AuditAction
+  /// `{ campo: { antes, depois } }` — só os campos alterados. Ver shared/audit-diff.ts.
+  diff        Json?
+  /// Mesmo `x-request-id` do log estruturado — amarra a trilha ao Loki.
+  requestId   String?
+  createdAt   DateTime       @default(now())
+
+  @@index([ownerId, createdAt])
+  @@index([ownerId, entity, entityId, createdAt])
+  @@index([ownerId, actorId, createdAt])
+}
+
 // --- enums necessários (inferidos dos comentários do SPEC.md §4) ---
 enum SubscriptionStatus {
   TRIALING
@@ -537,4 +570,54 @@ enum ActivityType {
   EMAIL
   WHATSAPP
   FOLLOW_UP
+}
+
+// --- auditoria (Fase 8B) ---
+
+/// Natureza de quem agiu. USER é o único caso com `actorId` preenchido.
+enum AuditActorType {
+  USER
+  CRON
+  WEBHOOK
+  SISTEMA
+}
+
+/// Registro afetado. Cresce conforme a trilha cobre mais domínio.
+enum AuditEntity {
+  CLIENT
+  CONTACT
+  DEAL
+  PROPOSAL
+  PROJECT
+  TASK
+  CONTRACT
+  PAYMENT
+  ROLE
+  USER
+  SUBSCRIPTION
+}
+
+/// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
+enum AuditAction {
+  CRIAR
+  ATUALIZAR
+  EXCLUIR
+  ARQUIVAR
+  RESTAURAR
+  EXPURGAR
+  PAGAR
+  ESTORNAR
+  CANCELAR
+  PAUSAR
+  RETOMAR
+  ENVIAR
+  ACEITAR
+  RECUSAR
+  NOVA_VERSAO
+  CONVIDAR
+  ATIVAR
+  DESATIVAR
+  ALTERAR_PAPEL
+  EXPIRAR
+  VENCER
 }
