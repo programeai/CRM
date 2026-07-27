@@ -1031,6 +1031,111 @@ Uma linha nasce a cada mudança instrumentada (baixa/estorno/cancelamento de cob
 
 ---
 
+## Notificações
+
+Central de notificações in-app do usuário logado. **Nenhuma rota desta seção exige `@RequirePermission`**: a caixa é do próprio usuário, como o Perfil e `GET /workspace/members` — uma chave aqui significaria "papel que pode receber notificação", que não é um conceito do produto. O recorte de cada rota é `userId` + `ownerId`, sempre os dois.
+
+A notificação é emitida por seis gatilhos (atribuição de registro e cinco prazos por cron — ver ROADMAP), entregue de forma assíncrona pelo `NotificationsDispatchJob` (varredura a cada minuto) e lida através da entrega `IN_APP`. Por enquanto só o canal `IN_APP` está implementado; `EMAIL`, `WEBHOOK` e `SLACK` chegam nas fases seguintes.
+
+### GET /notifications
+- **Propósito:** Listar a central de notificações do usuário logado, paginada e ordenada da mais recente para a mais antiga, com filtro opcional por não lidas.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** — (query: `page?`, `limit?`, `unreadOnly?`).
+- **Resposta:** `200 Paginated<Notificacao>` — cada item traz `id` (id da **entrega**, o que "marcar como lida" recebe), `type`, `entity`, `entityId`, `title`, `body`, `link`, `readAt`, `createdAt`.
+- **Erros:** `400` (validação), `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.list`
+
+### GET /notifications/unread-count
+- **Propósito:** Contagem de notificações não lidas do usuário logado — alimenta o badge do sino no header.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** —
+- **Resposta:** `200 { count: number }`.
+- **Erros:** `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.unreadCount`
+
+### POST /notifications/read-all
+- **Propósito:** Marcar todas as notificações não lidas do usuário logado como lidas.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** —
+- **Resposta:** `200 { updated: number }`.
+- **Erros:** `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.readAll`
+
+### POST /notifications/:id/read
+- **Propósito:** Marcar uma notificação (pelo id da entrega `IN_APP`) como lida.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** —
+- **Resposta:** `200 { ok: true }`.
+- **Erros:** `404 Notificação não encontrada.` (id de outra pessoa, ou inexistente — de propósito, não `403`: não revela a existência de notificação alheia), `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.read`
+
+### Destinos de notificação
+
+Cada usuário tem N **destinos** (`UserNotificationTarget`), e o opt-in é uma matriz **tipo × destino** — não tipo × canal. Um destino do mesmo tipo pode existir mais de uma vez (dois e-mails, por exemplo).
+
+**A `config` do destino nunca volta crua.** A resposta traz `configResumo`, um resumo por tipo de canal: `null` no `IN_APP`, o endereço no `EMAIL`, e **só o host** (`hooks.slack.com`) no `WEBHOOK`/`SLACK` — nunca o caminho, que é a credencial de escrita naquele canal.
+
+**A URL de um webhook é, ela própria, a credencial.** Não há assinatura nem segredo separado nesta versão: quem tiver o endereço escreve no canal. Por isso ela nunca aparece em log nenhum, nunca volta inteira na resposta, e criar um destino de integração exige a permissão `notificacao:integrar`. Assinatura HMAC entra na Fase 19, junto da máquina de API key com escopos e rotação — acrescentar um cabeçalho de assinatura depois é aditivo e não quebra quem já recebe.
+
+**Payload por tipo de canal:**
+
+| Canal | Corpo enviado |
+|---|---|
+| `WEBHOOK` | O conteúdo neutro cru: `{ tipo, titulo, corpo, link, dados }` — para n8n/Zapier montarem o que quiserem. |
+| `SLACK` | `{ text: "*<titulo>*\n<corpo>\n<link\|Abrir no CRM>" }`, no formato *mrkdwn* (o Slack não aceita corpo arbitrário). |
+
+**Cabeçalhos de toda entrega:** `Content-Type: application/json`, `X-CRM-Delivery: <id da entrega>`, `X-CRM-Timestamp: <epoch>`, `User-Agent: CRM-ProgrameAi/1.0`. O `X-CRM-Delivery` é o que permite ao receptor **deduplicar** — necessário, porque o outbox tem retry e a mesma entrega pode chegar mais de uma vez com o mesmo id.
+
+### GET /notifications/targets
+- **Propósito:** Listar os destinos de notificação do usuário logado, com o opt-in de cada um.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** —
+- **Resposta:** `200 DestinoNaApi[]` — cada item traz `id`, `kind`, `label`, `configResumo` (resumido, ver acima), `types`, `verified`, `active`, `createdAt`.
+- **Erros:** `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.listTargets`
+
+### POST /notifications/targets
+- **Propósito:** Criar um destino de e-mail para o usuário logado. Nasce verificado (o endereço é do próprio usuário) e ativo.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** `{ label: string, email: string, types?: NotificationType[] }` (sem `types`, assina os seis tipos).
+- **Resposta:** `201 DestinoNaApi`.
+- **Erros:** `400` (validação — rótulo vazio, e-mail inválido, tipo fora do enum), `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.createTarget`
+
+### POST /notifications/targets/integrations
+- **Propósito:** Criar um destino de integração (`WEBHOOK` ou `SLACK`). Nasce **não verificado e inativo**: nenhuma entrega sai antes do ping de `POST /notifications/targets/:id/verify`.
+- **Auth:** Bearer (access token). Permissão: `notificacao:integrar` (só esta rota e a de verificação são gateadas — as demais da seção são livres, porque a caixa é do próprio usuário).
+- **Body:** `{ label: string, kind: 'WEBHOOK' | 'SLACK', url: string, types?: NotificationType[] }`.
+- **Resposta:** `201 DestinoNaApi` (com `verified: false`, `active: false` e `configResumo` = só o host).
+- **Erros:** `400` (validação de formato), `422 O endereço precisa usar HTTPS.` / `422 O endereço precisa usar a porta padrão do HTTPS (443).` / `422 Este endereço aponta para a rede interna e não pode ser usado.` (bloqueio de SSRF: loopback, link-local — inclusive `169.254.169.254` do metadata de cloud —, privada e CGNAT, em IPv4 e IPv6) / `422 Não foi possível resolver este endereço. Confira o domínio.`, `403 Você não tem permissão para integrar notificações.`, `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.createIntegration`
+
+### POST /notifications/targets/:id/verify
+- **Propósito:** Enviar um ping de teste ao destino de integração e, se ele responder 2xx, marcá-lo como verificado e ativo. É o passo que faltava para o destino começar a receber.
+- **Auth:** Bearer (access token). Permissão: `notificacao:integrar`.
+- **Body:** —
+- **Resposta:** `200 DestinoNaApi` (com `verified: true`, `active: true`).
+- **Erros:** `404 Destino não encontrado.`, `422 Este destino não precisa de verificação.` (em `IN_APP`/`EMAIL`), `422 Não foi possível entregar no destino: <motivo>` (a URL **nunca** aparece no motivo), `403`, `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.verifyTarget`
+
+### PATCH /notifications/targets/:id
+- **Propósito:** Renomear o destino, ligá-lo/desligá-lo ou mudar quais tipos ele recebe. **Não** permite trocar o `kind` nem a `config` — mudar o endereço é criar outro destino (o histórico de entregas aponta para este id).
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** `{ label?: string, active?: boolean, types?: NotificationType[] }`.
+- **Resposta:** `200 DestinoNaApi`.
+- **Erros:** `400` (validação), `404 Destino não encontrado.` (de outra pessoa, ou inexistente), `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.updateTarget`
+
+### DELETE /notifications/targets/:id
+- **Propósito:** Remover um destino do usuário logado.
+- **Auth:** Bearer (access token). Sem permissão específica.
+- **Body:** —
+- **Resposta:** `204` (sem corpo).
+- **Erros:** `404 Destino não encontrado.`, `422 Não é possível remover a central de notificações. Desative-a, se preferir não receber.` (ao tentar apagar o último destino `IN_APP` — apagá-lo deixaria o sino permanentemente vazio sem explicação), `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.deleteTarget`
+
+---
+
 ## Lixeira
 
 Read model somente leitura que atravessa `Client`, `Contact`, `Deal`, `Project` e `Task` — os cinco recursos com soft delete (`archivedAt`). Arquivar/restaurar/expurgar são rotas **do recurso** (`POST /<recurso>/:id/archive`, `POST /<recurso>/:id/restore`, `DELETE /<recurso>/:id`), documentadas nas seções acima; esta seção só cobre a listagem unificada.

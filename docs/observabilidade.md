@@ -91,6 +91,14 @@ longo do tempo. Os que existem hoje:
 | `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
 | `auditoria.sem_contexto` | `AuditService.registrar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
 | `auditoria.registro_falhou` | falha ao gravar trilha de ação do sistema (cron/webhook) — o lote continua | `error` |
+| `notificacao.sem_contexto` | `notificar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
+| `notificacao.emissao_falhou` | falha ao gravar a notificação — a operação de negócio continua | `error` |
+| `notificacao.entrega_falhou` | falha ao entregar num destino; `definitiva: true` quando esgotou as tentativas | `error` |
+| `notificacao.lote_entregue` | rodada do dispatch, a cada minuto (só quando há pendente) | `info` |
+| `notificacao.destinos_provisionados` | conta nova ou convite aceito | `info` |
+| `notificacoes.lembretes_emitidos` | rotina diária das 6h BRT — gatilhos de prazo (só quando há alvo) | `info` |
+| `digest.enviado` | rotina diária das 7h BRT — resumo por e-mail (agregado do lote) | `info` |
+| `digest.envio_falhou` | falha ao enviar o resumo para um usuário; o lote continua | `error` |
 
 ### Os campos do `http.requisicao`
 
@@ -230,3 +238,14 @@ throttler falam do mesmo cliente.
 - **Requisição que morre antes da aplicação** (5xx do Traefik, TLS, timeout) só
   aparece se o access log do Traefik estiver ligado — é configuração da VPS, não
   deste repositório.
+- **Notificação cresce sem política de expurgo.** `Notification` e
+  `NotificationDelivery` acumulam para sempre: não há job de poda nem retenção,
+  do mesmo modo que a trilha de auditoria (ver a nota da migration
+  `20260729100000_audit_log`). Uma entrega `PENDING` que esgotou as tentativas
+  vira `FAILED` e fica lá. Com poucos owners é irrelevante; quando incomodar, o
+  expurgo passa pelo `crm_user` — `crm_app` não tem `DELETE` em massa como
+  caminho previsto. Dívida registrada, não esquecida.
+- **O digest das 7h BRT é um pico de e-mail.** Não há fila, rate limit nem
+  `pool: true` no transporter, e cron não passa por throttler (o que existe é
+  HTTP). O único freio é o limite do provedor SMTP. Monitorar
+  `digest.enviado` (campo `falhas`) e `notificacao.lote_entregue`.
