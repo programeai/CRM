@@ -107,6 +107,9 @@ importers:
       '@types/supertest':
         specifier: ^7.0.0
         version: 7.2.1
+      dotenv:
+        specifier: ^17.4.1
+        version: 17.4.1
       eslint:
         specifier: ^9.18.0
         version: 9.39.5(jiti@2.7.0)
