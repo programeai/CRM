@@ -13,7 +13,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TableLink } from '@/components/ui/table-link';
 import { useGoBack } from '@/hooks/use-go-back';
-import { translateProjectStatus, translateServiceType } from '@/lib/labels';
+import { translateProjectStatus } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useArchiveProject, useBoard, useMoveTask, useProject } from './api/hooks';
 import { KanbanColumn } from './components/KanbanColumn';
@@ -143,7 +143,7 @@ export default function ProjetoDetalhePage() {
             <p className="text-sm text-muted-foreground">
               <TableLink to={`/clientes/${project.client.id}`}>{project.client.name}</TableLink>
               {' · '}
-              {translateServiceType(project.serviceType)}
+              {project.serviceType.name}
               {project.dueDate && ` · Prazo: ${formatDate(project.dueDate)}`}
             </p>
           </div>

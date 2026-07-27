@@ -1,13 +1,7 @@
+import type { CatalogItem } from '@/features/catalogos/api/types';
 // Enums do domínio (espelham o schema; ver @/lib/labels para tradução pt-BR).
 export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-export type ActivityType =
-  | 'NOTE'
-  | 'CALL'
-  | 'MEETING'
-  | 'EMAIL'
-  | 'WHATSAPP'
-  | 'FOLLOW_UP';
 
 /** Uma coluna do funil (estágio + agregados). Valores monetários em number. */
 export interface FunnelStage {
@@ -33,7 +27,7 @@ export interface UpcomingTask {
 
 export interface UpcomingAction {
   id: string;
-  type: ActivityType;
+  type: CatalogItem;
   content: string;
   scheduledFor: string | null;
   clientId: string;

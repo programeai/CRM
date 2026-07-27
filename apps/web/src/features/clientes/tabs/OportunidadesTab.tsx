@@ -7,7 +7,6 @@ import {
   Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
 } from '@/components/ui/empty';
 import { KanbanSquare } from 'lucide-react';
-import { translateServiceType } from '@/lib/labels';
 import { useDealsByClient, useStages } from '@/features/pipeline/api/hooks';
 import { DealFormDialog } from '@/features/pipeline/DealFormDialog';
 import { formatDealAmount } from '@/features/pipeline/lib/deal-format';
@@ -48,7 +47,8 @@ export default function OportunidadesTab() {
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium">{deal.title}</span>
                 <span className="text-xs text-muted-foreground">
-                  {stageName(deal.stageId)} · {translateServiceType(deal.serviceType)}
+                  {stageName(deal.stageId)} · {deal.serviceType.name}
+                  {deal.lostReason && <> · {deal.lostReason.name}</>}
                 </span>
               </div>
               <span className="text-sm tabular-nums">{formatDealAmount(deal.amount)}</span>

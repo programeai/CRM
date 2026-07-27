@@ -19,7 +19,6 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   PROJECT_STATUS_LABELS,
   translateProjectStatus,
-  translateServiceType,
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -174,7 +173,7 @@ export default function ProjetosListPage() {
                       {project.client.name}
                     </TableLink>
                   </TableCell>
-                  <TableCell>{translateServiceType(project.serviceType)}</TableCell>
+                  <TableCell>{project.serviceType.name}</TableCell>
                   <TableCell>
                     <Badge variant={PROJECT_STATUS_BADGE[project.status]}>
                       {translateProjectStatus(project.status)}

@@ -38,7 +38,6 @@ import {
 } from '@/components/ui/field';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { Spinner } from '@/components/ui/spinner';
-import { ACTIVITY_TYPE_LABELS, translateActivityType } from '@/lib/labels';
 import { formatDateTime } from '@/lib/format';
 import { useMe } from '@/features/perfil/api/hooks';
 import {
@@ -46,10 +45,11 @@ import {
   useCreateActivity,
   useCompleteActivity,
 } from '../api/hooks';
-import type { ActivityType, Client } from '../api/types';
+import type { Client } from '../api/types';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
 
 const schema = z.object({
-  type: z.enum(['NOTE', 'CALL', 'MEETING', 'EMAIL', 'WHATSAPP', 'FOLLOW_UP']),
+  typeId: z.string().uuid('Selecione o tipo.'),
   content: z.string().min(1, 'O conteúdo é obrigatório.'),
   scheduledFor: z.string().optional(),
   assigneeId: z.string().nullable().optional(),
@@ -65,11 +65,14 @@ export default function TimelineTab() {
   // Registrar uma atividade é um ato de quem está logado — o responsável já nasce
   // preenchido com ele (e pode ser trocado antes de salvar).
   const { data: me } = useMe();
+  // Só os tipos ativos: o tipo de um registro NOVO tem de estar utilizável (é o
+  // mesmo 422 que `assertUtilizavel` devolveria no servidor).
+  const { data: tipos } = useCatalogo('tipos-de-atividade');
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const empty = (): Values => ({
-    type: 'NOTE',
+    typeId: '',
     content: '',
     scheduledFor: '',
     assigneeId: me?.id ?? null,
@@ -86,7 +89,11 @@ export default function TimelineTab() {
     formState: { errors, isSubmitting },
   } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: empty() });
 
-  const type = watch('type');
+  const typeId = watch('typeId');
+  // A REGRA vem do catálogo (`isFollowUp`), não de um literal — antes este
+  // predicado divergia das duas queries do servidor.
+  const tipoSelecionadoEhFollowUp = !!tipos?.find((t) => t.id === typeId)
+    ?.isFollowUp;
 
   // O `me` pode chegar depois da montagem do formulário: assim que chega, o campo
   // (ainda intocado) passa a refletir o usuário logado.
@@ -103,10 +110,10 @@ export default function TimelineTab() {
     try {
       await createActivity.mutateAsync({
         clientId,
-        type: v.type,
+        typeId: v.typeId,
         content: v.content.trim(),
         scheduledFor:
-          v.type === 'FOLLOW_UP' && v.scheduledFor
+          tipoSelecionadoEhFollowUp && v.scheduledFor
             ? new Date(v.scheduledFor).toISOString()
             : undefined,
         assigneeId: v.assigneeId ?? null,
@@ -148,8 +155,13 @@ export default function TimelineTab() {
       ) : activities.length > 0 ? (
         <ol className="flex flex-col gap-2">
           {activities.map((activity) => {
+            // Predicado ÚNICO de follow-up pendente, derivado da regra do
+            // catálogo. Antes esta linha divergia das duas queries do servidor,
+            // que filtravam por `type === 'FOLLOW_UP'`.
             const pendingFollowUp =
-              !!activity.scheduledFor && !activity.completedAt;
+              !!activity.type.isFollowUp &&
+              !!activity.scheduledFor &&
+              !activity.completedAt;
             return (
               <li
                 key={activity.id}
@@ -158,7 +170,7 @@ export default function TimelineTab() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
-                      {translateActivityType(activity.type)}
+                      {activity.type.name}
                     </Badge>
                     {pendingFollowUp && (
                       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -220,26 +232,26 @@ export default function TimelineTab() {
                   <FieldLabel required>Tipo</FieldLabel>
                   <Controller
                     control={control}
-                    name="type"
+                    name="typeId"
                     render={({ field }) => (
-                      <Select<ActivityType>
-                        items={ACTIVITY_TYPE_LABELS}
+                      <Select<string>
                         value={field.value}
-                        onValueChange={(v) => field.onChange(v)}
+                        onValueChange={(v) => field.onChange(v ?? '')}
                       >
-                        <SelectTrigger />
+                        <SelectTrigger placeholder="Selecione o tipo" />
                         <SelectContent>
-                          {(
-                            Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[]
-                          ).map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {translateActivityType(t)}
+                          {(tipos ?? []).map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     )}
                   />
+                  {errors.typeId && (
+                    <FieldError>{errors.typeId.message}</FieldError>
+                  )}
                 </Field>
                 <Field>
                   <FieldLabel>Responsável</FieldLabel>
@@ -254,7 +266,7 @@ export default function TimelineTab() {
                     )}
                   />
                 </Field>
-                {type === 'FOLLOW_UP' && (
+                {tipoSelecionadoEhFollowUp && (
                   <Field>
                     <FieldLabel htmlFor="activity-scheduledFor">
                       Agendar para

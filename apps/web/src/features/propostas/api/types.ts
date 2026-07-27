@@ -1,7 +1,7 @@
+import type { CatalogItem } from '@/features/catalogos/api/types';
 import type { Paginated } from '@/features/clientes/api/types';
 
 export type { Paginated };
-export type ServiceType = 'SOFTWARE' | 'WEBSITE' | 'PAID_TRAFFIC';
 export type ProposalStatus =
   | 'DRAFT' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
@@ -21,7 +21,8 @@ export interface Proposal {
   clientId: string;
   client: { id: string; name: string };
   dealId?: string | null;
-  serviceType: ServiceType;
+  serviceTypeId: string;
+  serviceType: CatalogItem;
   status: ProposalStatus;
   scope?: string | null;
   paymentTerms?: string | null;
@@ -43,7 +44,7 @@ export interface ProposalItemInput {
 }
 export interface CreateProposalBody {
   clientId: string;
-  serviceType: ServiceType;
+  serviceTypeId: string;
   items: ProposalItemInput[];
   dealId?: string;
   discount?: number;

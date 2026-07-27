@@ -19,7 +19,6 @@ import {
 import { MoneyInput } from '@/components/ui/money-input';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { SERVICE_TYPE_LABELS, translateServiceType } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useCan } from '@/hooks/use-can';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
@@ -27,12 +26,14 @@ import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useArchiveDeal, useCreateDeal, useUpdateDeal } from './api/hooks';
-import type { Deal, ServiceType } from './api/types';
+import type { Deal } from './api/types';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
+import { comItemAtual } from '@/features/catalogos/lib/options';
 
 const schema = z.object({
   title: z.string().min(2, 'O título deve ter no mínimo 2 caracteres.'),
   clientId: z.string().uuid('Selecione um cliente.'),
-  serviceType: z.enum(['SOFTWARE', 'WEBSITE', 'PAID_TRAFFIC']),
+  serviceTypeId: z.string().uuid('Selecione o tipo de serviço.'),
   amount: z.number().min(0).optional(),
   probability: z
     .number()
@@ -54,6 +55,8 @@ interface Props {
 
 export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Props) {
   const isEdit = !!deal;
+  const { data: servicos } = useCatalogo('servicos');
+  const servicosOptions = comItemAtual(servicos, deal?.serviceType);
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal(deal?.id ?? '');
   const archiveDeal = useArchiveDeal();
@@ -79,7 +82,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
       defaultValues: {
         title: '',
         clientId: defaultClientId ?? '',
-        serviceType: 'SOFTWARE',
+        serviceTypeId: '',
         assigneeId: null,
       },
     });
@@ -92,7 +95,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
         ? {
             title: deal.title,
             clientId: deal.clientId,
-            serviceType: deal.serviceType,
+            serviceTypeId: deal.serviceTypeId,
             amount: deal.amount != null ? Number(deal.amount) : undefined,
             probability: deal.probability ?? undefined,
             expectedClose: deal.expectedClose?.slice(0, 10) ?? '',
@@ -101,7 +104,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
         : {
             title: '',
             clientId: defaultClientId ?? '',
-            serviceType: 'SOFTWARE',
+            serviceTypeId: '',
             assigneeId: null,
           },
     );
@@ -127,7 +130,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
     const body = {
       title: v.title.trim(),
       clientId: v.clientId,
-      serviceType: v.serviceType,
+      serviceTypeId: v.serviceTypeId,
       amount: v.amount && v.amount > 0 ? v.amount : undefined,
       probability: v.probability,
       expectedClose: v.expectedClose || undefined,
@@ -239,20 +242,26 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
               <FieldLabel required>Tipo de serviço</FieldLabel>
               <Controller
                 control={control}
-                name="serviceType"
+                name="serviceTypeId"
                 render={({ field }) => (
-                  <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger />
+                  <Select<string>
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v ?? '')}
+                  >
+                    <SelectTrigger placeholder="Selecione o tipo de serviço" />
                     <SelectContent>
-                      {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {translateServiceType(s)}
+                      {servicosOptions.map((sv) => (
+                        <SelectItem key={sv.id} value={sv.id}>
+                          {sv.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
               />
+              {errors.serviceTypeId && (
+                <FieldError>{errors.serviceTypeId.message}</FieldError>
+              )}
             </Field>
 
             <Field>

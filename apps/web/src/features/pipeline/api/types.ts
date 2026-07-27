@@ -1,7 +1,7 @@
 import type { Paginated } from '@/features/clientes/api/types';
+import type { CatalogItem } from '@/features/catalogos/api/types';
 
 export type { Paginated };
-export type ServiceType = 'SOFTWARE' | 'WEBSITE' | 'PAID_TRAFFIC';
 
 export interface PipelineStage {
   id: string;
@@ -23,11 +23,13 @@ export interface Deal {
   client: { id: string; name: string };
   stageId: string;
   title: string;
-  serviceType: ServiceType;
+  serviceTypeId: string;
+  serviceType: CatalogItem;
   amount?: string | null; // Decimal serializa como string no JSON
   probability?: number | null;
   expectedClose?: string | null;
-  lostReason?: string | null;
+  lostReasonId?: string | null;
+  lostReason?: CatalogItem | null;
   position: number;
   stageMovedAt: string;
   assigneeId?: string | null;
@@ -39,7 +41,7 @@ export interface Deal {
 export interface CreateDealBody {
   title: string;
   clientId: string;
-  serviceType: ServiceType;
+  serviceTypeId: string;
   amount?: number;
   probability?: number;
   expectedClose?: string;
@@ -49,7 +51,7 @@ export type UpdateDealBody = Partial<Omit<CreateDealBody, 'clientId'>>;
 export interface MoveDealBody {
   stageId: string;
   position: number;
-  lostReason?: string;
+  lostReasonId?: string;
 }
 
 export interface CreateStageBody {

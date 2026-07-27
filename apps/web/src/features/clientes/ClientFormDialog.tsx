@@ -28,31 +28,26 @@ import {
   SelectTrigger,
 } from '@/components/ui/select';
 import {
-  PERSON_TYPE_LABELS,
-  LEAD_SOURCE_LABELS,
   CLIENT_STATUS_LABELS,
-  translatePersonType,
-  translateLeadSource,
   translateClientStatus,
 } from '@/lib/labels';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { maskCep, maskDocument, maskPhone, onlyDigits } from '@/lib/format';
 import { extractApiMessage } from '@/lib/api-error';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
+import { comItemAtual } from '@/features/catalogos/lib/options';
 import { useCreateClient, useUpdateClient } from './api/hooks';
 import { TagDeleteDialog, TagSelect } from './components/TagSelect';
-import type { Client, ClientStatus, LeadSource, PersonType } from './api/types';
+import type { Client, ClientStatus } from './api/types';
 
 const schema = z.object({
   name: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres.'),
   tradeName: z.string().optional(),
-  personType: z.enum(['INDIVIDUAL', 'COMPANY']),
   document: z.string().optional(),
   email: z.string().email('E-mail inválido.').optional().or(z.literal('')),
   phone: z.string().optional(),
   website: z.string().optional(),
-  source: z
-    .enum(['REFERRAL', 'PAID_TRAFFIC', 'ORGANIC', 'OUTBOUND', 'OTHER'])
-    .optional(),
+  sourceId: z.string().uuid().optional(),
   status: z.enum(['LEAD', 'ACTIVE', 'INACTIVE', 'LOST']),
   assigneeId: z.string().nullable().optional(),
   tags: z.array(z.string()),
@@ -70,12 +65,11 @@ type Values = z.infer<typeof schema>;
 const EMPTY: Values = {
   name: '',
   tradeName: '',
-  personType: 'COMPANY',
   document: '',
   email: '',
   phone: '',
   website: '',
-  source: undefined,
+  sourceId: undefined,
   status: 'LEAD',
   assigneeId: null,
   tags: [],
@@ -93,12 +87,11 @@ function toValues(client: Client): Values {
   return {
     name: client.name,
     tradeName: client.tradeName ?? '',
-    personType: client.personType,
     document: client.document ?? '',
     email: client.email ?? '',
     phone: client.phone ?? '',
     website: client.website ?? '',
-    source: client.source ?? undefined,
+    sourceId: client.sourceId ?? undefined,
     status: client.status,
     assigneeId: client.assigneeId ?? null,
     tags: client.tags,
@@ -163,6 +156,8 @@ export function ClientFormDialog({
   const isEdit = !!client;
   const createClient = useCreateClient();
   const updateClient = useUpdateClient(client?.id ?? '');
+  const { data: fontes } = useCatalogo('fontes-de-lead');
+  const fontesOptions = comItemAtual(fontes, client?.source);
   const [cepLoading, setCepLoading] = useState(false);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   /** Último CNPJ consultado, para não repetir a busca a cada tecla. */
@@ -278,12 +273,11 @@ export function ClientFormDialog({
     const body = {
       name: v.name.trim(),
       tradeName: blank(v.tradeName),
-      personType: v.personType,
       document: blank(v.document),
       email: blank(v.email),
       phone: blank(v.phone),
       website: blank(v.website),
-      source: v.source,
+      sourceId: v.sourceId ?? null,
       status: v.status,
       assigneeId: v.assigneeId ?? null,
       tags: v.tags,
@@ -351,32 +345,8 @@ export function ClientFormDialog({
               <Input id="tradeName" placeholder="Como o cliente é conhecido" {...register('tradeName')} />
             </Field>
 
-            <Field>
-              <FieldLabel required>Tipo de pessoa</FieldLabel>
-              <Controller
-                control={control}
-                name="personType"
-                render={({ field }) => (
-                  <Select<PersonType>
-                    items={PERSON_TYPE_LABELS}
-                    value={field.value}
-                    onValueChange={(v) => field.onChange(v)}
-                  >
-                    <SelectTrigger />
-                    <SelectContent>
-                      {(Object.keys(PERSON_TYPE_LABELS) as PersonType[]).map(
-                        (t) => (
-                          <SelectItem key={t} value={t}>
-                            {translatePersonType(t)}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-
+            {/* O tipo de pessoa não é perguntado: o backend o deduz do
+                documento (11 dígitos = CPF, 14 = CNPJ). */}
             <Field data-invalid={!!errors.document}>
               <FieldLabel htmlFor="document">CPF / CNPJ</FieldLabel>
               <div className="relative">
@@ -393,10 +363,7 @@ export function ClientFormDialog({
                       onChange={(e) => {
                         const digits = onlyDigits(e.target.value);
                         field.onChange(digits);
-                        if (digits.length === 14) {
-                          setValue('personType', 'COMPANY');
-                          void lookupCnpj(digits);
-                        }
+                        if (digits.length === 14) void lookupCnpj(digits);
                       }}
                       onBlur={field.onBlur}
                     />
@@ -450,23 +417,20 @@ export function ClientFormDialog({
               <FieldLabel>Origem</FieldLabel>
               <Controller
                 control={control}
-                name="source"
+                name="sourceId"
                 render={({ field }) => (
-                  <Select<LeadSource | ''>
-                    items={{ '': 'Não informada', ...LEAD_SOURCE_LABELS }}
+                  <Select<string>
                     value={field.value ?? ''}
                     onValueChange={(v) => field.onChange(v || undefined)}
                   >
                     <SelectTrigger />
                     <SelectContent>
                       <SelectItem value="">Não informada</SelectItem>
-                      {(Object.keys(LEAD_SOURCE_LABELS) as LeadSource[]).map(
-                        (s) => (
-                          <SelectItem key={s} value={s}>
-                            {translateLeadSource(s)}
-                          </SelectItem>
-                        ),
-                      )}
+                      {fontesOptions.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
