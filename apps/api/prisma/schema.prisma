@@ -37,6 +37,10 @@ model User {
   subscription     Subscription?
   ownedRoles         Role[]         @relation("OwnerRoles")
   pipelineStages     PipelineStage[]
+  leadSourceCatalog  LeadSourceCatalog[]
+  serviceCatalog     ServiceCatalog[]
+  activityTypeCatalog ActivityTypeCatalog[]
+  lostReasonCatalog  LostReasonCatalog[]
   assignedClients    Client[]
   assignedDeals      Deal[]
   assignedTasks      Task[]
@@ -185,7 +189,8 @@ model Client {
   email      String?
   phone      String?
   website    String?
-  source     LeadSource? // REFERRAL | PAID_TRAFFIC | ORGANIC | OUTBOUND | OTHER
+  sourceId   String?
+  source     LeadSourceCatalog? @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   status     ClientStatus @default(LEAD) // LEAD | ACTIVE | INACTIVE | LOST
   tags       String[]
   notes      String?
@@ -216,6 +221,7 @@ model Client {
   @@index([ownerId, status])
   @@index([ownerId, archivedAt])
   @@index([ownerId, assigneeId])
+  @@index([sourceId])
 }
 
 model Contact {
@@ -253,6 +259,79 @@ model PipelineStage {
   @@index([ownerId])
 }
 
+// --- catálogos por owner (Fase 13-A) ---------------------------------------
+// Quatro tabelas irmãs (ServiceCatalog, LeadSourceCatalog, ActivityTypeCatalog,
+// LostReasonCatalog) substituem enums fechados e um texto livre. Todas seguem o
+// molde de PipelineStage: `ownerId` + RLS, `@@unique([ownerId, name])` (dois
+// owners podem ter um "Indicação" cada) e provisionamento na criação da conta
+// a partir de `shared/default-catalogs.ts`.
+//
+// `active` é desativação de catálogo, não arquivamento: item desativado sai dos
+// Select de cadastro mas continua rotulando os registros antigos que o usam.
+// Exclusão de verdade só quando não há nenhum registro apontando (FK RESTRICT).
+
+/// Fontes de lead do owner. Substitui o enum fechado `LeadSource`.
+model LeadSourceCatalog {
+  id      String   @id @default(uuid())
+  ownerId String
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name    String
+  active  Boolean  @default(true)
+  clients Client[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+/// Tipos de serviço do owner. Substitui o enum fechado `ServiceType`, que era
+/// NOT NULL em Deal, Proposal e Project — daí as três back-relations.
+model ServiceCatalog {
+  id        String     @id @default(uuid())
+  ownerId   String
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  active    Boolean    @default(true)
+  deals     Deal[]
+  proposals Proposal[]
+  projects  Project[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+/// Tipos de atividade do owner. Substitui o enum fechado `ActivityType`.
+model ActivityTypeCatalog {
+  id         String     @id @default(uuid())
+  ownerId    String
+  owner      User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  /// É REGRA, não rótulo: marca o tipo que representa follow-up agendado. O cron
+  /// de lembretes (cross-owner, pelo client admin) e o dashboard filtram por
+  /// ela — é o análogo de `PipelineStage.isWon`/`isLost`. No máximo um item por
+  /// owner fica marcado (garantido no `CatalogosService`, não no banco: um
+  /// unique parcial impediria desmarcar-e-remarcar numa transação).
+  isFollowUp Boolean    @default(false)
+  active     Boolean    @default(true)
+  activities Activity[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@index([isFollowUp]) // ← o cron cross-owner filtra pela relação
+}
+
+/// Motivos de perda do owner. Substitui o texto livre `Deal.lostReason`.
+model LostReasonCatalog {
+  id      String  @id @default(uuid())
+  ownerId String
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name    String
+  active  Boolean @default(true)
+  deals   Deal[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
 model Deal {
   id            String        @id @default(uuid())
   ownerId       String // denormalizado p/ RLS (== Client.ownerId)
@@ -261,11 +340,13 @@ model Deal {
   stageId       String
   stage         PipelineStage @relation(fields: [stageId], references: [id])
   title         String
-  serviceType   ServiceType // SOFTWARE | WEBSITE | PAID_TRAFFIC
+  serviceTypeId String
+  serviceType   ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
   amount        Decimal?      @db.Decimal(12, 2)
   probability   Int? // 0–100
   expectedClose DateTime?
-  lostReason    String?
+  lostReasonId  String?
+  lostReason    LostReasonCatalog? @relation(fields: [lostReasonId], references: [id], onDelete: Restrict)
   position      Int // ordenação na coluna
   stageMovedAt  DateTime      @default(now()) // p/ indicador "esfriando"
   // --- soft delete (ver Client.archivedAt e o módulo trash) ---
@@ -283,6 +364,8 @@ model Deal {
   @@index([ownerId])
   @@index([ownerId, assigneeId])
   @@index([ownerId, archivedAt])
+  @@index([lostReasonId])
+  @@index([serviceTypeId])
 }
 
 model Proposal {
@@ -297,7 +380,8 @@ model Proposal {
   client       Client         @relation(fields: [clientId], references: [id])
   dealId       String?
   deal         Deal?          @relation(fields: [dealId], references: [id])
-  serviceType  ServiceType
+  serviceTypeId String
+  serviceType  ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
   status       ProposalStatus @default(DRAFT) // DRAFT | SENT | NEGOTIATING | ACCEPTED | REJECTED | EXPIRED
   scope        String? // markdown
   paymentTerms String?
@@ -317,6 +401,7 @@ model Proposal {
   @@index([clientId, status])
   @@index([ownerId])
   @@index([validUntil, status]) // ← gatilho (b), varredura cross-owner
+  @@index([serviceTypeId])
 }
 
 model ProposalItem {
@@ -342,7 +427,8 @@ model Project {
   dealId      String?       // origem: deal ganho (dedupe de criar-ao-ganhar)
   deal        Deal?         @relation(fields: [dealId], references: [id])
   name        String
-  serviceType ServiceType
+  serviceTypeId String
+  serviceType ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
   status      ProjectStatus @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
   startDate   DateTime?
   dueDate     DateTime?
@@ -356,6 +442,7 @@ model Project {
   @@index([dealId])
   @@index([ownerId])
   @@index([ownerId, archivedAt])
+  @@index([serviceTypeId])
 }
 
 model Task {
@@ -446,7 +533,8 @@ model Activity {
   deal         Deal?        @relation(fields: [dealId], references: [id])
   proposalId   String?
   proposal     Proposal?    @relation(fields: [proposalId], references: [id])
-  type         ActivityType // NOTE | CALL | MEETING | EMAIL | WHATSAPP | FOLLOW_UP
+  typeId       String
+  type         ActivityTypeCatalog @relation(fields: [typeId], references: [id], onDelete: Restrict)
   content      String
   scheduledFor DateTime? // follow-ups
   completedAt  DateTime?
@@ -459,6 +547,7 @@ model Activity {
   @@index([ownerId])
   @@index([ownerId, assigneeId])
   @@index([scheduledFor, completedAt]) // ← gatilho (a), varredura cross-owner
+  @@index([typeId])
 }
 
 /// Trilha de auditoria: uma linha por mudança sensível de estado.
@@ -508,25 +597,11 @@ enum PersonType {
   COMPANY
 }
 
-enum LeadSource {
-  REFERRAL
-  PAID_TRAFFIC
-  ORGANIC
-  OUTBOUND
-  OTHER
-}
-
 enum ClientStatus {
   LEAD
   ACTIVE
   INACTIVE
   LOST
-}
-
-enum ServiceType {
-  SOFTWARE
-  WEBSITE
-  PAID_TRAFFIC
 }
 
 enum ProposalStatus {
@@ -586,15 +661,6 @@ enum PaymentMethod {
   BOLETO
   CARD
   CASH
-}
-
-enum ActivityType {
-  NOTE
-  CALL
-  MEETING
-  EMAIL
-  WHATSAPP
-  FOLLOW_UP
 }
 
 // --- auditoria (Fase 8B) ---

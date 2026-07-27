@@ -118,3 +118,169 @@ BEGIN
     RAISE EXCEPTION 'Tabela(s) de notificação sem a policy owner_isolation: %', sem_policy;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Catálogo de fontes de lead (20260805100000_lead_source_catalog)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  cruzados  INT;
+  por_owner TEXT;
+BEGIN
+  -- Nenhum cliente pode apontar para a fonte de OUTRO owner. É o vazamento
+  -- entre workspaces que o casamento por nome no backfill poderia causar.
+  SELECT count(*) INTO cruzados
+    FROM "Client" c
+    JOIN "LeadSourceCatalog" s ON s."id" = c."sourceId"
+   WHERE s."ownerId" <> c."ownerId";
+  IF cruzados > 0 THEN
+    RAISE EXCEPTION 'Há % cliente(s) apontando para fonte de lead de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
+  END IF;
+
+  -- Cada owner da fixture tem de ter recebido as cinco fontes padrão.
+  SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO por_owner
+    FROM (SELECT "ownerId", count(*) AS n FROM "LeadSourceCatalog" GROUP BY "ownerId") t
+   WHERE t.n <> 5;
+  IF por_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'Owner com número inesperado de fontes de lead (esperado 5): %', por_owner;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Catálogo de motivos de perda (20260806100000_lost_reason_catalog)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  cruzados  INT;
+  por_owner TEXT;
+BEGIN
+  -- Nenhuma oportunidade pode apontar para o motivo de OUTRO owner. O backfill
+  -- casa por nome casefolded, então é aqui que o isolamento é conferido.
+  SELECT count(*) INTO cruzados
+    FROM "Deal" d
+    JOIN "LostReasonCatalog" m ON m."id" = d."lostReasonId"
+   WHERE m."ownerId" <> d."ownerId";
+  IF cruzados > 0 THEN
+    RAISE EXCEPTION 'Há % oportunidade(s) apontando para motivo de perda de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
+  END IF;
+
+  -- Cada owner tem de ter recebido ao menos os 7 padrões (pode ter mais, se o
+  -- histórico de texto livre trouxe motivos importados como desativados).
+  SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO por_owner
+    FROM (SELECT "ownerId", count(*) AS n FROM "LostReasonCatalog" GROUP BY "ownerId") t
+   WHERE t.n < 7;
+  IF por_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'Owner com menos motivos de perda que os 7 padrões: %', por_owner;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Catálogo de tipos de serviço (20260807100000_service_catalog)
+-- ---------------------------------------------------------------------------
+-- Esta é a migration que a fixture de dois owners exercita de verdade: os 3
+-- Deal de `banco-populado.sql` têm `serviceType` literal em owners diferentes.
+DO $$
+DECLARE
+  d INT; p INT; j INT;
+  nulos     INT;
+  por_owner TEXT;
+BEGIN
+  -- Nenhum registro pode apontar para o tipo de serviço de OUTRO owner.
+  SELECT count(*) INTO d
+    FROM "Deal" x JOIN "ServiceCatalog" c ON c."id" = x."serviceTypeId"
+   WHERE c."ownerId" <> x."ownerId";
+  SELECT count(*) INTO p
+    FROM "Proposal" x JOIN "ServiceCatalog" c ON c."id" = x."serviceTypeId"
+   WHERE c."ownerId" <> x."ownerId";
+  SELECT count(*) INTO j
+    FROM "Project" x JOIN "ServiceCatalog" c ON c."id" = x."serviceTypeId"
+   WHERE c."ownerId" <> x."ownerId";
+  IF d + p + j > 0 THEN
+    RAISE EXCEPTION
+      'Há % deal(s), % proposta(s) e % projeto(s) apontando para tipo de serviço de OUTRO owner — isolamento por ownerId quebrado.',
+      d, p, j;
+  END IF;
+
+  -- A coluna é NOT NULL no schema; um NULL aqui significaria constraint perdida.
+  SELECT count(*) INTO nulos
+    FROM (
+      SELECT "serviceTypeId" FROM "Deal"
+      UNION ALL SELECT "serviceTypeId" FROM "Proposal"
+      UNION ALL SELECT "serviceTypeId" FROM "Project"
+    ) t
+   WHERE t."serviceTypeId" IS NULL;
+  IF nulos > 0 THEN
+    RAISE EXCEPTION 'Há % registro(s) sem tipo de serviço — a coluna deveria ser NOT NULL.', nulos;
+  END IF;
+
+  -- Cada owner da fixture tem de ter recebido os três serviços padrão.
+  SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO por_owner
+    FROM (SELECT "ownerId", count(*) AS n FROM "ServiceCatalog" GROUP BY "ownerId") t
+   WHERE t.n <> 3;
+  IF por_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'Owner com número inesperado de tipos de serviço (esperado 3): %', por_owner;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Catálogo de tipos de atividade (20260808100000_activity_type_catalog)
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+  cruzados  INT;
+  nulos     INT;
+  por_owner TEXT;
+  sem_regra TEXT;
+BEGIN
+  -- Nenhuma atividade pode apontar para o tipo de OUTRO owner.
+  SELECT count(*) INTO cruzados
+    FROM "Activity" a JOIN "ActivityTypeCatalog" c ON c."id" = a."typeId"
+   WHERE c."ownerId" <> a."ownerId";
+  IF cruzados > 0 THEN
+    RAISE EXCEPTION 'Há % atividade(s) apontando para tipo de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
+  END IF;
+
+  -- A coluna é NOT NULL no schema.
+  SELECT count(*) INTO nulos FROM "Activity" WHERE "typeId" IS NULL;
+  IF nulos > 0 THEN
+    RAISE EXCEPTION 'Há % atividade(s) sem tipo — a coluna deveria ser NOT NULL.', nulos;
+  END IF;
+
+  -- Cada owner tem de ter recebido os seis tipos padrão.
+  SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO por_owner
+    FROM (SELECT "ownerId", count(*) AS n FROM "ActivityTypeCatalog" GROUP BY "ownerId") t
+   WHERE t.n <> 6;
+  IF por_owner IS NOT NULL THEN
+    RAISE EXCEPTION 'Owner com número inesperado de tipos de atividade (esperado 6): %', por_owner;
+  END IF;
+
+  -- A invariante que MAIS importa: exatamente UM tipo marcado por owner. Zero
+  -- marcados silencia o cron de lembretes daquele owner, sem erro nenhum.
+  SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO sem_regra
+    FROM (
+      SELECT "ownerId", count(*) FILTER (WHERE "isFollowUp") AS n
+        FROM "ActivityTypeCatalog" GROUP BY "ownerId"
+    ) t
+   WHERE t.n <> 1;
+  IF sem_regra IS NOT NULL THEN
+    RAISE EXCEPTION 'Owner com número inesperado de tipos marcados como follow-up (esperado 1): %', sem_regra;
+  END IF;
+END $$;
+
+-- RLS de pé nas tabelas novas (mesma razão do bloco de PipelineStage acima).
+DO $$
+DECLARE sem_rls TEXT;
+BEGIN
+  SELECT string_agg(c.relname, ', ') INTO sem_rls
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public'
+     AND c.relname IN (
+       'LeadSourceCatalog', 'LostReasonCatalog', 'ServiceCatalog',
+       'ActivityTypeCatalog'
+     )
+     AND (c.relrowsecurity IS FALSE OR c.relforcerowsecurity IS FALSE);
+  IF sem_rls IS NOT NULL THEN
+    RAISE EXCEPTION 'Tabela(s) de catálogo sem RLS habilitado e forçado: %', sem_rls;
+  END IF;
+END $$;
