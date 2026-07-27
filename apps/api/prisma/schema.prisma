@@ -15,7 +15,6 @@ model User {
   name             String
   email            String         @unique
   passwordHash     String? // opcional: conta criada via OAuth ou convite de colaborador ainda não aceito
-  refreshTokenHash String? // hash (argon2) do refresh token vigente; permite revogar/logout real
   stripeCustomerId String?        @unique // billing (SaaS hospedado) — ausente na autohospedagem
   // --- colaboração (ver modelos Role/CollaboratorInvite) ---
   // NULL = este usuário é um owner: dono da workspace, dos dados e da assinatura.
@@ -34,6 +33,7 @@ model User {
   createdAt        DateTime       @default(now())
   oauthAccounts    OAuthAccount[]
   passwordResetTokens PasswordResetToken[]
+  sessions         Session[]
   subscription     Subscription?
   ownedRoles         Role[]         @relation("OwnerRoles")
   pipelineStages     PipelineStage[]
@@ -116,6 +116,37 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// Sessão de refresh: uma linha por dispositivo logado. Substitui o antigo
+// hash único de refresh em `User`, que permitia apenas uma sessão por usuário.
+//
+// Fica FORA do RLS, no mesmo grupo de User/OAuthAccount/PasswordResetToken: a
+// linha nasce no login, que é rota @Public() e roda sem `app.owner_id` — uma
+// policy `owner_isolation` aqui fecharia a escrita (fail-closed = zero linhas).
+// O isolamento é por filtro explícito de `userId` no SessionsService.
+//
+// `tokenHash` é o argon2 do refresh token VIGENTE: cada refresh rotaciona o
+// token e reescreve o hash na MESMA sessão (o `sid` do payload é estável).
+// argon2 (e não sha256, como o token de reset) porque o `sid` vem no payload —
+// a busca é por chave primária, e o hash não precisa ser indexável.
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String
+  /// User-Agent cru da requisição que criou/renovou a sessão (truncado em 255).
+  userAgent  String?
+  /// IP do cliente (req.ip, já resolvido por trust proxy — ver main.ts).
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  /// Janela deslizante: cada refresh empurra a expiração, igual ao maxAge do cookie.
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 // Assinatura SaaS (billing hospedado, via Stripe) — 1 por owner. Espelho local
