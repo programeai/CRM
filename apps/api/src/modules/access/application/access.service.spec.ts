@@ -12,13 +12,20 @@ function adminMock(user: unknown) {
 describe('AccessService', () => {
   it('owner recebe todas as permissões e ownerId igual ao próprio id', async () => {
     const service = new AccessService(
-      adminMock({ id: 'u1', ownerId: null, active: true, role: null }),
+      adminMock({
+        id: 'u1',
+        name: 'Dono',
+        ownerId: null,
+        active: true,
+        role: null,
+      }),
     );
 
     const access = await service.resolve('u1');
 
     expect(access).toEqual({
       userId: 'u1',
+      userName: 'Dono',
       ownerId: 'u1',
       isOwner: true,
       roleId: null,
@@ -31,6 +38,7 @@ describe('AccessService', () => {
     const service = new AccessService(
       adminMock({
         id: 'u2',
+        name: 'Colaboradora',
         ownerId: 'owner-1',
         active: true,
         role: {
@@ -46,6 +54,7 @@ describe('AccessService', () => {
 
     expect(access).toEqual({
       userId: 'u2',
+      userName: 'Colaboradora',
       ownerId: 'owner-1',
       isOwner: false,
       roleId: 'r1',
