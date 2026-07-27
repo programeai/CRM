@@ -8,6 +8,7 @@ import type { ClientsService } from '../../clients/application/clients.service';
 import type { DealsService } from '../../pipeline/application/deals.service';
 import type { PipelineStagesService } from '../../pipeline/application/pipeline-stages.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 describe('ProposalsService', () => {
   let repo: jest.Mocked<ProposalRepository>;
@@ -15,6 +16,7 @@ describe('ProposalsService', () => {
   let deals: { findOne: jest.Mock; move: jest.Mock; board: jest.Mock };
   let stages: { wonStage: jest.Mock };
   let audit: { registrar: jest.Mock };
+  let catalogos: { assertUtilizavel: jest.Mock; findOne: jest.Mock };
   let service: ProposalsService;
 
   beforeEach(() => {
@@ -33,12 +35,17 @@ describe('ProposalsService', () => {
     deals = { findOne: jest.fn(), move: jest.fn(), board: jest.fn() };
     stages = { wonStage: jest.fn() };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    catalogos = {
+      assertUtilizavel: jest.fn().mockResolvedValue({ id: 'svc-1' }),
+      findOne: jest.fn().mockResolvedValue({ id: 'svc-1' }),
+    };
     service = new ProposalsService(
       repo,
       clients as unknown as ClientsService,
       deals as unknown as DealsService,
       stages as unknown as PipelineStagesService,
       audit as unknown as AuditService,
+      catalogos as unknown as CatalogosService,
     );
   });
 
