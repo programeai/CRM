@@ -7,12 +7,14 @@ import type { DealRepository } from '../domain/deal.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { PipelineStagesService } from './pipeline-stages.service';
 import type { ProjectsService } from '../../projects/application/projects.service';
+import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
   let clients: { findOne: jest.Mock };
   let stages: { findOne: jest.Mock; firstStage: jest.Mock };
   let projects: { createFromDeal: jest.Mock };
+  let members: { assertMember: jest.Mock };
   let service: DealsService;
 
   beforeEach(() => {
@@ -29,11 +31,13 @@ describe('DealsService', () => {
     clients = { findOne: jest.fn() };
     stages = { findOne: jest.fn(), firstStage: jest.fn() };
     projects = { createFromDeal: jest.fn() };
+    members = { assertMember: jest.fn().mockResolvedValue(undefined) };
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
       stages as unknown as PipelineStagesService,
       projects as unknown as ProjectsService,
+      members as unknown as WorkspaceMembersService,
     );
   });
 
@@ -111,6 +115,35 @@ describe('DealsService', () => {
       id: 'd1',
       stageId: 'won',
     });
+  });
+
+  it('valida o responsável antes de gravar', async () => {
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    members.assertMember.mockRejectedValue(
+      new UnprocessableEntityException(
+        'Responsável inválido: escolha alguém da sua equipe.',
+      ),
+    );
+    await expect(
+      service.create('owner', {
+        title: 'Projeto X',
+        clientId: 'cli',
+        serviceType: 'SOFTWARE',
+        assigneeId: 'de-outro-owner',
+      } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('não zera o responsável quando o patch não traz o campo', async () => {
+    repo.findById.mockResolvedValue({ id: 'd1', clientId: 'cli' } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'd1' } as never);
+    await service.update('owner', 'd1', { title: 'Novo' });
+    expect(repo.update).toHaveBeenCalledWith(
+      'd1',
+      expect.not.objectContaining({ assigneeId: expect.anything() }),
+    );
   });
 
   it('não cria o projeto ao mover dentro do mesmo estágio isWon (sem mudança)', async () => {

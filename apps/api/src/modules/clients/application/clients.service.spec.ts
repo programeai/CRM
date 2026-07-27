@@ -2,12 +2,15 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import type { ClientRepository } from '../domain/client.repository';
+import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 
 describe('ClientsService', () => {
   let repo: jest.Mocked<ClientRepository>;
+  let members: jest.Mocked<WorkspaceMembersService>;
   let service: ClientsService;
 
   beforeEach(() => {
@@ -22,7 +25,11 @@ describe('ClientsService', () => {
       findByTag: jest.fn(),
       removeTagFromAll: jest.fn(),
     };
-    service = new ClientsService(repo);
+    members = {
+      list: jest.fn(),
+      assertMember: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<WorkspaceMembersService>;
+    service = new ClientsService(repo, members);
   });
 
   it('cria cliente derivando ownerId e limpando o documento', async () => {
@@ -88,6 +95,38 @@ describe('ClientsService', () => {
     await service.list('owner-1', { page: 3, limit: 10 });
     expect(repo.findManyAndCount).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: 'owner-1', skip: 20, take: 10 }),
+    );
+  });
+
+  // O create faz spread do DTO: sem a validação explícita, `assigneeId` chegaria
+  // ao Prisma sem passar por lugar nenhum.
+  it('valida o responsável antes de gravar', async () => {
+    members.assertMember.mockRejectedValue(
+      new UnprocessableEntityException(
+        'Responsável inválido: escolha alguém da sua equipe.',
+      ),
+    );
+    await expect(
+      service.create('owner-1', {
+        name: 'Acme',
+        personType: 'COMPANY',
+        assigneeId: 'de-outro-owner',
+      } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('não zera o responsável quando o patch não traz o campo', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      personType: 'COMPANY',
+    } as never);
+    repo.update.mockResolvedValue({ id: 'c1' } as never);
+    await service.update('owner-1', 'c1', { name: 'Novo' });
+    expect(repo.update).toHaveBeenCalledWith(
+      'c1',
+      'owner-1',
+      expect.not.objectContaining({ assigneeId: expect.anything() }),
     );
   });
 });

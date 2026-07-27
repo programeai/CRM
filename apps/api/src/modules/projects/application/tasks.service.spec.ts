@@ -1,11 +1,16 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import type { TaskRepository } from '../domain/task.repository';
 import type { ProjectsService } from './projects.service';
+import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 
 describe('TasksService', () => {
   let repo: jest.Mocked<TaskRepository>;
   let projects: { findOne: jest.Mock };
+  let members: { assertMember: jest.Mock };
   let service: TasksService;
 
   beforeEach(() => {
@@ -21,7 +26,12 @@ describe('TasksService', () => {
       move: jest.fn(),
     };
     projects = { findOne: jest.fn() };
-    service = new TasksService(repo, projects as unknown as ProjectsService);
+    members = { assertMember: jest.fn().mockResolvedValue(undefined) };
+    service = new TasksService(
+      repo,
+      projects as unknown as ProjectsService,
+      members as unknown as WorkspaceMembersService,
+    );
   });
 
   it('calcula position = max+1 e seta completedAt só quando status === DONE', async () => {
@@ -94,6 +104,34 @@ describe('TasksService', () => {
     repo.findById.mockResolvedValue(null);
     await expect(service.findOne('owner', 'nope')).rejects.toBeInstanceOf(
       NotFoundException,
+    );
+  });
+
+  it('valida o responsável antes de gravar', async () => {
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    members.assertMember.mockRejectedValue(
+      new UnprocessableEntityException(
+        'Responsável inválido: escolha alguém da sua equipe.',
+      ),
+    );
+    await expect(
+      service.create('owner', {
+        projectId: 'proj1',
+        title: 'Tarefa X',
+        assigneeId: 'de-outro-owner',
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  it('não zera o responsável quando o patch não traz o campo', async () => {
+    repo.findById.mockResolvedValue({ id: 't1', projectId: 'proj1' } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    repo.update.mockResolvedValue({ id: 't1' } as never);
+    await service.update('owner', 't1', { title: 'Novo' });
+    expect(repo.update).toHaveBeenCalledWith(
+      't1',
+      expect.not.objectContaining({ assigneeId: expect.anything() }),
     );
   });
 });
