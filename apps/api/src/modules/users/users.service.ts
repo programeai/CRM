@@ -1,11 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OAuthProvider } from '@prisma/client';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { OAuthProvider, type NotificationChannelKind } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PrismaAdminService } from '../../prisma/prisma-admin.service';
 import {
   DEFAULT_PIPELINE_STAGES,
   defaultPipelineStages,
 } from '../../shared/default-pipeline-stages';
+import {
+  NOTIFICATION_TARGET_REPOSITORY,
+  type NotificationTargetRepository,
+} from '../notifications/domain/notification-target.repository';
 
 /** Duração do trial concedido no cadastro. */
 const TRIAL_DAYS = 14;
@@ -17,6 +21,8 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private admin: PrismaAdminService,
+    @Inject(NOTIFICATION_TARGET_REPOSITORY)
+    private readonly notificationTargets: NotificationTargetRepository,
   ) {}
 
   /**
@@ -70,6 +76,35 @@ export class UsersService {
     });
   }
 
+  /**
+   * Destinos de notificação padrão da conta nova. O in-app é um canal como os
+   * outros (D1): sem esta linha o sino nunca receberia nada. `ownerId` = `id` do
+   * próprio usuário, porque owner tem `User.ownerId` nulo — ele É a workspace.
+   *
+   * Tem RLS e o cadastro não tem contexto de owner → entra pelo client admin.
+   * Não cabe no nested create do `User`: o `id` do usuário (que aqui é o
+   * `ownerId` do destino) só existe depois do `create` acima.
+   */
+  private async provisionarDestinos(
+    userId: string,
+    email: string,
+  ): Promise<void> {
+    const kinds: NotificationChannelKind[] = ['IN_APP', 'EMAIL'];
+    await this.notificationTargets.provisionarPadraoPeloSistema({
+      ownerId: userId,
+      userId,
+      email,
+      kinds,
+    });
+    this.logger.log({
+      evento: 'notificacao.destinos_provisionados',
+      msg: 'Destinos de notificação padrão criados para a conta nova.',
+      ownerId: userId,
+      userId,
+      quantidade: kinds.length,
+    });
+  }
+
   async create(data: { name: string; email: string; passwordHash: string }) {
     const user = await this.admin.user.create({
       data: {
@@ -79,8 +114,11 @@ export class UsersService {
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
         pipelineStages: { create: this.defaultStages() },
+        // `ownerId` do destino não pode sair daqui (o id ainda não existe) — é
+        // preenchido logo abaixo, no único ponto do projeto onde ele é conhecido.
       },
     });
+    await this.provisionarDestinos(user.id, user.email);
     this.logStagesProvisioned(user.id);
     return user;
   }
@@ -134,6 +172,7 @@ export class UsersService {
         pipelineStages: { create: this.defaultStages() },
       },
     });
+    await this.provisionarDestinos(user.id, user.email);
     this.logStagesProvisioned(user.id);
     return user;
   }
