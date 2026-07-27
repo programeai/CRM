@@ -62,6 +62,35 @@ export async function postar(
   corpo: unknown,
   deliveryId: string,
 ): Promise<void> {
+  await enviar(url, corpo, deliveryId);
+}
+
+/**
+ * Igual ao `postar`, mas **devolve o corpo da resposta já parseado**.
+ *
+ * Existe por causa do Telegram, que sinaliza falha no corpo (`{ ok: false }`) e
+ * não só no status: sem ler o corpo, um token errado ou um chat inexistente
+ * seria gravado como entrega bem-sucedida — falha silenciosa e sem retry. Quem
+ * chama decide o que é sucesso; aqui só o status HTTP é julgado.
+ *
+ * Corpo que não seja JSON faz o `json()` rejeitar, o que vira falha e retry —
+ * correto, e a mensagem do erro de parse não carrega a URL.
+ */
+export async function postarLendoResposta(
+  url: string,
+  corpo: unknown,
+  deliveryId: string,
+): Promise<unknown> {
+  const resposta = await enviar(url, corpo, deliveryId);
+  return (await resposta.json()) as unknown;
+}
+
+/** O POST em si. Rejeita fora de 2xx; não olha o corpo. */
+async function enviar(
+  url: string,
+  corpo: unknown,
+  deliveryId: string,
+): Promise<Response> {
   const resposta = await fetch(url, {
     method: 'POST',
     headers: {
@@ -76,4 +105,5 @@ export async function postar(
   if (!resposta.ok) {
     throw new Error(`O destino respondeu ${resposta.status}.`);
   }
+  return resposta;
 }

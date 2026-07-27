@@ -12,7 +12,7 @@ import {
 import { NotificationType } from '@prisma/client';
 
 /**
- * Destino de integração (`WEBHOOK`, `SLACK` ou `DISCORD`). Atrás de
+ * Destino de integração (`WEBHOOK`, `SLACK`, `DISCORD` ou `TELEGRAM`). Atrás de
  * `@RequirePermission('notificacao:integrar')` — ver **D4**.
  *
  * O `IsUrl` é só a primeira barreira (formato); a trava que importa é
@@ -24,10 +24,11 @@ export class CreateWebhookTargetDto {
   @MaxLength(60, { message: 'O rótulo deve ter no máximo 60 caracteres.' })
   label!: string;
 
-  @IsIn(['WEBHOOK', 'SLACK', 'DISCORD'], {
-    message: 'O tipo de integração deve ser WEBHOOK, SLACK ou DISCORD.',
+  @IsIn(['WEBHOOK', 'SLACK', 'DISCORD', 'TELEGRAM'], {
+    message:
+      'O tipo de integração deve ser WEBHOOK, SLACK, DISCORD ou TELEGRAM.',
   })
-  kind!: 'WEBHOOK' | 'SLACK' | 'DISCORD';
+  kind!: 'WEBHOOK' | 'SLACK' | 'DISCORD' | 'TELEGRAM';
 
   @IsUrl(
     { protocols: ['https'], require_protocol: true },
