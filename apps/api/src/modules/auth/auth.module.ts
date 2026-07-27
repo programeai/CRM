@@ -5,12 +5,19 @@ import { MailModule } from '../../mail/mail.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { SessionsService } from './sessions.service';
+import { SessionsCleanupJob } from './sessions-cleanup.job';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 
 @Module({
   imports: [UsersModule, MailModule, JwtModule.register({})],
-  providers: [AuthService, SessionsService, OAuthService, CaptchaService],
+  providers: [
+    AuthService,
+    SessionsService,
+    SessionsCleanupJob,
+    OAuthService,
+    CaptchaService,
+  ],
   controllers: [AuthController],
   // AuthService é exportado para o aceite de convite (modules/collaborators)
   // emitir a sessão do colaborador — o convidado já entra logado. SessionsService
