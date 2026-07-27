@@ -7,6 +7,7 @@ export type ProposalWithItems = Prisma.ProposalGetPayload<{
   include: {
     items: true;
     client: { select: { id: true; name: true } };
+    serviceType: { select: { id: true; name: true; active: true } };
   };
 }>;
 

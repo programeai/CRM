@@ -11,6 +11,9 @@ import type {
 const withItems = {
   items: { orderBy: { order: 'asc' } },
   client: { select: { id: true, name: true } },
+  // O rótulo do tipo de serviço é o dado (catálogo por owner) — sem o include,
+  // a UI exibiria o uuid.
+  serviceType: { select: { id: true, name: true, active: true } },
 } as const;
 
 @Injectable()

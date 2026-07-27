@@ -19,6 +19,7 @@ import { computeTotal } from './money';
 import type { CreateProposalDto } from '../api/dto/create-proposal.dto';
 import type { UpdateProposalDto } from '../api/dto/update-proposal.dto';
 import type { ListProposalsQueryDto } from '../api/dto/list-proposals-query.dto';
+import { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 // Transições manuais permitidas (EXPIRED só via cron; ACCEPTED/REJECTED/EXPIRED terminais).
 const ALLOWED_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
@@ -38,6 +39,7 @@ export class ProposalsService {
     private readonly deals: DealsService,
     private readonly stages: PipelineStagesService,
     private readonly audit: AuditService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async list(ownerId: string, query: ListProposalsQueryDto) {
@@ -70,6 +72,11 @@ export class ProposalsService {
   ): Promise<ProposalWithItems> {
     await this.clients.findOne(ownerId, dto.clientId); // valida posse do cliente
     if (dto.dealId) await this.deals.findOne(ownerId, dto.dealId); // valida posse do deal
+    await this.catalogos.assertUtilizavel(
+      ownerId,
+      'servicos',
+      dto.serviceTypeId,
+    );
 
     const number = await this.generateNumber();
     const total = computeTotal(dto.items, dto.discount);
@@ -80,7 +87,7 @@ export class ProposalsService {
       version: 1,
       clientId: dto.clientId,
       dealId: dto.dealId ?? null,
-      serviceType: dto.serviceType,
+      serviceTypeId: dto.serviceTypeId,
       status: 'DRAFT',
       scope: dto.scope ?? null,
       paymentTerms: dto.paymentTerms ?? null,
@@ -117,8 +124,8 @@ export class ProposalsService {
       return this.repo.updateWithItems(
         id,
         {
-          ...(dto.serviceType !== undefined
-            ? { serviceType: dto.serviceType }
+          ...(dto.serviceTypeId !== undefined
+            ? { serviceTypeId: dto.serviceTypeId }
             : {}),
           ...(dto.scope !== undefined ? { scope: dto.scope } : {}),
           ...(dto.paymentTerms !== undefined
@@ -142,8 +149,8 @@ export class ProposalsService {
       );
     }
     return this.repo.update(id, {
-      ...(dto.serviceType !== undefined
-        ? { serviceType: dto.serviceType }
+      ...(dto.serviceTypeId !== undefined
+        ? { serviceTypeId: dto.serviceTypeId }
         : {}),
       ...(dto.scope !== undefined ? { scope: dto.scope } : {}),
       ...(dto.paymentTerms !== undefined
@@ -236,6 +243,11 @@ export class ProposalsService {
   /** Clona a proposta como nova versão (mesmo `number`, `version+1`, DRAFT), copiando itens/campos. */
   async newVersion(ownerId: string, id: string): Promise<ProposalWithItems> {
     const source = await this.loadOwned(ownerId, id);
+    // Cópia de FK entre registros: o tipo de serviço copiado tem de pertencer ao
+    // owner de destino. `findOne` (não `assertUtilizavel`): versionar uma
+    // proposta cujo tipo foi DESATIVADO tem de continuar funcionando — é
+    // histórico sendo clonado, não escolha nova.
+    await this.catalogos.findOne(ownerId, 'servicos', source.serviceTypeId);
     const nova = await this.repo.create({
       ownerId,
       number: source.number,
@@ -243,7 +255,7 @@ export class ProposalsService {
       parentId: source.id,
       clientId: source.clientId,
       dealId: source.dealId,
-      serviceType: source.serviceType,
+      serviceTypeId: source.serviceTypeId,
       status: 'DRAFT',
       scope: source.scope,
       paymentTerms: source.paymentTerms,

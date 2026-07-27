@@ -3,7 +3,6 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsDateString,
-  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -11,7 +10,6 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { ServiceType } from '@prisma/client';
 import { ProposalItemDto } from './proposal-item.dto';
 
 export class CreateProposalDto {
@@ -22,8 +20,8 @@ export class CreateProposalDto {
   @IsUUID('4', { message: 'Oportunidade inválida.' })
   dealId?: string;
 
-  @IsEnum(ServiceType, { message: 'Tipo de serviço inválido.' })
-  serviceType: ServiceType;
+  @IsUUID('4', { message: 'Tipo de serviço inválido.' })
+  serviceTypeId: string;
 
   @IsArray()
   @ArrayNotEmpty({ message: 'Informe ao menos um item.' })
