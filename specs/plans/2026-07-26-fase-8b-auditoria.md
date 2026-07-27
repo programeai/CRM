@@ -4,7 +4,7 @@ author: claude
 source_prd: specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md
 git_commit: 35421684362649ab861746eaf7c0fa8bc5932265
 branch: main
-status: approved
+status: implemented
 tags: [spec, auditoria, audit-log, rls, cls, permissoes]
 ---
 
@@ -554,16 +554,16 @@ Instanciação direta (`new AuditService(prisma, admin, cls)`), com `prisma.db` 
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api exec prisma migrate dev` — a migration aplica sem erro
-- [ ] `pnpm --filter api test` — `audit.service.spec.ts`, `audit-diff.spec.ts` e `access.guard.spec.ts` passam
-- [ ] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros
-- [ ] `psql -c '\dp "AuditLog"'` — `crm_app` aparece com `arw` (SELECT/INSERT/REFERENCES) e **sem** `d` (DELETE) nem `w` sozinho de UPDATE
+- [x] `pnpm --filter api exec prisma migrate dev` — a migration aplica sem erro
+- [x] `pnpm --filter api test` — `audit.service.spec.ts`, `audit-diff.spec.ts` e `access.guard.spec.ts` passam
+- [x] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros (dois erros pré-existentes em `main.ts`, não relacionados a esta fase — ver nota abaixo)
+- [x] `psql -c '\dp "AuditLog"'` — `crm_app` aparece com `arw` (SELECT/INSERT/REFERENCES) e **sem** `d` (DELETE) nem `w` sozinho de UPDATE
 
 #### Manual Verification
-- [ ] Conectado como `crm_app`, `INSERT INTO "AuditLog" …` com `app.owner_id` setado funciona; sem `set_config`, insere **zero** linhas (fail-closed)
-- [ ] Conectado como `crm_app`, `UPDATE "AuditLog" SET "actorName" = 'x'` responde `permission denied`
-- [ ] Conectado como `crm_app` com o `app.owner_id` de outro owner, `SELECT` não devolve as linhas alheias
-- [ ] Nenhuma mudança de comportamento na aplicação (nada chama `registrar` ainda) — login, dashboard e listagens funcionam igual
+- [x] Conectado como `crm_app`, `INSERT INTO "AuditLog" …` com `app.owner_id` setado funciona; sem `set_config`, insere **zero** linhas (fail-closed)
+- [x] Conectado como `crm_app`, `UPDATE "AuditLog" SET "actorName" = 'x'` responde `permission denied`
+- [x] Conectado como `crm_app` com o `app.owner_id` de outro owner, `SELECT` não devolve as linhas alheias
+- [ ] Nenhuma mudança de comportamento na aplicação (nada chama `registrar` ainda) — login, dashboard e listagens funcionam igual (verificar manualmente na aplicação rodando)
 
 **⏸ PAUSE**: Parar para confirmação humana antes de instrumentar as ações.
 
@@ -757,9 +757,9 @@ E ao menos um teste por service afirma o registro:
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — todos os specs de service passam com o `AuditService` mockado, incluindo as asserções novas de registro
-- [ ] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros
-- [ ] `grep -rn "audit.registrar" apps/api/src/modules | wc -l` — pelo menos 18 pontos (4 pagamentos + 5 contratos + 5 propostas + 3 colaboradores + 4 papéis + 1 cliente)
+- [x] `pnpm --filter api test` — todos os specs de service passam com o `AuditService` mockado, incluindo as asserções novas de registro (247 testes)
+- [x] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros (salvo os dois pré-existentes de `main.ts`)
+- [x] `grep -rn "audit.registrar" apps/api/src/modules | wc -l` — pelo menos 18 pontos (4 pagamentos + 5 contratos + 5 propostas + 3 colaboradores + 4 papéis + 1 cliente) → **22**
 
 #### Manual Verification
 - [ ] Dar baixa numa cobrança e conferir a linha em `AuditLog`: `actorId` é o colaborador logado, `actorName` é o nome dele, `diff` traz `status: { antes: "PENDING", depois: "PAID" }` e `paidAmount`
@@ -969,8 +969,8 @@ E um parágrafo curto na seção de regras deixando explícito que a trilha pers
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — os specs dos dois jobs passam com o `AuditService` mockado; `markOverdue`/`expireOverdue` mockados devolvendo array
-- [ ] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros
+- [x] `pnpm --filter api test` — os specs dos dois jobs passam com o `AuditService` mockado; `markOverdue`/`expireOverdue` mockados devolvendo array (253 testes)
+- [x] `pnpm --filter api build` e `pnpm --filter api lint` — sem erros (salvo os dois pré-existentes de `main.ts`)
 
 #### Manual Verification
 - [ ] Criar uma cobrança `PENDING` com vencimento no passado e disparar o `FinanceBillingJob` à mão: uma linha `PAYMENT`/`VENCER` com `actorType: 'CRON'`, `actorId: null`, `actorName: 'Rotina diária'` e o `ownerId` **da cobrança** (não de outro owner)
@@ -1236,10 +1236,10 @@ Botão "Histórico" ao lado de "Editar", visível só com `can('auditoria:ver')`
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test`, `pnpm --filter api build`, `pnpm --filter api lint` — sem erros
-- [ ] `pnpm --filter web build` (o `tsc -b` é o portão do frontend) e `pnpm --filter web lint` — sem erros
-- [ ] `curl -H "Authorization: Bearer $TOKEN" 'localhost:3000/api/v1/audit?entity=PAYMENT&limit=5'` devolve `Paginated<AuditLog>`
-- [ ] Chamar `GET /audit` com um token de colaborador **sem** a chave responde `403 Você não tem permissão para ver a auditoria.`
+- [x] `pnpm --filter api test`, `pnpm --filter api build`, `pnpm --filter api lint` — sem erros (salvo os dois pré-existentes de `main.ts`)
+- [x] `pnpm --filter web build` (o `tsc -b` é o portão do frontend) e `pnpm --filter web lint` — sem erros
+- [x] `curl -H "Authorization: Bearer $TOKEN" 'localhost:3000/api/v1/audit?entity=PAYMENT&limit=5'` devolve `Paginated<AuditLog>`
+- [x] Chamar `GET /audit` com um token de colaborador **sem** a chave responde `403 Você não tem permissão para ver a auditoria.`
 
 #### Manual Verification
 - [ ] A tela `/auditoria` lista as ações da Fase 2 e da Fase 3 em ordem cronológica reversa, com pessoa, ação e registro legíveis — **nenhum** identificador técnico de enum aparece cru
