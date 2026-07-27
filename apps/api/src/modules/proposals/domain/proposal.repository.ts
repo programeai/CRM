@@ -19,12 +19,17 @@ export interface ProposalListFilter {
   take: number;
 }
 
-/** Proposta expirada pela rotina — o mínimo para a trilha (`status` = o anterior). */
+/** Proposta expirada pela rotina — a trilha (`status` = o anterior) e a notificação. */
 export interface PropostaExpirada {
   id: string;
   ownerId: string;
   number: string;
   status: import('@prisma/client').ProposalStatus;
+  clienteNome: string;
+  /** Derivado por `deal ?? client` (D2). Null → o gatilho cai no owner. */
+  assigneeId: string | null;
+  /** O `validUntil` que motivou a expiração — compõe o corpo da notificação. */
+  validUntil: Date;
 }
 
 export interface ProposalRepository {

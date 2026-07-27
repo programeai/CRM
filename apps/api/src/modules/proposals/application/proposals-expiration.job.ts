@@ -5,6 +5,7 @@ import {
   type ProposalRepository,
 } from '../domain/proposal.repository';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 /** Nome exibido na tela de auditoria para as rotinas diárias. */
 const ATOR_ROTINA = 'Rotina diária';
@@ -16,6 +17,7 @@ export class ProposalsExpirationJob {
   constructor(
     @Inject(PROPOSAL_REPOSITORY) private readonly repo: ProposalRepository,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -32,6 +34,22 @@ export class ProposalsExpirationJob {
         action: 'EXPIRAR',
         antes: { status: p.status },
         depois: { status: 'EXPIRED' },
+      });
+      // Gatilho (b), no momento "já expirou". O `NotificationsRemindersJob`
+      // cobre o outro momento — "vai expirar em 3 dias" — e o `dedupeKey`
+      // diferente (`PROPOSAL_EXPIRED:` vs `PROPOSAL_EXPIRING:`) garante que a
+      // pessoa receba os DOIS avisos, não um só.
+      await this.notifications.notificarPeloSistema({
+        ownerId: p.ownerId,
+        userId: p.assigneeId ?? p.ownerId,
+        dedupeKey: `PROPOSAL_EXPIRED:${p.id}`,
+        evento: {
+          tipo: 'PROPOSAL_EXPIRING',
+          entityId: p.id,
+          numero: p.number,
+          clienteNome: p.clienteNome,
+          dataAlvo: p.validUntil,
+        },
       });
     }
     if (expiradas.length > 0) {
