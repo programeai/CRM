@@ -5,10 +5,13 @@ import type {
   ProjectListFilter,
   ProjectRepository,
 } from '../domain/project.repository';
+import { ATIVO, ativoWhere } from '../../../shared/soft-delete';
 
 const withClient = {
   client: { select: { id: true, name: true } },
-  _count: { select: { tasks: true } },
+  // Só tarefas ativas: é a contagem exibida no card do projeto. A trava de
+  // expurgo usa `countTasks`, que conta tudo (FK RESTRICT).
+  _count: { select: { tasks: { where: { archivedAt: null } } } },
 } as const;
 
 @Injectable()
@@ -19,9 +22,10 @@ export class PrismaProjectRepository implements ProjectRepository {
     return this.prisma.db.project.create({ data, include: withClient });
   }
 
-  findById(id: string) {
-    return this.prisma.db.project.findUnique({
-      where: { id },
+  findById(id: string, includeArchived = false) {
+    // findFirst (não findUnique): o soft delete faz parte da busca.
+    return this.prisma.db.project.findFirst({
+      where: { id, ...ativoWhere(includeArchived) },
       include: withClient,
     });
   }
@@ -29,6 +33,7 @@ export class PrismaProjectRepository implements ProjectRepository {
   async findManyAndCount(filter: ProjectListFilter) {
     const where: Prisma.ProjectWhereInput = {
       client: { ownerId: filter.ownerId },
+      ...ATIVO,
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.search
@@ -50,7 +55,7 @@ export class PrismaProjectRepository implements ProjectRepository {
 
   findByClient(clientId: string) {
     return this.prisma.db.project.findMany({
-      where: { clientId },
+      where: { clientId, ...ATIVO },
       include: withClient,
       orderBy: { createdAt: 'desc' },
     });
@@ -68,10 +73,37 @@ export class PrismaProjectRepository implements ProjectRepository {
     await this.prisma.db.project.delete({ where: { id } });
   }
 
+  archive(id: string) {
+    return this.prisma.db.project.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+      include: withClient,
+    });
+  }
+
+  restore(id: string) {
+    return this.prisma.db.project.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: withClient,
+    });
+  }
+
+  /**
+   * Conta TODAS as tarefas, inclusive arquivadas: quem consome isto é a trava
+   * de expurgo, e a FK `Task.projectId` é RESTRICT — apagar o projeto com uma
+   * tarefa arquivada pendurada responderia 500 de FK. Para a contagem exibida
+   * na listagem, ver `_count` em `withClient`.
+   */
   async countTasks(projectId: string) {
     return this.prisma.db.task.count({ where: { projectId } });
   }
 
+  /**
+   * Inclui projeto arquivado: este método é o dedupe do "criar-ao-ganhar"
+   * (DealsService.move). Ignorar o arquivado faria uma segunda passagem pelo
+   * estágio "Ganhou" criar um projeto duplicado.
+   */
   findByDealId(dealId: string) {
     return this.prisma.db.project.findFirst({
       where: { dealId },

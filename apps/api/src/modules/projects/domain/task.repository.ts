@@ -48,7 +48,11 @@ export interface TaskTagRef {
 
 export interface TaskRepository {
   create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithProject>;
-  findById(id: string, scope?: AssigneeScope): Promise<TaskWithProject | null>;
+  findById(
+    id: string,
+    scope?: AssigneeScope,
+    includeArchived?: boolean,
+  ): Promise<TaskWithProject | null>;
   findManyAndCount(
     filter: TaskListFilter,
   ): Promise<{ data: TaskWithProject[]; total: number }>;
@@ -86,4 +90,8 @@ export interface TaskRepository {
     toPosition: number,
     patch: TaskMovePatch,
   ): Promise<TaskWithProject>;
+  /** Manda a tarefa para a lixeira. */
+  archive(id: string): Promise<TaskWithProject>;
+  /** Devolve a tarefa à área de trabalho. */
+  restore(id: string): Promise<TaskWithProject>;
 }
