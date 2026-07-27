@@ -5,7 +5,7 @@
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
 > **P2** evolução de produto · **P3** plataforma e governança.
 >
-> **Última atualização:** 2026-07-26
+> **Última atualização:** 2026-07-27
 
 ## Visão
 
@@ -26,17 +26,17 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ concluída | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
 | 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
-| 8 | Governança — sessões, auditoria e lixeira (**P0**) | ⬜ não iniciada | a definir |
-| 9 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
+| 8 | Governança — sessões, auditoria e lixeira (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md) · [plan A](specs/plans/2026-07-26-fase-8a-sessoes.md) · [plan B](specs/plans/2026-07-26-fase-8b-auditoria.md) · [plan C](specs/plans/2026-07-26-fase-8c-lixeira.md) |
+| 9 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
 | 10 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
-| 11 | Anexos e documentos (**P1**) | ⬜ não iniciada | a definir |
-| 12 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ⬜ não iniciada | a definir |
-| 13 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ não iniciada | a definir |
-| 14 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
-| 15 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ⬜ não iniciada | a definir |
-| 16 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
-| 17 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
-| 18 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
+| 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
+| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada | a definir |
+| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ⬜ não iniciada | a definir |
+| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ não iniciada | a definir |
+| 15 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
+| 16 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
+| 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ⬜ não iniciada | a definir |
+| 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
 | 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ⬜ não iniciada | a definir |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
@@ -232,37 +232,63 @@ partida em duas frentes independentes, **ambas entregues**.
 
 ---
 
-## Fase 8 — Governança: sessões, auditoria e lixeira ⬜ **P0**
+## Fase 8 — Governança: sessões, auditoria e lixeira ✅ **P0**
 
-**Sessões**
-- [ ] Substituir `User.refreshTokenHash` (valor único — [`schema.prisma:18`](apps/api/prisma/schema.prisma#L18)) por tabela de sessões
-- [ ] Registrar device/IP/último uso; listar sessões ativas no perfil; revogar uma ou todas
+Três lacunas de governança, cada uma entregável por si. A fase foi partida em três frentes
+independentes, **todas entregues**.
 
-> **Por quê:** hoje é uma sessão por usuário — logar no celular derruba o desktop.
+**Frente A — Sessões múltiplas** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8a-sessoes.md))
+- [x] `User.refreshTokenHash` (valor único) dá lugar ao modelo `Session`, uma linha por dispositivo (`20260728100000_sessions`)
+- [x] `sid` no payload do refresh token: validação por chave primária + um `argon2.verify`, independente do número de sessões
+- [x] Device/IP/último uso registrados; `GET /auth/sessions`, `DELETE /auth/sessions/:id` e `DELETE /auth/sessions` (revogar todas)
+- [x] Lista de sessões ativas no perfil ([`SessoesAtivas.tsx`](apps/web/src/features/perfil/SessoesAtivas.tsx)), com a sessão atual destacada
 
-**Auditoria**
-- [ ] Modelo `AuditLog` (owner, autor, entidade, ação, diff, timestamp) com RLS
-- [ ] Registrar mudanças sensíveis: baixa/estorno/cancelamento de cobrança, edição de contrato,
-      aceite/recusa de proposta, papéis e colaboradores, exclusões
-- [ ] Visão de histórico por registro e tela de auditoria do owner
+> **Por quê:** era uma sessão por usuário — logar no celular derrubava o desktop.
+
+**Frente B — Trilha de auditoria** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8b-auditoria.md))
+- [x] Modelo `AuditLog` (owner, autor, entidade, ação, diff, timestamp) com RLS (`20260729100000_audit_log`)
+- [x] Autor resolvido via CLS (o `AccessGuard` publica o `AccessContext`) — nenhuma assinatura de service mudou; gravação atômica na transação do `OwnerContextInterceptor`
+- [x] Ações sensíveis instrumentadas: baixa/estorno/cancelamento de cobrança, edição de contrato, aceite/recusa de proposta, papéis e colaboradores, arquivamento e expurgo
+- [x] Escritas sem ator humano na trilha: os dois crons diários, o webhook do Stripe e o aceite de convite
+- [x] `GET /audit` e `GET /audit/entities/:entity/:id` sob permissão `auditoria:ver`
+- [x] Tela de auditoria do owner ([`AuditoriaPage.tsx`](apps/web/src/features/auditoria/AuditoriaPage.tsx)) + histórico por registro ([`HistoricoDialog.tsx`](apps/web/src/features/auditoria/HistoricoDialog.tsx))
 
 > **Por quê:** colaboradores mexem em dinheiro (`/payments/:id/pay`, `/revert`, `/cancel`) e nada
-> registra quem fez o quê.
+> registrava quem fez o quê.
 
-**Lixeira**
-- [ ] Soft delete (`archivedAt`) em `Deal`, `Project`, `Task`, `Contact` — hoje só `Client` tem
-- [ ] Restauração e expurgo definitivo (com permissão própria)
+**Frente C — Lixeira** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8c-lixeira.md))
+- [x] Soft delete (`archivedAt`) estendido a `Deal`, `Project`, `Task` e `Contact` — antes só `Client` tinha (`20260730100000_soft_delete_lixeira`)
+- [x] Todas as leituras revisadas: listagens paginadas, os dois Kanban, "Minhas demandas", `_count.tasks`, agregações do dashboard e as travas de exclusão que contam filhos
+- [x] `POST /<recurso>/:id/archive` e `/restore` nos cinco recursos; arquivar oportunidade e demanda nasceu na UI
+- [x] Expurgo definitivo (`DELETE /<recurso>/:id`) sob permissão própria, respeitando a ordem imposta pelas FKs `ON DELETE RESTRICT` (`409` com registros vinculados, `422` fora da lixeira)
+- [x] Permissões novas: `auditoria:ver`, `lixeira:ver` e `lixeira:expurgar` (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts))
+- [x] `GET /trash` (read model dos cinco tipos) e a página [`/lixeira`](apps/web/src/features/lixeira/LixeiraPage.tsx) com restaurar e expurgar
 
 ---
 
-## Fase 9 — Proposta que o cliente vê ⬜ **P1**
+> **Ordem do P1.** As seis fases estão ordenadas **da mais simples para a mais complexa**, pelos
+> mesmos três critérios do P2: dependência externa (integração, infra nova, credencial), tamanho de
+> schema e superfície tocada, e risco de dinheiro/irreversível. São independentes entre si — a ordem
+> é de esforço, não de pré-requisito, exceto onde a fase declara "Depende de".
 
-- [ ] Geração de PDF da proposta (template com identidade do owner: logo, cores, dados)
-- [ ] Link público de aceite (token de uso único, expiração alinhada a `validUntil`)
-- [ ] Aceite/recusa pelo cliente na página pública → status, `decidedAt` e registro na timeline
-- [ ] Envio por e-mail com o PDF/link — hoje `POST /proposals/:id/send` só marca `sentAt`, não envia nada
-- [ ] Rastreio básico: visualizada em, aceita em
-- [ ] Templates de proposta reutilizáveis (escopo, condições, itens padrão)
+## Fase 9 — Relatórios e metas ⬜ **P1**
+
+- [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
+- [ ] Resultado por responsável, por serviço e por fonte de lead
+- [ ] Análise de perda agregada (`lostReason` é coletado e nunca somado)
+- [ ] Tempo médio por estágio e ciclo de venda (`stageMovedAt` existe e não é usado analiticamente)
+- [ ] Forecast ponderado por `probability` e valor esperado no período
+- [ ] Metas por período e por pessoa (comercial e financeira) → painel mostra "quanto falta", não só "quanto foi"
+- [ ] Exportação dos relatórios (depende da Fase 14)
+
+> **Por que é a mais simples:** é leitura agregada sobre dados que já existem, com um único modelo
+> novo (metas) e nenhuma integração, nenhuma escrita de negócio, nada irreversível. As janelas de
+> tempo em UTC e o funil já têm precedente testado na Fase 6.
+
+> **Ressalva:** "tempo médio por estágio" não sai do schema atual — `stageMovedAt`
+> ([`schema.prisma:260`](apps/api/prisma/schema.prisma#L260)) guarda só a **última** troca. Esse item
+> pede histórico de transições do `Deal` (modelo novo, alimentado no `PATCH /deals/:id/move`), e é o
+> único da fase que mexe em escrita. A exportação depende da Fase 14 e pode ficar por último.
 
 ---
 
@@ -277,9 +303,31 @@ partida em duas frentes independentes, **ambas entregues**.
 
 > **Por quê:** hoje o sistema só informa quem já está olhando a tela.
 
+> **Complexidade:** larga e rasa. Dois modelos novos (notificação e preferência por tipo), nenhuma
+> integração — o envio de e-mail já existe em [`mail.service.ts`](apps/api/src/mail/mail.service.ts)
+> e os dois crons já rodam. O custo é distribuído: seis gatilhos espalhados por módulos diferentes
+> (cobrança, proposta, demanda, follow-up, atribuição), cada um barato, todos a serem instrumentados.
+
 ---
 
-## Fase 11 — Anexos e documentos ⬜ **P1**
+## Fase 11 — Proposta que o cliente vê ⬜ **P1**
+
+- [ ] Geração de PDF da proposta (template com identidade do owner: logo, cores, dados)
+- [ ] Link público de aceite (token de uso único, expiração alinhada a `validUntil`)
+- [ ] Aceite/recusa pelo cliente na página pública → status, `decidedAt` e registro na timeline
+- [ ] Envio por e-mail com o PDF/link — hoje `POST /proposals/:id/send` só marca `sentAt`, não envia nada
+- [ ] Rastreio básico: visualizada em, aceita em
+- [ ] Templates de proposta reutilizáveis (escopo, condições, itens padrão)
+
+> **Complexidade:** o e-mail e o token de uso único já têm padrão no projeto (`mail.service.ts`,
+> `PasswordResetToken`, rotas `@Public()`). O custo novo é a renderização de PDF dentro do container
+> e uma superfície pública sem sessão — aceite de proposta é ato do cliente com efeito contratual,
+> então token, expiração e idempotência do aceite viram requisito, não detalhe. A identidade visual
+> do owner (**logo**) pressupõe upload — nasce limitada ou **depende da Fase 12**.
+
+---
+
+## Fase 12 — Anexos e documentos ⬜ **P1**
 
 - [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
 - [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
@@ -289,9 +337,14 @@ partida em duas frentes independentes, **ambas entregues**.
 > **Por quê:** não existe upload em nenhum ponto do sistema — contrato assinado, briefing, arte e
 > comprovante de pagamento continuam no Drive/WhatsApp.
 
+> **Complexidade:** primeira fase com **infra externa** — bucket S3-compatível (ou MinIO na
+> autohospedagem) significa env, credencial e mudança de deploy, não só código. Soma-se uma
+> capacidade que a API nunca teve (multipart), anexo polimórfico ligado a seis entidades e uma
+> superfície de segurança nova: tipo/tamanho, URL assinada de curta duração e conteúdo malicioso.
+
 ---
 
-## Fase 12 — Extensibilidade do domínio ⬜ **P1**
+## Fase 13 — Extensibilidade do domínio ⬜ **P1**
 
 - [ ] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
       (`SOFTWARE | WEBSITE | PAID_TRAFFIC` — [`schema.prisma:405`](apps/api/prisma/schema.prisma#L405)), com migration de dados
@@ -302,9 +355,14 @@ partida em duas frentes independentes, **ambas entregues**.
 
 > **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
 
+> **Complexidade:** nenhuma integração, e ainda assim alta. Trocar o enum `ServiceType` por catálogo
+> exige **migration de dados sobre registros vivos** (com RLS por owner), e campos customizados são o
+> item estruturalmente difícil do roadmap: valor dinâmico por tipo, validação em runtime, e todo
+> formulário, filtro e exportação passando a se montar a partir de definição, não de código.
+
 ---
 
-## Fase 13 — Dados: importação, exportação, busca e duplicidade ⬜ **P1**
+## Fase 14 — Dados: importação, exportação, busca e duplicidade ⬜ **P1**
 
 - [ ] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
 - [ ] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
@@ -316,21 +374,50 @@ partida em duas frentes independentes, **ambas entregues**.
 > **Por quê:** sem import, o onboarding de um cliente real morre no primeiro dia; sem export, o
 > financeiro não fecha o mês fora da tela.
 
----
-
-## Fase 14 — Relatórios e metas ⬜ **P1**
-
-- [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
-- [ ] Resultado por responsável, por serviço e por fonte de lead
-- [ ] Análise de perda agregada (`lostReason` é coletado e nunca somado)
-- [ ] Tempo médio por estágio e ciclo de venda (`stageMovedAt` existe e não é usado analiticamente)
-- [ ] Forecast ponderado por `probability` e valor esperado no período
-- [ ] Metas por período e por pessoa (comercial e financeira) → painel mostra "quanto falta", não só "quanto foi"
-- [ ] Exportação dos relatórios (depende da Fase 13)
+> **Por que é a mais complexa do P1:** são seis frentes de naturezas diferentes numa fase — ingestão
+> com mapeamento e relatório de erro, egressão genérica que atravessa **todas** as listagens
+> respeitando filtro e permissão, busca full-text (índice novo no Postgres) sobre seis entidades, e
+> **mesclagem de clientes**: religar FKs de contatos, oportunidades, propostas, contratos, cobranças e
+> timeline num só `$transaction`, sem volta. É a única frente do P1 que reescreve chave de registro
+> financeiro — pede a trilha da Fase 8 e testes de posse. Some-se a unicidade de `document`, que só
+> entra depois de resolver as duplicatas já existentes.
 
 ---
 
-## Fase 15 — Entrada de lead e comunicação ⬜ **P2**
+> **Ordem do P2.** As quatro fases de evolução de produto estão ordenadas **da mais simples para a
+> mais complexa**, por três critérios somados: dependência externa (integração de terceiro,
+> aprovação, credencial), tamanho de schema e superfície tocada, e risco de dinheiro/irreversível.
+> São independentes entre si — a ordem é de esforço, não de pré-requisito.
+
+## Fase 15 — Agenda e calendário ⬜ **P2**
+
+- [ ] Visão de calendário (mês/semana/dia) cruzando follow-ups, entregas, vencimentos e reuniões
+- [ ] Compromisso com duração, local/link e participantes (hoje `Activity.scheduledFor` é só um instante)
+- [ ] Sincronia com Google Calendar (duas vias)
+- [ ] Link de agendamento para o cliente escolher horário
+
+> **Por que é a mais simples:** os três primeiros itens são leitura do que já existe
+> (`Activity.scheduledFor`, `Task.dueDate`, `Payment.dueDate`) mais uma extensão de `Activity` —
+> nenhuma integração, nenhum dado novo de negócio. A única frente difícil (Google Calendar em duas
+> vias: OAuth, sync token, conflito) é separável e pode ficar por último sem travar o resto.
+
+---
+
+## Fase 16 — Automações e templates ⬜ **P2**
+
+- [ ] Cadência de follow-up (sequência de lembretes por estágio ou inatividade)
+- [ ] Regras "quando X, então Y" configuráveis pelo owner (mover estágio, criar tarefa, notificar, atribuir)
+- [ ] Checklist/tarefas padrão de projeto por tipo de serviço
+- [ ] Automatizar contrato ao ganhar (hoje só o projeto é sugerido)
+- [ ] Alerta de cliente inativo (sem atividade há N dias)
+
+> **Complexidade:** zero integração externa e tudo determinístico/testável, mas o motor de regras
+> configurável (evento → condição → ação, persistido e editável na UI) é desenho de arquitetura, não
+> CRUD. **Depende de** Fase 10 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço).
+
+---
+
+## Fase 17 — Entrada de lead e comunicação ⬜ **P2**
 
 - [ ] Formulário público de captação + endpoint de entrada de lead (site, landing page)
 - [ ] Webhook de entrada para Meta Ads / Google Ads / n8n, com deduplicação
@@ -343,9 +430,14 @@ partida em duas frentes independentes, **ambas entregues**.
 > valor de e-mail/WhatsApp está em **registrar** a interação, não só em disparar: timeline
 > alimentada à mão é timeline abandonada.
 
+> **Complexidade:** a metade "entrada de lead" é barata (rota pública já é padrão do projeto, e o
+> roteamento vem de graça com a Fase 7). O custo está na comunicação: WhatsApp Cloud API exige
+> verificação de negócio, templates aprovados e respeito à janela de 24h, e o vínculo automático da
+> resposta ao registro é heurística de correspondência, não FK.
+
 ---
 
-## Fase 16 — Financeiro completo ⬜ **P2**
+## Fase 18 — Financeiro completo ⬜ **P2**
 
 - [ ] Despesas (fixas e por projeto), categorias e fornecedores — hoje só há receita
 - [ ] DRE simplificado: receita × despesa × margem, por período e por projeto/cliente
@@ -355,24 +447,10 @@ partida em duas frentes independentes, **ambas entregues**.
 - [ ] Emissão de nota fiscal de serviço (integração com prefeitura/emissor)
 - [ ] Conciliação: extrato × cobranças
 
----
-
-## Fase 17 — Agenda e calendário ⬜ **P2**
-
-- [ ] Visão de calendário (mês/semana/dia) cruzando follow-ups, entregas, vencimentos e reuniões
-- [ ] Compromisso com duração, local/link e participantes (hoje `Activity.scheduledFor` é só um instante)
-- [ ] Sincronia com Google Calendar (duas vias)
-- [ ] Link de agendamento para o cliente escolher horário
-
----
-
-## Fase 18 — Automações e templates ⬜ **P2**
-
-- [ ] Cadência de follow-up (sequência de lembretes por estágio ou inatividade)
-- [ ] Regras "quando X, então Y" configuráveis pelo owner (mover estágio, criar tarefa, notificar, atribuir)
-- [ ] Checklist/tarefas padrão de projeto por tipo de serviço
-- [ ] Automatizar contrato ao ganhar (hoje só o projeto é sugerido)
-- [ ] Alerta de cliente inativo (sem atividade há N dias)
+> **Por que é a mais complexa:** três integrações externas de naturezas diferentes (gateway Pix/boleto,
+> emissor de NFS-e — que varia por prefeitura — e extrato bancário para conciliação), o maior schema
+> novo do roadmap (despesas, categorias, fornecedores) e a única frente onde o erro mexe em dinheiro
+> de verdade: baixa por webhook pede idempotência, e juros/multa/renegociação exigem trilha (Fase 8).
 
 ---
 

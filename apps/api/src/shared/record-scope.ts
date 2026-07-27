@@ -7,7 +7,7 @@ import type { AccessContext } from '../modules/access/domain/access-context';
  *  - `mine`              → estritamente os do usuário (alternador "Somente meus").
  *  - `mineOrUnassigned`  → os do usuário **mais** os sem responsável. É o escopo de
  *    quem não tem a chave ampla: registro sem responsável é visível para todos, senão
- *    o lead novo ficaria invisível (e o roteamento da Fase 15 não teria de onde partir).
+ *    o lead novo ficaria invisível (e o roteamento da Fase 17 não teria de onde partir).
  */
 export type AssigneeScope =
   | { kind: 'all' }
