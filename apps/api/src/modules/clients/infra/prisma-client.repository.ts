@@ -14,9 +14,10 @@ import {
   type AssigneeScope,
 } from '../../../shared/record-scope';
 
-/** Responsável embutido na leitura — o card e o formulário exibem o nome. */
+/** Responsável e a fonte de lead embutidos na leitura — o card e o formulário exibem o nome. */
 const withAssignee = {
   assignee: { select: { id: true, name: true } },
+  source: { select: { id: true, name: true, active: true } },
 } satisfies Prisma.ClientInclude;
 
 @Injectable()
@@ -41,7 +42,7 @@ export class PrismaClientRepository implements ClientRepository {
       ownerId: filter.ownerId,
       ...(filter.includeArchived ? {} : { archivedAt: null }),
       ...(filter.status ? { status: filter.status } : {}),
-      ...(filter.source ? { source: filter.source } : {}),
+      ...(filter.sourceId ? { sourceId: filter.sourceId } : {}),
       ...(filter.assigneeId ? { assigneeId: filter.assigneeId } : {}),
       ...(filter.search
         ? {

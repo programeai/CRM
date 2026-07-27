@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
-import { ClientStatus, LeadSource } from '@prisma/client';
+import { ClientStatus } from '@prisma/client';
 import { PaginationQueryDto } from '../../../../shared/dto/pagination-query.dto';
 
 export class ListClientsQueryDto extends PaginationQueryDto {
@@ -8,8 +8,8 @@ export class ListClientsQueryDto extends PaginationQueryDto {
   @IsEnum(ClientStatus, { message: 'Status inválido.' })
   status?: ClientStatus;
   @IsOptional()
-  @IsEnum(LeadSource, { message: 'Origem inválida.' })
-  source?: LeadSource;
+  @IsUUID('4', { message: 'Origem inválida.' })
+  sourceId?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'Responsável inválido.' })

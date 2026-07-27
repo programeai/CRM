@@ -16,7 +16,7 @@ export interface ClientListFilter {
   ownerId: string;
   search?: string; // casa em name, tradeName, document
   status?: Client['status'];
-  source?: NonNullable<Client['source']>;
+  sourceId?: string;
   includeArchived?: boolean;
   /** Filtro explícito da query (`?assigneeId=`). */
   assigneeId?: string;
