@@ -42,7 +42,7 @@ describe('CollaboratorsService', () => {
       existsByEmail: jest.fn().mockResolvedValue(false),
       create: jest.fn().mockResolvedValue(collaborator({ acceptedAt: null })),
       update: jest.fn().mockResolvedValue(collaborator()),
-      revokeSession: jest.fn().mockResolvedValue(undefined),
+      revokeSessions: jest.fn().mockResolvedValue(1),
     };
     roles = {
       findOrFail: jest
@@ -173,7 +173,7 @@ describe('CollaboratorsService', () => {
         active: false,
       });
 
-      expect(repo.revokeSession).toHaveBeenCalledWith('c1', OWNER);
+      expect(repo.revokeSessions).toHaveBeenCalledWith('c1', OWNER);
     });
 
     it('não revoga a sessão ao apenas trocar o papel', async () => {
@@ -189,7 +189,7 @@ describe('CollaboratorsService', () => {
       });
 
       expect(repo.update).toHaveBeenCalledWith('c1', OWNER, { roleId: 'r2' });
-      expect(repo.revokeSession).not.toHaveBeenCalled();
+      expect(repo.revokeSessions).not.toHaveBeenCalled();
     });
 
     it('valida que o novo papel é do owner antes de trocar', async () => {
