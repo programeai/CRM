@@ -85,7 +85,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Retornar o usuário autenticado (sem campos sensíveis) junto com o contexto de acesso — é o que o frontend usa para esconder navegação e ações (ver `useCan`).
 - **Auth:** Bearer (access token).
 - **Body:** —
-- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[] }`. Sem `passwordHash`/`refreshTokenHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro.
+- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[] }`. Sem `passwordHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.me`
 
@@ -93,17 +93,41 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Atualizar os dados cadastrais (nome e e-mail) do próprio usuário autenticado.
 - **Auth:** Bearer (access token).
 - **Body:** `{ name: string (2–120), email: string (e-mail) }`
-- **Resposta:** `200 { id, name, email, createdAt }` (sem `passwordHash`/`refreshTokenHash`).
+- **Resposta:** `200 { id, name, email, createdAt }` (sem `passwordHash`).
 - **Erros:** `409 Já existe uma conta com este e-mail.` (e-mail já usado por outra conta); `400` (validação); `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.updateMe`
 
 ### POST /auth/logout
-- **Propósito:** Encerrar a sessão: revoga o refresh token persistido e limpa o cookie.
+- **Propósito:** Encerrar a sessão corrente: revoga a sessão deste dispositivo e limpa o cookie. Os demais dispositivos seguem logados.
 - **Auth:** Bearer (access token).
 - **Body:** —
 - **Resposta:** `200 { ok: true }` + `Set-Cookie` limpando `refresh_token`.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.logout`
+
+### GET /auth/sessions
+- **Propósito:** Listar as sessões ativas (dispositivos logados) do próprio usuário, da mais usada recentemente para a mais antiga.
+- **Auth:** Bearer (access token). Sem permissão — é dado de identidade do próprio usuário.
+- **Body:** —
+- **Resposta:** `200 Array<{ id, device, ip, createdAt, lastUsedAt, current }>`. `device` é um rótulo derivado do User-Agent ("Chrome no Windows"); `current: true` marca a sessão que fez esta requisição (ausente em access token emitido antes da Fase 8A).
+- **Erros:** `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.sessions`
+
+### DELETE /auth/sessions
+- **Propósito:** Encerrar todas as sessões do próprio usuário **exceto a atual** ("Encerrar as outras sessões").
+- **Auth:** Bearer (access token). Sem permissão.
+- **Body:** —
+- **Resposta:** `200 { revoked: number }`.
+- **Erros:** `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.revokeOtherSessions`
+
+### DELETE /auth/sessions/:id
+- **Propósito:** Encerrar uma sessão específica do próprio usuário. O dispositivo revogado cai no próximo refresh; o access token dele vale até expirar.
+- **Auth:** Bearer (access token). Sem permissão — só alcança sessões do próprio `userId`.
+- **Body:** —
+- **Resposta:** `200 { ok: true }`.
+- **Erros:** `404 Sessão não encontrada.` (id inexistente, de outro usuário ou já revogado), `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.revokeSession`
 
 ### GET /auth/registration
 - **Propósito:** Informar se o autocadastro está aberto nesta instância, para a UI não oferecer a tela de registro quando a API vai recusar.
@@ -853,7 +877,7 @@ Colaborador é um `User` com `ownerId` preenchido: enxerga os dados do owner (me
 - **Propósito:** Listar os colaboradores do owner atual, com papel e situação.
 - **Auth:** Bearer (access token). Permissão: `colaborador:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 [{ id, name, email, active, status: 'PENDING' | 'ACTIVE' | 'INACTIVE', role: { id, name, system } | null, createdAt }]` — `status` é derivado: `PENDING` enquanto o convite não foi aceito. Nunca traz `passwordHash`/`refreshTokenHash`.
+- **Resposta:** `200 [{ id, name, email, active, status: 'PENDING' | 'ACTIVE' | 'INACTIVE', role: { id, name, system } | null, createdAt }]` — `status` é derivado: `PENDING` enquanto o convite não foi aceito. Nunca traz `passwordHash`.
 - **Erros:** `401`, `403`.
 - **Handler:** `modules/collaborators/api/collaborators.controller.ts` → `CollaboratorsController.list`
 

@@ -66,6 +66,8 @@ longo do tempo. Os que existem hoje:
 | `propostas.expiradas` | rotina diária das 3h | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
+| `sessao.revogada` | uma sessão encerrada pelo próprio usuário | `info` |
+| `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
 
 O front (`service=web`) emite `http.acesso` pelo nginx, **só para 4xx e 5xx** —
 servidor de arquivo estático em modo "loga tudo" seria só ruído. Para registrar
