@@ -7,6 +7,7 @@ import { NotificationsDigestJob } from './application/notifications-digest.job';
 import { EmailChannel } from './infra/email.channel';
 import { WebhookChannel } from './infra/webhook.channel';
 import { SlackChannel } from './infra/slack.channel';
+import { DiscordChannel } from './infra/discord.channel';
 import { NotificationsDispatcherService } from './application/notifications-dispatcher.service';
 import { NotificationsDispatchJob } from './application/notifications-dispatch.job';
 import { NotificationsRemindersJob } from './application/notifications-reminders.job';
@@ -62,10 +63,17 @@ import { InAppChannel } from './infra/in-app.channel';
     EmailChannel,
     WebhookChannel,
     SlackChannel,
+    DiscordChannel,
     {
       provide: NOTIFICATION_CHANNELS,
       useFactory: (...canais: CanalDeNotificacao[]) => canais,
-      inject: [InAppChannel, EmailChannel, WebhookChannel, SlackChannel],
+      inject: [
+        InAppChannel,
+        EmailChannel,
+        WebhookChannel,
+        SlackChannel,
+        DiscordChannel,
+      ],
     },
     {
       provide: NOTIFICATION_REPOSITORY,
