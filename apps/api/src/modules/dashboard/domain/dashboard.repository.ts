@@ -1,9 +1,4 @@
-import type {
-  ProposalStatus,
-  TaskStatus,
-  TaskPriority,
-  ActivityType,
-} from '@prisma/client';
+import type { ProposalStatus, TaskStatus, TaskPriority } from '@prisma/client';
 import type { AssigneeScope } from '../../../shared/record-scope';
 
 export const DASHBOARD_REPOSITORY = Symbol('DASHBOARD_REPOSITORY');
@@ -40,7 +35,8 @@ export interface UpcomingTaskRow {
 /** Follow-up agendado (para "próximas ações"). */
 export interface UpcomingActionRow {
   id: string;
-  type: ActivityType;
+  /** Linha do catálogo do owner — o rótulo é o dado (ver features/catalogos). */
+  type: { id: string; name: string; active: boolean };
   content: string;
   scheduledFor: Date | null;
   clientId: string;
