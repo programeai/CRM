@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CatalogosModule } from '../catalogos/catalogos.module';
 import { ClientsModule } from '../clients/clients.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { ProjectsController } from './api/projects.controller';
@@ -11,7 +12,7 @@ import { PrismaProjectRepository } from './infra/prisma-project.repository';
 import { PrismaTaskRepository } from './infra/prisma-task.repository';
 
 @Module({
-  imports: [ClientsModule, WorkspaceModule],
+  imports: [ClientsModule, WorkspaceModule, CatalogosModule],
   controllers: [ProjectsController, TasksController],
   providers: [
     ProjectsService,

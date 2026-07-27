@@ -7,11 +7,13 @@ import { ProjectsService } from './projects.service';
 import type { ProjectRepository } from '../domain/project.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 describe('ProjectsService', () => {
   let repo: jest.Mocked<ProjectRepository>;
   let clients: { findOne: jest.Mock };
   let audit: { registrar: jest.Mock };
+  let catalogos: { assertUtilizavel: jest.Mock; findOne: jest.Mock };
   let service: ProjectsService;
 
   beforeEach(() => {
@@ -29,10 +31,15 @@ describe('ProjectsService', () => {
     };
     clients = { findOne: jest.fn() };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    catalogos = {
+      assertUtilizavel: jest.fn().mockResolvedValue({ id: 'svc-1' }),
+      findOne: jest.fn().mockResolvedValue({ id: 'svc-1' }),
+    };
     service = new ProjectsService(
       repo,
       clients as unknown as ClientsService,
       audit as unknown as AuditService,
+      catalogos as unknown as CatalogosService,
     );
   });
 
@@ -42,16 +49,16 @@ describe('ProjectsService', () => {
     await service.create('owner', {
       name: 'Site novo',
       clientId: 'cli',
-      serviceType: 'WEBSITE',
+      serviceTypeId: 'svc-1',
       startDate: '2026-08-01',
       dueDate: '2026-09-01',
-    } as never);
+    });
     expect(clients.findOne).toHaveBeenCalledWith('owner', 'cli');
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         clientId: 'cli',
         name: 'Site novo',
-        serviceType: 'WEBSITE',
+        serviceTypeId: 'svc-1',
         startDate: new Date('2026-08-01'),
         dueDate: new Date('2026-09-01'),
       }),

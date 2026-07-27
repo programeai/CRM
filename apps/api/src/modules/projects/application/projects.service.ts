@@ -12,6 +12,7 @@ import { normalizePage, paginated } from '../../../shared/pagination';
 import type { CreateProjectDto } from '../api/dto/create-project.dto';
 import type { UpdateProjectDto } from '../api/dto/update-project.dto';
 import type { ListProjectsQueryDto } from '../api/dto/list-projects-query.dto';
+import { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 @Injectable()
 export class ProjectsService {
@@ -19,6 +20,7 @@ export class ProjectsService {
     @Inject(PROJECT_REPOSITORY) private readonly repo: ProjectRepository,
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async list(ownerId: string, query: ListProjectsQueryDto) {
@@ -52,11 +54,16 @@ export class ProjectsService {
     dto: CreateProjectDto,
   ): Promise<ProjectWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida posse do cliente
+    await this.catalogos.assertUtilizavel(
+      ownerId,
+      'servicos',
+      dto.serviceTypeId,
+    );
     return this.repo.create({
       ownerId,
       clientId: dto.clientId,
       name: dto.name,
-      serviceType: dto.serviceType,
+      serviceTypeId: dto.serviceTypeId,
       proposalId: dto.proposalId ?? null,
       startDate: dto.startDate ? new Date(dto.startDate) : null,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -69,10 +76,17 @@ export class ProjectsService {
     dto: UpdateProjectDto,
   ): Promise<ProjectWithClient> {
     await this.loadOwned(ownerId, id);
+    if (dto.serviceTypeId !== undefined) {
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'servicos',
+        dto.serviceTypeId,
+      );
+    }
     return this.repo.update(id, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
-      ...(dto.serviceType !== undefined
-        ? { serviceType: dto.serviceType }
+      ...(dto.serviceTypeId !== undefined
+        ? { serviceTypeId: dto.serviceTypeId }
         : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.startDate !== undefined
@@ -138,12 +152,18 @@ export class ProjectsService {
   async createFromDeal(deal: Deal): Promise<void> {
     const existing = await this.repo.findByDealId(deal.id);
     if (existing) return;
+    // Cópia de FK entre registros: o item do catálogo tem de pertencer ao MESMO
+    // owner do projeto que está sendo criado. Hoje `deal.ownerId` é o owner do
+    // request, então isto é redundante por construção — e é exatamente por isso
+    // que fica escrito: se um dia o criar-ao-ganhar rodar fora do contexto do
+    // owner, esta linha é o que impede a FK cruzada.
+    await this.catalogos.findOne(deal.ownerId, 'servicos', deal.serviceTypeId);
     await this.repo.create({
       ownerId: deal.ownerId,
       clientId: deal.clientId,
       dealId: deal.id,
       name: deal.title,
-      serviceType: deal.serviceType,
+      serviceTypeId: deal.serviceTypeId,
       // proposalId fica null: o move não conhece a proposta; opcional em Project.
     });
   }

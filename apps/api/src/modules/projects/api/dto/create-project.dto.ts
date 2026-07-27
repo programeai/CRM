@@ -1,12 +1,10 @@
 import {
   IsDateString,
-  IsEnum,
   IsOptional,
   IsString,
   IsUUID,
   MinLength,
 } from 'class-validator';
-import { ServiceType } from '@prisma/client';
 
 export class CreateProjectDto {
   @IsString({ message: 'O nome é obrigatório.' })
@@ -16,8 +14,8 @@ export class CreateProjectDto {
   @IsUUID('4', { message: 'Cliente inválido.' })
   clientId: string;
 
-  @IsEnum(ServiceType, { message: 'Tipo de serviço inválido.' })
-  serviceType: ServiceType;
+  @IsUUID('4', { message: 'Tipo de serviço inválido.' })
+  serviceTypeId: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'Proposta inválida.' })
