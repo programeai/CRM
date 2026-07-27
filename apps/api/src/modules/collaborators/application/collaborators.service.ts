@@ -137,9 +137,15 @@ export class CollaboratorsService {
 
     const updated = await this.collaborators.update(id, ownerId, data);
 
-    // Desativar sem revogar deixaria o refresh token do navegador dele vivo.
+    // Desativar sem revogar deixaria vivos os refresh tokens dos navegadores dele.
     if (data.active === false) {
-      await this.collaborators.revokeSession(id, ownerId);
+      const revogadas = await this.collaborators.revokeSessions(id, ownerId);
+      this.logger.log({
+        evento: 'sessoes.revogadas',
+        msg: 'Sessões do colaborador revogadas na desativação.',
+        colaboradorId: id,
+        quantidade: revogadas,
+      });
     }
 
     if (data.roleId && data.roleId !== current.role?.id) {
