@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useOutletContext } from 'react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,9 +15,11 @@ import {
   SelectTrigger,
 } from '@/components/ui/select';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { Spinner } from '@/components/ui/spinner';
 import { ACTIVITY_TYPE_LABELS, translateActivityType } from '@/lib/labels';
 import { formatDateTime } from '@/lib/format';
+import { useMe } from '@/features/perfil/api/hooks';
 import {
   useActivities,
   useCreateActivity,
@@ -28,6 +31,7 @@ const schema = z.object({
   type: z.enum(['NOTE', 'CALL', 'MEETING', 'EMAIL', 'WHATSAPP', 'FOLLOW_UP']),
   content: z.string().min(1, 'O conteúdo é obrigatório.'),
   scheduledFor: z.string().optional(),
+  assigneeId: z.string().nullable().optional(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -37,6 +41,9 @@ export default function TimelineTab() {
   const { data, isLoading } = useActivities(clientId);
   const createActivity = useCreateActivity(clientId);
   const completeActivity = useCompleteActivity(clientId);
+  // Registrar uma atividade é um ato de quem está logado — o responsável já nasce
+  // preenchido com ele (e pode ser trocado antes de salvar).
+  const { data: me } = useMe();
 
   const {
     register,
@@ -44,13 +51,26 @@ export default function TimelineTab() {
     control,
     watch,
     reset,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { type: 'NOTE', content: '', scheduledFor: '' },
+    defaultValues: {
+      type: 'NOTE',
+      content: '',
+      scheduledFor: '',
+      assigneeId: me?.id ?? null,
+    },
   });
 
   const type = watch('type');
+
+  // O `me` chega depois da montagem do formulário: assim que chega, o campo
+  // (ainda intocado) passa a refletir o usuário logado.
+  useEffect(() => {
+    if (me?.id && getValues('assigneeId') == null) setValue('assigneeId', me.id);
+  }, [me?.id, getValues, setValue]);
 
   const onSubmit = async (v: Values) => {
     try {
@@ -62,9 +82,16 @@ export default function TimelineTab() {
           v.type === 'FOLLOW_UP' && v.scheduledFor
             ? new Date(v.scheduledFor).toISOString()
             : undefined,
+        assigneeId: v.assigneeId ?? null,
       });
       toast.success('Atividade registrada.');
-      reset({ type: 'NOTE', content: '', scheduledFor: '' });
+      // Preserva o default de responsável — registrar em sequência é o caso comum.
+      reset({
+        type: 'NOTE',
+        content: '',
+        scheduledFor: '',
+        assigneeId: me?.id ?? null,
+      });
     } catch {
       toast.error('Falha ao registrar a atividade.');
     }
@@ -110,6 +137,16 @@ export default function TimelineTab() {
                     )}
                   </SelectContent>
                 </Select>
+              )}
+            />
+          </Field>
+          <Field className="sm:max-w-56">
+            <FieldLabel>Responsável</FieldLabel>
+            <Controller
+              control={control}
+              name="assigneeId"
+              render={({ field }) => (
+                <AssigneeSelect value={field.value} onValueChange={field.onChange} />
               )}
             />
           </Field>

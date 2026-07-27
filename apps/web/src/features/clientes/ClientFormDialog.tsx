@@ -35,6 +35,7 @@ import {
   translateLeadSource,
   translateClientStatus,
 } from '@/lib/labels';
+import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { maskCep, maskDocument, maskPhone, onlyDigits } from '@/lib/format';
 import { extractApiMessage } from '@/lib/api-error';
 import { useCreateClient, useUpdateClient } from './api/hooks';
@@ -53,6 +54,7 @@ const schema = z.object({
     .enum(['REFERRAL', 'PAID_TRAFFIC', 'ORGANIC', 'OUTBOUND', 'OTHER'])
     .optional(),
   status: z.enum(['LEAD', 'ACTIVE', 'INACTIVE', 'LOST']),
+  assigneeId: z.string().nullable().optional(),
   tags: z.array(z.string()),
   notes: z.string().optional(),
   zipCode: z.string().optional(),
@@ -75,6 +77,7 @@ const EMPTY: Values = {
   website: '',
   source: undefined,
   status: 'LEAD',
+  assigneeId: null,
   tags: [],
   notes: '',
   zipCode: '',
@@ -97,6 +100,7 @@ function toValues(client: Client): Values {
     website: client.website ?? '',
     source: client.source ?? undefined,
     status: client.status,
+    assigneeId: client.assigneeId ?? null,
     tags: client.tags,
     notes: client.notes ?? '',
     zipCode: client.zipCode ?? '',
@@ -281,6 +285,7 @@ export function ClientFormDialog({
       website: blank(v.website),
       source: v.source,
       status: v.status,
+      assigneeId: v.assigneeId ?? null,
       tags: v.tags,
       notes: blank(v.notes),
       zipCode: blank(v.zipCode),
@@ -490,6 +495,21 @@ export function ClientFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel>Responsável</FieldLabel>
+              <Controller
+                control={control}
+                name="assigneeId"
+                render={({ field }) => (
+                  <AssigneeSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    current={client?.assignee}
+                  />
                 )}
               />
             </Field>
