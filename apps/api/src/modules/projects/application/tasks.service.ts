@@ -9,9 +9,11 @@ import {
 import { ProjectsService } from './projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
+import { assigneeMudou } from '../../../shared/assignee-changed';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateTaskDto } from '../api/dto/create-task.dto';
 import type { UpdateTaskDto } from '../api/dto/update-task.dto';
@@ -25,6 +27,7 @@ export class TasksService {
     private readonly projects: ProjectsService,
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(
@@ -77,7 +80,7 @@ export class TasksService {
     const status = dto.status ?? 'BACKLOG';
     const position =
       (await this.repo.maxPositionInStatus(dto.projectId, status)) + 1;
-    return this.repo.create({
+    const criada = await this.repo.create({
       ownerId,
       projectId: dto.projectId,
       title: dto.title,
@@ -93,6 +96,19 @@ export class TasksService {
       completedAt: status === 'DONE' ? new Date() : null,
       assigneeId: dto.assigneeId ?? null,
     });
+    // Gatilho (f). Auto-atribuição é descartada dentro do `notificar`.
+    if (dto.assigneeId) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'TASK',
+          entityId: criada.id,
+          entityLabel: criada.title,
+        },
+      });
+    }
+    return criada;
   }
 
   async update(
@@ -100,9 +116,9 @@ export class TasksService {
     id: string,
     dto: UpdateTaskDto,
   ): Promise<TaskWithProject> {
-    await this.loadOwned(ownerId, id);
+    const antes = await this.loadOwned(ownerId, id);
     await this.members.assertMember(ownerId, dto.assigneeId);
-    return this.repo.update(id, {
+    const atualizada = await this.repo.update(id, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.description !== undefined
         ? { description: dto.description }
@@ -117,6 +133,18 @@ export class TasksService {
         : {}),
       ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
     });
+    if (assigneeMudou(dto.assigneeId, antes.assigneeId)) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'TASK',
+          entityId: id,
+          entityLabel: atualizada.title,
+        },
+      });
+    }
+    return atualizada;
   }
 
   async move(

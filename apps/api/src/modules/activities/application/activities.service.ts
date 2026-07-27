@@ -6,7 +6,9 @@ import {
 } from '../domain/activity.repository';
 import { ClientsService } from '../../clients/application/clients.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import { assigneeMudou } from '../../../shared/assignee-changed';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateActivityDto } from '../api/dto/create-activity.dto';
 import type { UpdateActivityDto } from '../api/dto/update-activity.dto';
@@ -18,6 +20,7 @@ export class ActivitiesService {
     @Inject(ACTIVITY_REPOSITORY) private readonly repo: ActivityRepository,
     private readonly clients: ClientsService,
     private readonly members: WorkspaceMembersService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(
@@ -26,7 +29,7 @@ export class ActivitiesService {
   ): Promise<ActivityWithAssignee> {
     await this.clients.findOne(ownerId, dto.clientId); // garante posse
     await this.members.assertMember(ownerId, dto.assigneeId);
-    return this.repo.create({
+    const criada = await this.repo.create({
       ownerId,
       clientId: dto.clientId,
       dealId: dto.dealId,
@@ -35,6 +38,22 @@ export class ActivitiesService {
       scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : undefined,
       assigneeId: dto.assigneeId ?? null,
     });
+    // Gatilho (f). Atividade não tem título: o rótulo é o começo do conteúdo,
+    // mesmo desenho denormalizado da trilha de auditoria. Auto-atribuição é
+    // descartada dentro do `notificar`.
+    if (dto.assigneeId) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'ACTIVITY',
+          entityId: criada.id,
+          entityLabel: criada.content.slice(0, 80),
+          clientId: criada.clientId,
+        },
+      });
+    }
+    return criada;
   }
 
   async list(
@@ -63,9 +82,9 @@ export class ActivitiesService {
     id: string,
     dto: UpdateActivityDto,
   ): Promise<ActivityWithAssignee> {
-    await this.loadOwned(ownerId, id);
+    const antes = await this.loadOwned(ownerId, id);
     await this.members.assertMember(ownerId, dto.assigneeId);
-    return this.repo.update(id, {
+    const atualizada = await this.repo.update(id, {
       ...(dto.dealId !== undefined ? { dealId: dto.dealId } : {}),
       ...(dto.type !== undefined ? { type: dto.type } : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
@@ -74,6 +93,19 @@ export class ActivitiesService {
         : {}),
       ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
     });
+    if (assigneeMudou(dto.assigneeId, antes.assigneeId)) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'ACTIVITY',
+          entityId: id,
+          entityLabel: atualizada.content.slice(0, 80),
+          clientId: atualizada.clientId,
+        },
+      });
+    }
+    return atualizada;
   }
 
   async complete(ownerId: string, id: string): Promise<ActivityWithAssignee> {

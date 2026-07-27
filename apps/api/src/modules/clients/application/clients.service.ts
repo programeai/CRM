@@ -18,6 +18,8 @@ import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { assigneeMudou } from '../../../shared/assignee-changed';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
 import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
@@ -28,6 +30,7 @@ export class ClientsService {
     @Inject(CLIENT_REPOSITORY) private readonly repo: ClientRepository,
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(
@@ -41,7 +44,20 @@ export class ClientsService {
       dto.document,
       dto.personType,
     );
-    return this.repo.create({ ...dto, document, ownerId });
+    const criado = await this.repo.create({ ...dto, document, ownerId });
+    // Gatilho (f). Auto-atribuição é descartada dentro do `notificar`.
+    if (dto.assigneeId) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'CLIENT',
+          entityId: criado.id,
+          entityLabel: criado.name,
+        },
+      });
+    }
+    return criado;
   }
 
   async list(
@@ -89,7 +105,19 @@ export class ClientsService {
         ? await this.resolveDocument(ownerId, dto.document, personType, id)
         : null;
     }
-    return this.repo.update(id, ownerId, data);
+    const atualizado = await this.repo.update(id, ownerId, data);
+    if (assigneeMudou(dto.assigneeId, existing.assigneeId)) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'CLIENT',
+          entityId: id,
+          entityLabel: atualizado.name,
+        },
+      });
+    }
+    return atualizado;
   }
 
   async archive(ownerId: string, id: string): Promise<ClientWithAssignee> {

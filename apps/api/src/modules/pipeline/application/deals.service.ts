@@ -14,8 +14,10 @@ import { PipelineStagesService } from './pipeline-stages.service';
 import { ProjectsService } from '../../projects/application/projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import { assigneeMudou } from '../../../shared/assignee-changed';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateDealDto } from '../api/dto/create-deal.dto';
 import type { UpdateDealDto } from '../api/dto/update-deal.dto';
@@ -31,6 +33,7 @@ export class DealsService {
     private readonly projects: ProjectsService,
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(
@@ -76,7 +79,7 @@ export class DealsService {
       ? await this.stages.findOne(ownerId, dto.stageId)
       : await this.stages.firstStage(ownerId);
     const position = (await this.repo.maxPositionInStage(stage.id)) + 1;
-    return this.repo.create({
+    const criado = await this.repo.create({
       ownerId,
       clientId: dto.clientId,
       stageId: stage.id,
@@ -88,6 +91,21 @@ export class DealsService {
       assigneeId: dto.assigneeId ?? null,
       position,
     });
+    // Gatilho (f). DEPOIS da escrita e na MESMA transação do request: a
+    // notificação commita junto com a atribuição, ou nenhuma das duas commita.
+    // Auto-atribuição é descartada dentro do `notificar`.
+    if (dto.assigneeId) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'DEAL',
+          entityId: criado.id,
+          entityLabel: criado.title,
+        },
+      });
+    }
+    return criado;
   }
 
   async update(
@@ -95,9 +113,9 @@ export class DealsService {
     id: string,
     dto: UpdateDealDto,
   ): Promise<DealWithClient> {
-    await this.loadOwned(ownerId, id);
+    const antes = await this.loadOwned(ownerId, id);
     await this.members.assertMember(ownerId, dto.assigneeId);
-    return this.repo.update(id, {
+    const atualizado = await this.repo.update(id, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.serviceType !== undefined
         ? { serviceType: dto.serviceType }
@@ -115,6 +133,18 @@ export class DealsService {
         : {}),
       ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
     });
+    if (assigneeMudou(dto.assigneeId, antes.assigneeId)) {
+      await this.notifications.notificar({
+        userId: dto.assigneeId,
+        evento: {
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'DEAL',
+          entityId: id,
+          entityLabel: atualizado.title,
+        },
+      });
+    }
+    return atualizado;
   }
 
   async move(

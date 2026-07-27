@@ -7,12 +7,14 @@ import type { TaskRepository } from '../domain/task.repository';
 import type { ProjectsService } from './projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
 
 describe('TasksService', () => {
   let repo: jest.Mocked<TaskRepository>;
   let projects: { findOne: jest.Mock };
   let members: { assertMember: jest.Mock };
   let audit: { registrar: jest.Mock };
+  let notifications: { notificar: jest.Mock };
   let service: TasksService;
 
   beforeEach(() => {
@@ -32,11 +34,13 @@ describe('TasksService', () => {
     projects = { findOne: jest.fn() };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
     service = new TasksService(
       repo,
       projects as unknown as ProjectsService,
       members as unknown as WorkspaceMembersService,
       audit as unknown as AuditService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -138,6 +142,53 @@ describe('TasksService', () => {
     expect(repo.update).toHaveBeenCalledWith(
       't1',
       expect.not.objectContaining({ assigneeId: expect.anything() }),
+    );
+    expect(notifications.notificar).not.toHaveBeenCalled();
+  });
+
+  it('notifica o novo responsável ao criar já atribuída', async () => {
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    repo.maxPositionInStatus.mockResolvedValue(-1);
+    repo.create.mockResolvedValue({ id: 't1', title: 'Tarefa X' } as never);
+
+    await service.create('owner', {
+      projectId: 'proj1',
+      title: 'Tarefa X',
+      assigneeId: 'u2',
+    });
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'TASK',
+          entityId: 't1',
+          entityLabel: 'Tarefa X',
+        }),
+      }),
+    );
+  });
+
+  it('notifica quando o responsável muda no update', async () => {
+    repo.findById.mockResolvedValue({
+      id: 't1',
+      projectId: 'proj1',
+      assigneeId: 'u1',
+    } as never);
+    projects.findOne.mockResolvedValue({ id: 'proj1' });
+    repo.update.mockResolvedValue({ id: 't1', title: 'Tarefa X' } as never);
+
+    await service.update('owner', 't1', { assigneeId: 'u2' });
+
+    expect(notifications.notificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u2',
+        evento: expect.objectContaining({
+          tipo: 'RECORD_ASSIGNED',
+          entity: 'TASK',
+        }),
+      }),
     );
   });
 
