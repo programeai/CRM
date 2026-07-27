@@ -12,6 +12,9 @@ const withClient = {
   // Só tarefas ativas: é a contagem exibida no card do projeto. A trava de
   // expurgo usa `countTasks`, que conta tudo (FK RESTRICT).
   _count: { select: { tasks: { where: { archivedAt: null } } } },
+  // O rótulo do tipo de serviço é o dado (catálogo por owner) — sem o include,
+  // a UI exibiria o uuid.
+  serviceType: { select: { id: true, name: true, active: true } },
 } as const;
 
 @Injectable()

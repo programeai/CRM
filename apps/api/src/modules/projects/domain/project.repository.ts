@@ -7,6 +7,7 @@ export type ProjectWithClient = Prisma.ProjectGetPayload<{
   include: {
     client: { select: { id: true; name: true } };
     _count: { select: { tasks: true } };
+    serviceType: { select: { id: true; name: true; active: true } };
   };
 }>;
 
