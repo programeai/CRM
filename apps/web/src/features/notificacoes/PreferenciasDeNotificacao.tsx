@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Bell, Mail, Plus, Trash2, Webhook } from 'lucide-react';
+import { Bell, Mail, MessageCircle, Plus, Trash2, Webhook } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,6 +43,7 @@ const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   EMAIL: Mail,
   WEBHOOK: Webhook,
   SLACK: Webhook,
+  DISCORD: MessageCircle,
 };
 
 interface PreferenciasDeNotificacaoProps {
@@ -336,7 +337,11 @@ function NovoDestinoEmail({ onFechar }: { onFechar: () => void }) {
 }
 
 /** Rótulos dos dois tipos de integração — o `Select` precisa do map. */
-const KIND_INTEGRACAO = { WEBHOOK: 'Webhook', SLACK: 'Slack' } as const;
+const KIND_INTEGRACAO = {
+  WEBHOOK: 'Webhook',
+  SLACK: 'Slack',
+  DISCORD: 'Discord',
+} as const;
 type KindIntegracao = keyof typeof KIND_INTEGRACAO;
 
 /**

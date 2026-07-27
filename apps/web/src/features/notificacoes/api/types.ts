@@ -57,7 +57,7 @@ export interface AtualizarDestinoBody {
  */
 export interface CriarIntegracaoBody {
   label: string;
-  kind: 'WEBHOOK' | 'SLACK';
+  kind: 'WEBHOOK' | 'SLACK' | 'DISCORD';
   url: string;
   types?: NotificationType[];
 }
