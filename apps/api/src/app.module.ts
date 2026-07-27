@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { OwnerContextInterceptor } from './prisma/owner-context.interceptor';
 import { AccessModule } from './modules/access/access.module';
 import { AccessGuard } from './modules/access/access.guard';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
@@ -51,6 +52,7 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     }),
     PrismaModule,
     AccessModule,
+    AuditModule,
     AuthModule,
     CollaboratorsModule,
     WorkspaceModule,
