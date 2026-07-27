@@ -8,7 +8,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { ActivitiesService } from '../application/activities.service';
-import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import {
+  CurrentAccess,
+  CurrentOwnerId,
+} from '../../../shared/current-user.decorator';
+import type { AccessContext } from '../../access/domain/access-context';
+import { resolveAssigneeScope } from '../../../shared/record-scope';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
@@ -21,10 +26,14 @@ export class ActivitiesController {
   @RequirePermission('cliente:ver', 'cliente:gerenciar')
   @Get()
   list(
-    @CurrentOwnerId() ownerId: string,
+    @CurrentAccess() access: AccessContext,
     @Query() query: ListActivitiesQueryDto,
   ) {
-    return this.activities.list(ownerId, query);
+    return this.activities.list(
+      access.ownerId,
+      query,
+      resolveAssigneeScope(access, 'cliente:ver_todos'),
+    );
   }
 
   @RequirePermission('cliente:gerenciar')

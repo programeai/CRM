@@ -9,7 +9,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { ClientsService } from '../application/clients.service';
-import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import {
+  CurrentAccess,
+  CurrentOwnerId,
+} from '../../../shared/current-user.decorator';
+import type { AccessContext } from '../../access/domain/access-context';
+import { resolveAssigneeScope } from '../../../shared/record-scope';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -21,8 +26,15 @@ export class ClientsController {
 
   @RequirePermission('cliente:ver', 'cliente:gerenciar')
   @Get()
-  list(@CurrentOwnerId() ownerId: string, @Query() query: ListClientsQueryDto) {
-    return this.clients.list(ownerId, query);
+  list(
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ListClientsQueryDto,
+  ) {
+    return this.clients.list(
+      access.ownerId,
+      query,
+      resolveAssigneeScope(access, 'cliente:ver_todos'),
+    );
   }
 
   @RequirePermission('cliente:gerenciar')
@@ -52,8 +64,12 @@ export class ClientsController {
 
   @RequirePermission('cliente:ver', 'cliente:gerenciar')
   @Get(':id')
-  findOne(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.clients.findOne(ownerId, id);
+  findOne(@CurrentAccess() access: AccessContext, @Param('id') id: string) {
+    return this.clients.findOne(
+      access.ownerId,
+      id,
+      resolveAssigneeScope(access, 'cliente:ver_todos'),
+    );
   }
 
   @RequirePermission('cliente:gerenciar')

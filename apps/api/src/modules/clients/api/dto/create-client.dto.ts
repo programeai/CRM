@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -34,6 +35,15 @@ export class CreateClientDto {
 
   @IsOptional() @IsArray() @IsString({ each: true }) tags?: string[];
   @IsOptional() @IsString() @MaxLength(5000) notes?: string;
+
+  /**
+   * Responsável. `null` limpa o campo; ausente preserva. `@IsOptional()` do
+   * class-validator ignora `null` **e** `undefined`, então o `@IsUUID` só roda
+   * quando vem um valor de verdade.
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'Responsável inválido.' })
+  assigneeId?: string | null;
 
   // endereço
   @IsOptional() @IsString() zipCode?: string;

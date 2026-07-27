@@ -1,10 +1,14 @@
 import type { Prisma } from '@prisma/client';
+import type { AssigneeScope } from '../../../shared/record-scope';
 
 export const DEAL_REPOSITORY = Symbol('DEAL_REPOSITORY');
 
-/** Deal + dados mínimos do cliente para exibir no card do board/lista. */
+/** Deal + dados mínimos do cliente e do responsável para exibir no card. */
 export type DealWithClient = Prisma.DealGetPayload<{
-  include: { client: { select: { id: true; name: true } } };
+  include: {
+    client: { select: { id: true; name: true } };
+    assignee: { select: { id: true; name: true } };
+  };
 }>;
 
 export interface DealListFilter {
@@ -12,6 +16,10 @@ export interface DealListFilter {
   clientId?: string;
   stageId?: string;
   search?: string; // casa em title
+  /** Filtro explícito da query (`?assigneeId=`). */
+  assigneeId?: string;
+  /** Recorte por permissão — independente do filtro acima; os dois se somam. */
+  scope: AssigneeScope;
   skip: number;
   take: number;
 }
@@ -24,13 +32,25 @@ export interface DealMovePatch {
 
 export interface DealRepository {
   create(data: Prisma.DealUncheckedCreateInput): Promise<DealWithClient>;
-  findById(id: string): Promise<DealWithClient | null>;
+  findById(id: string, scope?: AssigneeScope): Promise<DealWithClient | null>;
   findManyAndCount(
     filter: DealListFilter,
   ): Promise<{ data: DealWithClient[]; total: number }>;
-  /** Todos os deals do owner, ordenados por (stageId, position) — alimenta o board. */
-  findAllForBoard(ownerId: string): Promise<DealWithClient[]>;
-  update(id: string, data: Prisma.DealUpdateInput): Promise<DealWithClient>;
+  /**
+   * Todos os deals do owner, ordenados por (stageId, position) — alimenta o board.
+   * `assigneeId` é o filtro explícito da interface; `scope`, o recorte por permissão.
+   */
+  findAllForBoard(
+    ownerId: string,
+    scope?: AssigneeScope,
+    assigneeId?: string,
+  ): Promise<DealWithClient[]>;
+  // Unchecked: `assigneeId` é gravado pelo escalar (não pelo `assignee.connect`),
+  // porque `null` precisa limpar o responsável.
+  update(
+    id: string,
+    data: Prisma.DealUncheckedUpdateInput,
+  ): Promise<DealWithClient>;
   delete(id: string): Promise<void>;
   /** Maior `position` na coluna (ou -1 se vazia). */
   maxPositionInStage(stageId: string): Promise<number>;

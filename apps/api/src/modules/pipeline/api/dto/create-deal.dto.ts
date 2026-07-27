@@ -41,4 +41,13 @@ export class CreateDealDto {
   @IsOptional()
   @IsDateString({}, { message: 'Data prevista inválida.' })
   expectedClose?: string;
+
+  /**
+   * Responsável. `null` limpa o campo; ausente preserva. `@IsOptional()` do
+   * class-validator ignora `null` **e** `undefined`, então o `@IsUUID` só roda
+   * quando vem um valor de verdade.
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'Responsável inválido.' })
+  assigneeId?: string | null;
 }

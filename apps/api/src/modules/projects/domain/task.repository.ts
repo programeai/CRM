@@ -1,9 +1,10 @@
 import type { Prisma, TaskStatus } from '@prisma/client';
 import type { TagUsage } from '../../../shared/tags';
+import type { AssigneeScope } from '../../../shared/record-scope';
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');
 
-/** Task + projeto/cliente mínimos para o board e para "Minhas demandas". */
+/** Task + projeto/cliente/responsável mínimos para o board e para "Minhas demandas". */
 export type TaskWithProject = Prisma.TaskGetPayload<{
   include: {
     project: {
@@ -14,6 +15,7 @@ export type TaskWithProject = Prisma.TaskGetPayload<{
         client: { select: { id: true; name: true } };
       };
     };
+    assignee: { select: { id: true; name: true } };
   };
 }>;
 
@@ -24,6 +26,10 @@ export interface TaskListFilter {
   status?: TaskStatus;
   priority?: import('@prisma/client').TaskPriority;
   dueBefore?: Date; // dueDate <= dueBefore (para "atrasadas"/prazo)
+  /** Filtro explícito da query (`?assigneeId=`). */
+  assigneeId?: string;
+  /** Recorte por permissão — independente do filtro acima; os dois se somam. */
+  scope: AssigneeScope;
   skip: number;
   take: number;
 }
@@ -42,15 +48,28 @@ export interface TaskTagRef {
 
 export interface TaskRepository {
   create(data: Prisma.TaskUncheckedCreateInput): Promise<TaskWithProject>;
-  findById(id: string): Promise<TaskWithProject | null>;
+  findById(id: string, scope?: AssigneeScope): Promise<TaskWithProject | null>;
   findManyAndCount(
     filter: TaskListFilter,
   ): Promise<{ data: TaskWithProject[]; total: number }>;
   /** Todas as tarefas de um projeto, ordenadas por (status, position) — alimenta o board. */
-  findAllForBoard(projectId: string): Promise<TaskWithProject[]>;
+  findAllForBoard(
+    projectId: string,
+    scope?: AssigneeScope,
+    assigneeId?: string,
+  ): Promise<TaskWithProject[]>;
   /** Todas as tarefas do dono (cross-projeto) — alimenta o board de "Minhas demandas". */
-  findAllForBoardByOwner(ownerId: string): Promise<TaskWithProject[]>;
-  update(id: string, data: Prisma.TaskUpdateInput): Promise<TaskWithProject>;
+  findAllForBoardByOwner(
+    ownerId: string,
+    scope?: AssigneeScope,
+    assigneeId?: string,
+  ): Promise<TaskWithProject[]>;
+  // Unchecked: `assigneeId` é gravado pelo escalar (não pelo `assignee.connect`),
+  // porque `null` precisa limpar o responsável.
+  update(
+    id: string,
+    data: Prisma.TaskUncheckedUpdateInput,
+  ): Promise<TaskWithProject>;
   delete(id: string): Promise<void>;
   /** Tags distintas do dono (agregadas de todas as tarefas) com contagem de uso. */
   listOwnerTags(ownerId: string): Promise<TagUsage[]>;

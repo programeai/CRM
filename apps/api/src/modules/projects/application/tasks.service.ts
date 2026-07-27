@@ -7,8 +7,10 @@ import {
   type TaskWithProject,
 } from '../domain/task.repository';
 import { ProjectsService } from './projects.service';
+import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
+import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateTaskDto } from '../api/dto/create-task.dto';
 import type { UpdateTaskDto } from '../api/dto/update-task.dto';
 import type { ListTasksQueryDto } from '../api/dto/list-tasks-query.dto';
@@ -19,9 +21,14 @@ export class TasksService {
   constructor(
     @Inject(TASK_REPOSITORY) private readonly repo: TaskRepository,
     private readonly projects: ProjectsService,
+    private readonly members: WorkspaceMembersService,
   ) {}
 
-  async list(ownerId: string, query: ListTasksQueryDto) {
+  async list(
+    ownerId: string,
+    query: ListTasksQueryDto,
+    scope: AssigneeScope = ALL_RECORDS,
+  ) {
     if (query.projectId) await this.projects.findOne(ownerId, query.projectId);
     const { page, limit, skip, take } = normalizePage(query.page, query.limit);
     const { data, total } = await this.repo.findManyAndCount({
@@ -31,27 +38,39 @@ export class TasksService {
       status: query.status,
       priority: query.priority,
       dueBefore: query.dueBefore ? new Date(query.dueBefore) : undefined,
+      assigneeId: query.assigneeId,
+      scope,
       skip,
       take,
     });
     return paginated(data, total, page, limit);
   }
 
-  async board(ownerId: string, projectId?: string): Promise<TaskWithProject[]> {
+  async board(
+    ownerId: string,
+    projectId?: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    assigneeId?: string,
+  ): Promise<TaskWithProject[]> {
     if (projectId) {
       await this.projects.findOne(ownerId, projectId); // posse
-      return this.repo.findAllForBoard(projectId);
+      return this.repo.findAllForBoard(projectId, scope, assigneeId);
     }
     // Sem projectId → board cross-projeto de "Minhas demandas" (todas as tarefas do dono).
-    return this.repo.findAllForBoardByOwner(ownerId);
+    return this.repo.findAllForBoardByOwner(ownerId, scope, assigneeId);
   }
 
-  async findOne(ownerId: string, id: string): Promise<TaskWithProject> {
-    return this.loadOwned(ownerId, id);
+  async findOne(
+    ownerId: string,
+    id: string,
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<TaskWithProject> {
+    return this.loadOwned(ownerId, id, scope);
   }
 
   async create(ownerId: string, dto: CreateTaskDto): Promise<TaskWithProject> {
     await this.projects.findOne(ownerId, dto.projectId); // valida posse do projeto
+    await this.members.assertMember(ownerId, dto.assigneeId);
     const status = dto.status ?? 'BACKLOG';
     const position =
       (await this.repo.maxPositionInStatus(dto.projectId, status)) + 1;
@@ -69,6 +88,7 @@ export class TasksService {
         ? (dto.checklist as unknown as Prisma.InputJsonValue)
         : undefined,
       completedAt: status === 'DONE' ? new Date() : null,
+      assigneeId: dto.assigneeId ?? null,
     });
   }
 
@@ -78,6 +98,7 @@ export class TasksService {
     dto: UpdateTaskDto,
   ): Promise<TaskWithProject> {
     await this.loadOwned(ownerId, id);
+    await this.members.assertMember(ownerId, dto.assigneeId);
     return this.repo.update(id, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.description !== undefined
@@ -91,6 +112,7 @@ export class TasksService {
       ...(dto.checklist !== undefined
         ? { checklist: dto.checklist as unknown as Prisma.InputJsonValue }
         : {}),
+      ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
     });
   }
 
@@ -133,12 +155,16 @@ export class TasksService {
     return { removed };
   }
 
-  /** Carrega a task garantindo posse via o projeto→cliente do dono (404 caso contrário). */
+  /**
+   * Carrega a task garantindo posse via o projeto→cliente do dono (404 caso contrário).
+   * `scope` só é passado nas leituras: escrita não é recortada por responsável.
+   */
   private async loadOwned(
     ownerId: string,
     id: string,
+    scope: AssigneeScope = ALL_RECORDS,
   ): Promise<TaskWithProject> {
-    const task = await this.repo.findById(id);
+    const task = await this.repo.findById(id, scope);
     if (!task) throw new NotFoundException('Tarefa não encontrada.');
     await this.projects.findOne(ownerId, task.projectId); // posse via projeto→cliente (404 se não for do dono)
     return task;

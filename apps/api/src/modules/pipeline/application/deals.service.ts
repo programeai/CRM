@@ -12,7 +12,9 @@ import {
 import { ClientsService } from '../../clients/application/clients.service';
 import { PipelineStagesService } from './pipeline-stages.service';
 import { ProjectsService } from '../../projects/application/projects.service';
+import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateDealDto } from '../api/dto/create-deal.dto';
 import type { UpdateDealDto } from '../api/dto/update-deal.dto';
 import type { ListDealsQueryDto } from '../api/dto/list-deals-query.dto';
@@ -25,9 +27,14 @@ export class DealsService {
     private readonly clients: ClientsService,
     private readonly stages: PipelineStagesService,
     private readonly projects: ProjectsService,
+    private readonly members: WorkspaceMembersService,
   ) {}
 
-  async list(ownerId: string, query: ListDealsQueryDto) {
+  async list(
+    ownerId: string,
+    query: ListDealsQueryDto,
+    scope: AssigneeScope = ALL_RECORDS,
+  ) {
     if (query.clientId) await this.clients.findOne(ownerId, query.clientId); // posse
     const { page, limit, skip, take } = normalizePage(query.page, query.limit);
     const { data, total } = await this.repo.findManyAndCount({
@@ -35,22 +42,33 @@ export class DealsService {
       clientId: query.clientId,
       stageId: query.stageId,
       search: query.search,
+      assigneeId: query.assigneeId,
+      scope,
       skip,
       take,
     });
     return paginated(data, total, page, limit);
   }
 
-  board(ownerId: string): Promise<DealWithClient[]> {
-    return this.repo.findAllForBoard(ownerId);
+  board(
+    ownerId: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    assigneeId?: string,
+  ): Promise<DealWithClient[]> {
+    return this.repo.findAllForBoard(ownerId, scope, assigneeId);
   }
 
-  async findOne(ownerId: string, id: string): Promise<DealWithClient> {
-    return this.loadOwned(ownerId, id);
+  async findOne(
+    ownerId: string,
+    id: string,
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<DealWithClient> {
+    return this.loadOwned(ownerId, id, scope);
   }
 
   async create(ownerId: string, dto: CreateDealDto): Promise<DealWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida que o cliente é do dono
+    await this.members.assertMember(ownerId, dto.assigneeId);
     const stage = dto.stageId
       ? await this.stages.findOne(ownerId, dto.stageId)
       : await this.stages.firstStage(ownerId);
@@ -64,6 +82,7 @@ export class DealsService {
       amount: dto.amount ?? null,
       probability: dto.probability ?? null,
       expectedClose: dto.expectedClose ? new Date(dto.expectedClose) : null,
+      assigneeId: dto.assigneeId ?? null,
       position,
     });
   }
@@ -74,6 +93,7 @@ export class DealsService {
     dto: UpdateDealDto,
   ): Promise<DealWithClient> {
     await this.loadOwned(ownerId, id);
+    await this.members.assertMember(ownerId, dto.assigneeId);
     return this.repo.update(id, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.serviceType !== undefined
@@ -90,6 +110,7 @@ export class DealsService {
               : null,
           }
         : {}),
+      ...(dto.assigneeId !== undefined ? { assigneeId: dto.assigneeId } : {}),
     });
   }
 
@@ -127,12 +148,16 @@ export class DealsService {
     await this.repo.delete(id);
   }
 
-  /** Carrega o deal garantindo que o cliente pertence ao usuário (404 caso contrário). */
+  /**
+   * Carrega o deal garantindo que o cliente pertence ao usuário (404 caso contrário).
+   * `scope` só é passado nas leituras: escrita não é recortada por responsável.
+   */
   private async loadOwned(
     ownerId: string,
     id: string,
+    scope: AssigneeScope = ALL_RECORDS,
   ): Promise<DealWithClient> {
-    const deal = await this.repo.findById(id);
+    const deal = await this.repo.findById(id, scope);
     if (!deal) throw new NotFoundException('Oportunidade não encontrada.');
     await this.clients.findOne(ownerId, deal.clientId); // 404 se não for do dono
     return deal;

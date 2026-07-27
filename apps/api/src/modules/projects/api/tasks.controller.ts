@@ -9,7 +9,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { TasksService } from '../application/tasks.service';
-import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import {
+  CurrentAccess,
+  CurrentOwnerId,
+} from '../../../shared/current-user.decorator';
+import type { AccessContext } from '../../access/domain/access-context';
+import { resolveAssigneeScope } from '../../../shared/record-scope';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -22,17 +27,29 @@ export class TasksController {
 
   @RequirePermission('projeto:ver', 'projeto:gerenciar', 'demanda:gerenciar')
   @Get()
-  list(@CurrentOwnerId() ownerId: string, @Query() query: ListTasksQueryDto) {
-    return this.tasks.list(ownerId, query);
+  list(
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ListTasksQueryDto,
+  ) {
+    return this.tasks.list(
+      access.ownerId,
+      query,
+      resolveAssigneeScope(access, 'demanda:ver_todas'),
+    );
   }
 
   @RequirePermission('projeto:ver', 'projeto:gerenciar', 'demanda:gerenciar')
   @Get('board')
   board(
-    @CurrentOwnerId() ownerId: string,
-    @Query('projectId') projectId?: string,
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ListTasksQueryDto,
   ) {
-    return this.tasks.board(ownerId, projectId);
+    return this.tasks.board(
+      access.ownerId,
+      query.projectId,
+      resolveAssigneeScope(access, 'demanda:ver_todas'),
+      query.assigneeId,
+    );
   }
 
   // Rotas de tags declaradas antes de `:id` para não serem capturadas por ele.
@@ -62,8 +79,12 @@ export class TasksController {
 
   @RequirePermission('projeto:ver', 'projeto:gerenciar', 'demanda:gerenciar')
   @Get(':id')
-  findOne(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.tasks.findOne(ownerId, id);
+  findOne(@CurrentAccess() access: AccessContext, @Param('id') id: string) {
+    return this.tasks.findOne(
+      access.ownerId,
+      id,
+      resolveAssigneeScope(access, 'demanda:ver_todas'),
+    );
   }
 
   @RequirePermission('demanda:gerenciar')

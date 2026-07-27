@@ -18,4 +18,8 @@ export class ListTasksQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsDateString({}, { message: 'Data inválida.' })
   dueBefore?: string;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Responsável inválido.' })
+  assigneeId?: string;
 }

@@ -7,25 +7,41 @@ import type {
   ClientTagRef,
 } from '../domain/client.repository';
 import { countTags, type TagUsage } from '../../../shared/tags';
+import {
+  ALL_RECORDS,
+  assigneeScopeWhere,
+  type AssigneeScope,
+} from '../../../shared/record-scope';
+
+/** Responsável embutido na leitura — o card e o formulário exibem o nome. */
+const withAssignee = {
+  assignee: { select: { id: true, name: true } },
+} satisfies Prisma.ClientInclude;
 
 @Injectable()
 export class PrismaClientRepository implements ClientRepository {
   constructor(private prisma: PrismaService) {}
 
   create(data: Prisma.ClientUncheckedCreateInput) {
-    return this.prisma.db.client.create({ data });
+    return this.prisma.db.client.create({ data, include: withAssignee });
   }
 
-  findById(id: string, ownerId: string) {
-    return this.prisma.db.client.findFirst({ where: { id, ownerId } });
+  findById(id: string, ownerId: string, scope: AssigneeScope = ALL_RECORDS) {
+    const scoped = assigneeScopeWhere(scope);
+    return this.prisma.db.client.findFirst({
+      where: { id, ownerId, ...(scoped ? { AND: [scoped] } : {}) },
+      include: withAssignee,
+    });
   }
 
   async findManyAndCount(filter: ClientListFilter) {
+    const scoped = assigneeScopeWhere(filter.scope);
     const where: Prisma.ClientWhereInput = {
       ownerId: filter.ownerId,
       ...(filter.includeArchived ? {} : { archivedAt: null }),
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.source ? { source: filter.source } : {}),
+      ...(filter.assigneeId ? { assigneeId: filter.assigneeId } : {}),
       ...(filter.search
         ? {
             OR: [
@@ -35,6 +51,8 @@ export class PrismaClientRepository implements ClientRepository {
             ],
           }
         : {}),
+      // AND (não spread): o `OR` da busca acima seria sobrescrito por um segundo `OR`.
+      ...(scoped ? { AND: [scoped] } : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.db.client.findMany({
@@ -42,6 +60,7 @@ export class PrismaClientRepository implements ClientRepository {
         orderBy: { createdAt: 'desc' },
         skip: filter.skip,
         take: filter.take,
+        include: withAssignee,
       }),
       this.prisma.db.client.count({ where }),
     ]);
@@ -53,7 +72,10 @@ export class PrismaClientRepository implements ClientRepository {
     return this.prisma.db.client
       .updateMany({ where: { id, ownerId }, data })
       .then(() =>
-        this.prisma.db.client.findFirstOrThrow({ where: { id, ownerId } }),
+        this.prisma.db.client.findFirstOrThrow({
+          where: { id, ownerId },
+          include: withAssignee,
+        }),
       );
   }
 

@@ -3,8 +3,10 @@ import { ClientsController } from './api/clients.controller';
 import { ClientsService } from './application/clients.service';
 import { CLIENT_REPOSITORY } from './domain/client.repository';
 import { PrismaClientRepository } from './infra/prisma-client.repository';
+import { WorkspaceModule } from '../workspace/workspace.module';
 
 @Module({
+  imports: [WorkspaceModule],
   controllers: [ClientsController],
   providers: [
     ClientsService,

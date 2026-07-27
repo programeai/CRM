@@ -8,6 +8,11 @@ import type {
   TaskTagRef,
 } from '../domain/task.repository';
 import { countTags, type TagUsage } from '../../../shared/tags';
+import {
+  ALL_RECORDS,
+  assigneeScopeWhere,
+  type AssigneeScope,
+} from '../../../shared/record-scope';
 
 const withProject = {
   project: {
@@ -18,6 +23,7 @@ const withProject = {
       client: { select: { id: true, name: true } },
     },
   },
+  assignee: { select: { id: true, name: true } },
 } as const;
 
 @Injectable()
@@ -28,14 +34,17 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.prisma.db.task.create({ data, include: withProject });
   }
 
-  findById(id: string) {
-    return this.prisma.db.task.findUnique({
-      where: { id },
+  findById(id: string, scope: AssigneeScope = ALL_RECORDS) {
+    const scoped = assigneeScopeWhere(scope);
+    // findFirst (não findUnique): o recorte faz parte da busca.
+    return this.prisma.db.task.findFirst({
+      where: { id, ...(scoped ? { AND: [scoped] } : {}) },
       include: withProject,
     });
   }
 
   async findManyAndCount(filter: TaskListFilter) {
+    const scoped = assigneeScopeWhere(filter.scope);
     const where: Prisma.TaskWhereInput = {
       project: {
         client: { ownerId: filter.ownerId },
@@ -45,6 +54,8 @@ export class PrismaTaskRepository implements TaskRepository {
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.priority ? { priority: filter.priority } : {}),
       ...(filter.dueBefore ? { dueDate: { lte: filter.dueBefore } } : {}),
+      ...(filter.assigneeId ? { assigneeId: filter.assigneeId } : {}),
+      ...(scoped ? { AND: [scoped] } : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.db.task.findMany({
@@ -64,17 +75,35 @@ export class PrismaTaskRepository implements TaskRepository {
     return { data, total };
   }
 
-  findAllForBoard(projectId: string) {
+  findAllForBoard(
+    projectId: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    assigneeId?: string,
+  ) {
+    const scoped = assigneeScopeWhere(scope);
     return this.prisma.db.task.findMany({
-      where: { projectId },
+      where: {
+        projectId,
+        ...(assigneeId ? { assigneeId } : {}),
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
       include: withProject,
       orderBy: [{ status: 'asc' }, { position: 'asc' }],
     });
   }
 
-  findAllForBoardByOwner(ownerId: string) {
+  findAllForBoardByOwner(
+    ownerId: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    assigneeId?: string,
+  ) {
+    const scoped = assigneeScopeWhere(scope);
     return this.prisma.db.task.findMany({
-      where: { project: { client: { ownerId } } },
+      where: {
+        project: { client: { ownerId } },
+        ...(assigneeId ? { assigneeId } : {}),
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
       include: withProject,
       // prazo mais próximo primeiro; nulls por último (Prisma põe null no fim em asc)
       orderBy: [
@@ -86,7 +115,7 @@ export class PrismaTaskRepository implements TaskRepository {
     });
   }
 
-  update(id: string, data: Prisma.TaskUpdateInput) {
+  update(id: string, data: Prisma.TaskUncheckedUpdateInput) {
     return this.prisma.db.task.update({
       where: { id },
       data,
