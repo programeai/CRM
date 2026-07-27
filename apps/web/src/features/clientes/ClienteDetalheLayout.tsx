@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
-import { ArrowLeft, Archive, Pencil, UserX } from 'lucide-react';
+import { ArrowLeft, Archive, History, Pencil, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ import { translateClientStatus } from '@/lib/labels';
 import { formatPhone } from '@/lib/format';
 import { useClient, useArchiveClient } from './api/hooks';
 import { ClientFormDialog } from './ClientFormDialog';
+import { HistoricoDialog } from '@/features/auditoria/HistoricoDialog';
 import type { ClientStatus } from './api/types';
 
 const STATUS_BADGE: Record<
@@ -43,6 +44,7 @@ export default function ClienteDetalheLayout() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
 
   // As abas atravessam módulos (propostas, projetos, financeiro): cada uma
   // declara o que exige e as que o colaborador não pode ver são removidas —
@@ -174,6 +176,12 @@ export default function ClienteDetalheLayout() {
             })()}
           </div>
           <div className="flex items-center gap-2">
+            {canAny(['auditoria:ver']) && (
+              <Button variant="outline" onClick={() => setHistoricoOpen(true)}>
+                <History data-icon="inline-start" />
+                Histórico
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil data-icon="inline-start" />
               Editar
@@ -205,6 +213,14 @@ export default function ClienteDetalheLayout() {
       </div>
 
       <ClientFormDialog open={editOpen} onOpenChange={setEditOpen} client={client} />
+
+      <HistoricoDialog
+        open={historicoOpen}
+        onOpenChange={setHistoricoOpen}
+        entity="CLIENT"
+        entityId={id}
+        label={client.name}
+      />
 
       <ConfirmDialog
         open={archiveOpen}

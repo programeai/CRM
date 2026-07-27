@@ -66,6 +66,12 @@ export const queryKeys = {
   permissions: {
     catalog: ['permissions', 'catalog'] as const,
   },
+  audit: {
+    all: ['audit'] as const,
+    list: (params: object) => ['audit', 'list', params] as const,
+    byEntity: (entity: string, id: string) =>
+      ['audit', 'entity', entity, id] as const,
+  },
   invites: {
     detail: (token: string) => ['invites', token] as const,
   },

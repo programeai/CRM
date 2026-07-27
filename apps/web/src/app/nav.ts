@@ -9,6 +9,7 @@ import {
   FileSignature,
   UserCog,
   ShieldCheck,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react"
 
@@ -58,6 +59,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/colaboradores", label: "Colaboradores", icon: UserCog, permission: ["colaborador:gerenciar"] },
       { to: "/papeis", label: "Papéis", icon: ShieldCheck, permission: ["papel:gerenciar"] },
+      { to: "/auditoria", label: "Auditoria", icon: ScrollText, permission: ["auditoria:ver"] },
     ],
   },
 ]
