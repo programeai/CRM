@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { extractApiMessage } from '@/lib/api-error';
-import { formatRelativeTime } from '@/lib/format';
+import { formatDate, formatRelativeTime } from '@/lib/format';
 import { useRevokeOtherSessions, useRevokeSession, useSessions } from './api/hooks';
 import type { Session } from './api/perfil.api';
 
@@ -95,7 +95,11 @@ export function SessoesAtivas() {
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {[session.ip, `último uso ${formatRelativeTime(session.lastUsedAt)}`]
+                    {[
+                      session.ip,
+                      `desde ${formatDate(session.createdAt)}`,
+                      `último uso ${formatRelativeTime(session.lastUsedAt)}`,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
