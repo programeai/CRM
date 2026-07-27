@@ -11,6 +11,7 @@ import { AccessModule } from './modules/access/access.module';
 import { AccessGuard } from './modules/access/access.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
@@ -52,6 +53,7 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     AccessModule,
     AuthModule,
     CollaboratorsModule,
+    WorkspaceModule,
     ClientsModule,
     ContactsModule,
     ActivitiesModule,
