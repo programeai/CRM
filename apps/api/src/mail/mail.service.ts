@@ -2,8 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { passwordResetEmail } from './templates/password-reset.template';
+import {
+  passwordResetEmail,
+  type EmailContent,
+} from './templates/password-reset.template';
 import { collaboratorInviteEmail } from './templates/collaborator-invite.template';
+
+/** O que aconteceu com um envio. `disabled` não é falha — é SMTP ausente. */
+export type ResultadoDeEnvio = { status: 'sent' } | { status: 'disabled' };
 
 /**
  * Envio de e-mail via SMTP (Nodemailer). Segue o mesmo padrão de "serviço
@@ -49,8 +55,51 @@ export class MailService {
   }
 
   /**
+   * Envio genérico. Ao contrário de `sendPasswordReset`/`sendCollaboratorInvite`,
+   * **propaga** a exceção do SMTP: quem chama decide se engole (os dois fluxos de
+   * link, que têm fallback pela interface) ou se registra a falha e reagenda (o
+   * `EmailChannel`, cujo retry depende de saber que falhou).
+   *
+   * Devolver `disabled` em vez de lançar mantém o contrato de "serviço opcional":
+   * sem `SMTP_HOST`, nada é enviado e ninguém quebra.
+   */
+  private async send(
+    to: string,
+    conteudo: EmailContent,
+  ): Promise<ResultadoDeEnvio> {
+    if (!this.isEnabled()) return { status: 'disabled' };
+    await this.getTransporter().sendMail({
+      from: this.from,
+      to,
+      subject: conteudo.subject,
+      text: conteudo.text,
+      html: conteudo.html,
+    });
+    return { status: 'sent' };
+  }
+
+  /** Envio de notificação. Propaga a falha — é o que alimenta o retry do outbox. */
+  async sendNotification(
+    to: string,
+    conteudo: EmailContent,
+  ): Promise<ResultadoDeEnvio> {
+    return this.send(to, conteudo);
+  }
+
+  /** Envio do digest diário. Mesmo contrato do `sendNotification`. */
+  async sendDigest(
+    to: string,
+    conteudo: EmailContent,
+  ): Promise<ResultadoDeEnvio> {
+    return this.send(to, conteudo);
+  }
+
+  /**
    * Envia o e-mail de redefinição de senha. Sem SMTP configurado, registra o
    * link no log em nível `warn` para permitir o fluxo em desenvolvimento.
+   *
+   * **Engole** a falha de propósito e devolve `void`: este fluxo tem fallback
+   * pela interface, e mudar o contrato dele não pertence a esta fase.
    */
   async sendPasswordReset(to: string, resetUrl: string): Promise<void> {
     if (!this.isEnabled()) {
@@ -65,21 +114,16 @@ export class MailService {
       return;
     }
 
-    const { subject, text, html } = passwordResetEmail({
-      resetUrl,
-      appUrl:
-        this.config.get<string>('FRONTEND_URL') ||
-        'https://crm.programeai.com.br',
-    });
-
     try {
-      await this.getTransporter().sendMail({
-        from: this.from,
+      await this.send(
         to,
-        subject,
-        text,
-        html,
-      });
+        passwordResetEmail({
+          resetUrl,
+          appUrl:
+            this.config.get<string>('FRONTEND_URL') ||
+            'https://crm.programeai.com.br',
+        }),
+      );
     } catch (err) {
       this.logger.error(
         {
@@ -117,24 +161,19 @@ export class MailService {
       return;
     }
 
-    const { subject, text, html } = collaboratorInviteEmail({
-      name,
-      ownerName,
-      roleName,
-      inviteUrl,
-      appUrl:
-        this.config.get<string>('FRONTEND_URL') ||
-        'https://crm.programeai.com.br',
-    });
-
     try {
-      await this.getTransporter().sendMail({
-        from: this.from,
+      await this.send(
         to,
-        subject,
-        text,
-        html,
-      });
+        collaboratorInviteEmail({
+          name,
+          ownerName,
+          roleName,
+          inviteUrl,
+          appUrl:
+            this.config.get<string>('FRONTEND_URL') ||
+            'https://crm.programeai.com.br',
+        }),
+      );
     } catch (err) {
       this.logger.error(
         {
