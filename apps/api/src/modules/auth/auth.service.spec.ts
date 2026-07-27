@@ -113,6 +113,25 @@ describe('AuthService', () => {
       );
     });
 
+    it('repassa o dispositivo à sessão — é o que a colapsa por aparelho', async () => {
+      const passwordHash = await argon2.hash('senha-correta');
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        passwordHash,
+        active: true,
+      } as any);
+      await service.login('a@b.com', 'senha-correta', {
+        ip: '1.2.3.4',
+        userAgent: 'Mozilla/5.0',
+        deviceId: 'dispositivo-1',
+      });
+      expect(sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({ deviceId: 'dispositivo-1' }),
+        }),
+      );
+    });
+
     it('rejeita colaborador desativado, mesmo com a senha correta', async () => {
       const passwordHash = await argon2.hash('senha-correta');
       users.findByEmail.mockResolvedValue({
