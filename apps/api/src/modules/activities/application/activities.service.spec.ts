@@ -7,12 +7,14 @@ import type { ActivityRepository } from '../domain/activity.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import type { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 describe('ActivitiesService', () => {
   let repo: jest.Mocked<ActivityRepository>;
   let clients: jest.Mocked<Pick<ClientsService, 'findOne'>>;
   let members: { assertMember: jest.Mock };
   let notifications: { notificar: jest.Mock };
+  let catalogos: { assertUtilizavel: jest.Mock };
   let service: ActivitiesService;
 
   beforeEach(() => {
@@ -25,11 +27,15 @@ describe('ActivitiesService', () => {
     clients = { findOne: jest.fn().mockResolvedValue({ id: 'client-1' }) };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
     notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
+    catalogos = {
+      assertUtilizavel: jest.fn().mockResolvedValue({ id: 'tipo-1' }),
+    };
     service = new ActivitiesService(
       repo,
       clients as unknown as ClientsService,
       members as unknown as WorkspaceMembersService,
       notifications as unknown as NotificationsService,
+      catalogos as unknown as CatalogosService,
     );
   });
 
@@ -37,12 +43,12 @@ describe('ActivitiesService', () => {
     repo.create.mockResolvedValue({ id: 'a1' } as never);
     await service.create('owner-1', {
       clientId: 'client-1',
-      type: 'NOTE',
+      typeId: 'tipo-1',
       content: 'Contato inicial',
-    } as never);
+    });
     expect(clients.findOne).toHaveBeenCalledWith('owner-1', 'client-1');
     expect(repo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ clientId: 'client-1', type: 'NOTE' }),
+      expect.objectContaining({ clientId: 'client-1', typeId: 'tipo-1' }),
     );
   });
 
@@ -75,10 +81,10 @@ describe('ActivitiesService', () => {
     await expect(
       service.create('owner-1', {
         clientId: 'client-1',
-        type: 'NOTE',
+        typeId: 'tipo-1',
         content: 'Contato inicial',
         assigneeId: 'de-outro-owner',
-      } as never),
+      }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
     expect(repo.create).not.toHaveBeenCalled();
   });
@@ -106,10 +112,10 @@ describe('ActivitiesService', () => {
 
     await service.create('owner-1', {
       clientId: 'client-1',
-      type: 'NOTE',
+      typeId: 'tipo-1',
       content: 'x'.repeat(120),
       assigneeId: 'u2',
-    } as never);
+    });
 
     expect(notifications.notificar).toHaveBeenCalledWith(
       expect.objectContaining({

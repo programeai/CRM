@@ -1,18 +1,16 @@
 import {
-  IsEnum,
   IsOptional,
   IsString,
   IsUUID,
   MinLength,
   IsDateString,
 } from 'class-validator';
-import { ActivityType } from '@prisma/client';
 
 export class CreateActivityDto {
   @IsUUID('4', { message: 'Cliente inválido.' }) clientId: string;
   @IsOptional() @IsUUID('4') dealId?: string;
-  @IsEnum(ActivityType, { message: 'Tipo de atividade inválido.' })
-  type: ActivityType;
+  @IsUUID('4', { message: 'Tipo de atividade inválido.' })
+  typeId: string;
   @IsString({ message: 'O conteúdo é obrigatório.' })
   @MinLength(1, { message: 'O conteúdo é obrigatório.' })
   content: string;
