@@ -13,6 +13,7 @@ import {
   assigneeScopeWhere,
   type AssigneeScope,
 } from '../../../shared/record-scope';
+import { ATIVO, ativoWhere } from '../../../shared/soft-delete';
 
 const withProject = {
   project: {
@@ -34,11 +35,19 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.prisma.db.task.create({ data, include: withProject });
   }
 
-  findById(id: string, scope: AssigneeScope = ALL_RECORDS) {
+  findById(
+    id: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    includeArchived = false,
+  ) {
     const scoped = assigneeScopeWhere(scope);
-    // findFirst (não findUnique): o recorte faz parte da busca.
+    // findFirst (não findUnique): o recorte e o soft delete fazem parte da busca.
     return this.prisma.db.task.findFirst({
-      where: { id, ...(scoped ? { AND: [scoped] } : {}) },
+      where: {
+        id,
+        ...ativoWhere(includeArchived),
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
       include: withProject,
     });
   }
@@ -50,6 +59,7 @@ export class PrismaTaskRepository implements TaskRepository {
         client: { ownerId: filter.ownerId },
         ...(filter.clientId ? { clientId: filter.clientId } : {}),
       },
+      ...ATIVO,
       ...(filter.projectId ? { projectId: filter.projectId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.priority ? { priority: filter.priority } : {}),
@@ -84,6 +94,7 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.prisma.db.task.findMany({
       where: {
         projectId,
+        ...ATIVO,
         ...(assigneeId ? { assigneeId } : {}),
         ...(scoped ? { AND: [scoped] } : {}),
       },
@@ -101,6 +112,7 @@ export class PrismaTaskRepository implements TaskRepository {
     return this.prisma.db.task.findMany({
       where: {
         project: { client: { ownerId } },
+        ...ATIVO,
         ...(assigneeId ? { assigneeId } : {}),
         ...(scoped ? { AND: [scoped] } : {}),
       },
@@ -127,11 +139,28 @@ export class PrismaTaskRepository implements TaskRepository {
     await this.prisma.db.task.delete({ where: { id } });
   }
 
+  archive(id: string) {
+    return this.prisma.db.task.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+      include: withProject,
+    });
+  }
+
+  restore(id: string) {
+    return this.prisma.db.task.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: withProject,
+    });
+  }
+
   async listOwnerTags(ownerId: string): Promise<TagUsage[]> {
     // Tags são um String[] por tarefa (sem catálogo próprio); a fonte de verdade
     // das "tags existentes" é a agregação distinta sobre todas as tarefas do dono.
+    // A tag de uma tarefa arquivada não deve aparecer no autocomplete.
     const rows = await this.prisma.db.task.findMany({
-      where: { project: { client: { ownerId } } },
+      where: { project: { client: { ownerId } }, ...ATIVO },
       select: { tags: true },
     });
     return countTags(rows);
@@ -139,7 +168,11 @@ export class PrismaTaskRepository implements TaskRepository {
 
   findByTag(ownerId: string, tag: string): Promise<TaskTagRef[]> {
     return this.prisma.db.task.findMany({
-      where: { project: { client: { ownerId } }, tags: { has: tag } },
+      where: {
+        project: { client: { ownerId } },
+        ...ATIVO,
+        tags: { has: tag },
+      },
       select: {
         id: true,
         title: true,
@@ -152,6 +185,8 @@ export class PrismaTaskRepository implements TaskRepository {
   async removeTagFromAll(ownerId: string, tag: string): Promise<number> {
     // Postgres não remove elemento de array em updateMany; carrega as afetadas e
     // reescreve cada array sem a tag. Roda na transação do request (this.prisma.db).
+    // Sem filtro de arquivado: a tag deixa de existir em qualquer registro do
+    // dono (mesma decisão já tomada no Client — ver prisma-client.repository.ts).
     const affected = await this.prisma.db.task.findMany({
       where: { project: { client: { ownerId } }, tags: { has: tag } },
       select: { id: true, tags: true },
@@ -169,7 +204,7 @@ export class PrismaTaskRepository implements TaskRepository {
 
   async maxPositionInStatus(projectId: string, status: TaskStatus) {
     const r = await this.prisma.db.task.aggregate({
-      where: { projectId, status },
+      where: { projectId, status, ...ATIVO },
       _max: { position: true },
     });
     return r._max.position ?? -1;
@@ -189,7 +224,7 @@ export class PrismaTaskRepository implements TaskRepository {
     const fromStatus = task.status;
 
     const target = await db.task.findMany({
-      where: { projectId, status: toStatus, id: { not: taskId } },
+      where: { projectId, status: toStatus, id: { not: taskId }, ...ATIVO },
       orderBy: { position: 'asc' },
       select: { id: true },
     });
@@ -212,7 +247,7 @@ export class PrismaTaskRepository implements TaskRepository {
 
     if (fromStatus !== toStatus) {
       const from = await db.task.findMany({
-        where: { projectId, status: fromStatus },
+        where: { projectId, status: fromStatus, ...ATIVO },
         orderBy: { position: 'asc' },
         select: { id: true },
       });

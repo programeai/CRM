@@ -21,7 +21,10 @@ export interface ProjectListFilter {
 
 export interface ProjectRepository {
   create(data: Prisma.ProjectUncheckedCreateInput): Promise<ProjectWithClient>;
-  findById(id: string): Promise<ProjectWithClient | null>;
+  findById(
+    id: string,
+    includeArchived?: boolean,
+  ): Promise<ProjectWithClient | null>;
   findManyAndCount(
     filter: ProjectListFilter,
   ): Promise<{ data: ProjectWithClient[]; total: number }>;
@@ -32,6 +35,10 @@ export interface ProjectRepository {
     data: Prisma.ProjectUpdateInput,
   ): Promise<ProjectWithClient>;
   delete(id: string): Promise<void>;
+  /** Manda o projeto para a lixeira. */
+  archive(id: string): Promise<ProjectWithClient>;
+  /** Devolve o projeto à área de trabalho. */
+  restore(id: string): Promise<ProjectWithClient>;
   countTasks(projectId: string): Promise<number>;
   /** Primeiro projeto já vinculado a um deal (dedupe de criar-ao-ganhar). */
   findByDealId(dealId: string): Promise<ProjectWithClient | null>;

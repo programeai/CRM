@@ -32,7 +32,11 @@ export interface DealMovePatch {
 
 export interface DealRepository {
   create(data: Prisma.DealUncheckedCreateInput): Promise<DealWithClient>;
-  findById(id: string, scope?: AssigneeScope): Promise<DealWithClient | null>;
+  findById(
+    id: string,
+    scope?: AssigneeScope,
+    includeArchived?: boolean,
+  ): Promise<DealWithClient | null>;
   findManyAndCount(
     filter: DealListFilter,
   ): Promise<{ data: DealWithClient[]; total: number }>;
@@ -61,4 +65,8 @@ export interface DealRepository {
     toPosition: number,
     patch: DealMovePatch,
   ): Promise<DealWithClient>;
+  /** Manda o deal para a lixeira. */
+  archive(id: string): Promise<DealWithClient>;
+  /** Devolve o deal à área de trabalho. */
+  restore(id: string): Promise<DealWithClient>;
 }

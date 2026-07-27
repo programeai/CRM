@@ -11,6 +11,7 @@ import {
   assigneeScopeWhere,
   type AssigneeScope,
 } from '../../../shared/record-scope';
+import { ATIVO, ativoWhere } from '../../../shared/soft-delete';
 
 const withClient = {
   client: { select: { id: true, name: true } },
@@ -25,11 +26,19 @@ export class PrismaDealRepository implements DealRepository {
     return this.prisma.db.deal.create({ data, include: withClient });
   }
 
-  findById(id: string, scope: AssigneeScope = ALL_RECORDS) {
+  findById(
+    id: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    includeArchived = false,
+  ) {
     const scoped = assigneeScopeWhere(scope);
-    // findFirst (não findUnique): o recorte faz parte da busca.
+    // findFirst (não findUnique): o recorte e o soft delete fazem parte da busca.
     return this.prisma.db.deal.findFirst({
-      where: { id, ...(scoped ? { AND: [scoped] } : {}) },
+      where: {
+        id,
+        ...ativoWhere(includeArchived),
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
       include: withClient,
     });
   }
@@ -38,6 +47,7 @@ export class PrismaDealRepository implements DealRepository {
     const scoped = assigneeScopeWhere(filter.scope);
     const where: Prisma.DealWhereInput = {
       client: { ownerId: filter.ownerId },
+      ...ATIVO,
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
       ...(filter.stageId ? { stageId: filter.stageId } : {}),
       ...(filter.assigneeId ? { assigneeId: filter.assigneeId } : {}),
@@ -68,6 +78,7 @@ export class PrismaDealRepository implements DealRepository {
     return this.prisma.db.deal.findMany({
       where: {
         client: { ownerId },
+        ...ATIVO,
         ...(assigneeId ? { assigneeId } : {}),
         ...(scoped ? { AND: [scoped] } : {}),
       },
@@ -88,9 +99,26 @@ export class PrismaDealRepository implements DealRepository {
     await this.prisma.db.deal.delete({ where: { id } });
   }
 
+  archive(id: string) {
+    return this.prisma.db.deal.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+      include: withClient,
+    });
+  }
+
+  restore(id: string) {
+    return this.prisma.db.deal.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: withClient,
+    });
+  }
+
   async maxPositionInStage(stageId: string) {
     const r = await this.prisma.db.deal.aggregate({
-      where: { stageId },
+      // Um deal arquivado não deve reservar posição na coluna.
+      where: { stageId, ...ATIVO },
       _max: { position: true },
     });
     return r._max.position ?? -1;
@@ -110,7 +138,7 @@ export class PrismaDealRepository implements DealRepository {
 
     // Coluna destino sem o deal em movimento, na ordem atual.
     const target = await db.deal.findMany({
-      where: { stageId: toStageId, id: { not: dealId } },
+      where: { stageId: toStageId, id: { not: dealId }, ...ATIVO },
       orderBy: { position: 'asc' },
       select: { id: true },
     });
@@ -135,7 +163,7 @@ export class PrismaDealRepository implements DealRepository {
     // Se mudou de coluna, reindexa a coluna de origem (fecha o buraco).
     if (fromStageId !== toStageId) {
       const from = await db.deal.findMany({
-        where: { stageId: fromStageId },
+        where: { stageId: fromStageId, ...ATIVO },
         orderBy: { position: 'asc' },
         select: { id: true },
       });

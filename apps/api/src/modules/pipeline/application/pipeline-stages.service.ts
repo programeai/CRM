@@ -102,7 +102,7 @@ export class PipelineStagesService {
     await this.findOne(ownerId, id);
     if ((await this.repo.countDeals(id, ownerId)) > 0) {
       throw new ConflictException(
-        'Não é possível excluir um estágio que possui oportunidades.',
+        'Não é possível excluir um estágio que possui oportunidades, inclusive arquivadas. Mova ou expurgue as oportunidades antes.',
       );
     }
     await this.repo.delete(id, ownerId);

@@ -64,6 +64,11 @@ export class PrismaPipelineStageRepository implements PipelineStageRepository {
     return r._max.order ?? -1;
   }
 
+  /**
+   * Conta TODOS os deals do estágio, inclusive arquivados: a FK `Deal.stageId`
+   * é RESTRICT, então apagar um estágio com deal arquivado pendurado
+   * responderia 500. A mensagem de 409 avisa sobre a lixeira.
+   */
   countDeals(stageId: string, ownerId: string) {
     return this.prisma.db.deal.count({ where: { stageId, ownerId } });
   }

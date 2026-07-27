@@ -13,6 +13,7 @@ import {
   assigneeScopeWhere,
   type AssigneeScope,
 } from '../../../shared/record-scope';
+import { ATIVO } from '../../../shared/soft-delete';
 
 const toNumber = (value: { toString(): string } | null | undefined): number =>
   value == null ? 0 : Number(value);
@@ -35,7 +36,11 @@ export class PrismaDashboardRepository implements DashboardRepository {
       }),
       this.prisma.db.deal.groupBy({
         by: ['stageId'],
-        where: { client: { ownerId }, ...(scoped ? { AND: [scoped] } : {}) },
+        where: {
+          client: { ownerId },
+          ...ATIVO,
+          ...(scoped ? { AND: [scoped] } : {}),
+        },
         _count: { _all: true },
         _sum: { amount: true },
       }),
@@ -94,6 +99,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
       where: {
         project: { client: { ownerId } },
         status: 'IN_PROGRESS',
+        ...ATIVO,
         ...(scoped ? { AND: [scoped] } : {}),
       },
     });
@@ -110,6 +116,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
         dueDate: { lt: now },
+        ...ATIVO,
         ...(scoped ? { AND: [scoped] } : {}),
       },
     });
@@ -128,6 +135,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
         dueDate: { gte: now, lte: until },
+        ...ATIVO,
         ...(scoped ? { AND: [scoped] } : {}),
       },
       orderBy: { dueDate: 'asc' },
