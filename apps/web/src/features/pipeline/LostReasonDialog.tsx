@@ -1,34 +1,48 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import {
   Dialog, DialogBody, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select';
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (lostReasonId: string) => void;
   onCancel: () => void; // reverter o move visual
 }
 
 export function LostReasonDialog({ open, onOpenChange, onConfirm, onCancel }: Props) {
-  const [reason, setReason] = useState('');
+  // Só os ativos: o motivo escolhido num registro NOVO tem de estar utilizável
+  // — é o mesmo 422 que `assertUtilizavel` devolveria no servidor.
+  const { data: motivos } = useCatalogo('motivos-de-perda');
+  const [reasonId, setReasonId] = useState('');
   const [error, setError] = useState(false);
   useEffect(() => {
     if (open) {
-      setReason('');
+      setReasonId('');
       setError(false);
     }
   }, [open]);
 
+  const semCatalogo = (motivos?.length ?? 0) === 0;
+
   const confirm = () => {
-    if (!reason.trim()) {
+    if (!reasonId) {
       setError(true);
       return;
     }
-    onConfirm(reason.trim());
+    onConfirm(reasonId);
   };
 
   return (
@@ -45,24 +59,45 @@ export function LostReasonDialog({ open, onOpenChange, onConfirm, onCancel }: Pr
           <DialogDescription>Informe por que esta oportunidade foi perdida.</DialogDescription>
         </DialogHeader>
         <DialogBody>
-          <Field data-invalid={error}>
-            <FieldLabel htmlFor="lost-reason" required>Motivo</FieldLabel>
-            <textarea
-              id="lost-reason"
-              rows={3}
-              placeholder="Descreva por que a oportunidade foi perdida…"
-              className="min-h-20 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-            {error && <FieldError>Informe o motivo da perda.</FieldError>}
-          </Field>
+          {semCatalogo ? (
+            // Sem nenhum motivo ativo o diálogo travaria sem saída (owner que
+            // apagou ou desativou todos). O link é a saída.
+            <Empty>
+              <EmptyTitle>Nenhum motivo de perda ativo</EmptyTitle>
+              <EmptyDescription>
+                Cadastre ou reative um motivo em{' '}
+                <Link to="/catalogos/motivos-de-perda">Catálogos</Link> para
+                registrar a perda.
+              </EmptyDescription>
+            </Empty>
+          ) : (
+            <Field data-invalid={error}>
+              <FieldLabel required>Motivo</FieldLabel>
+              <Select<string>
+                value={reasonId}
+                onValueChange={(v) => {
+                  setReasonId(v ?? '');
+                  if (v) setError(false);
+                }}
+              >
+                <SelectTrigger placeholder="Selecione o motivo" />
+                <SelectContent>
+                  {(motivos ?? []).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {error && <FieldError>Informe o motivo da perda.</FieldError>}
+            </Field>
+          )}
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button type="button" onClick={confirm}>
+          <Button type="button" onClick={confirm} disabled={semCatalogo}>
             Confirmar
           </Button>
         </DialogFooter>

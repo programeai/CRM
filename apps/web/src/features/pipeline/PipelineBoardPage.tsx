@@ -141,11 +141,11 @@ export default function PipelineBoardPage() {
         open={!!pendingLost}
         onOpenChange={(o) => !o && setPendingLost(null)}
         onCancel={() => setPendingLost(null)}
-        onConfirm={(reason) => {
+        onConfirm={(lostReasonId) => {
           if (pendingLost) {
             moveDeal.mutate({
               id: pendingLost.id,
-              body: { stageId: pendingLost.stageId, position: pendingLost.position, lostReason: reason },
+              body: { stageId: pendingLost.stageId, position: pendingLost.position, lostReasonId },
             });
           }
           setPendingLost(null);

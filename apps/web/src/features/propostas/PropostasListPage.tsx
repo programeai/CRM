@@ -19,7 +19,6 @@ import { Pagination } from '@/components/ui/pagination';
 import {
   PROPOSAL_STATUS_LABELS,
   translateProposalStatus,
-  translateServiceType,
 } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -188,7 +187,7 @@ export default function PropostasListPage() {
                       {proposal.client.name}
                     </TableLink>
                   </TableCell>
-                  <TableCell>{translateServiceType(proposal.serviceType)}</TableCell>
+                  <TableCell>{proposal.serviceType.name}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_BADGE[proposal.status]}>
                       {translateProposalStatus(proposal.status)}

@@ -1,6 +1,5 @@
 import { Flame } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { translateServiceType } from '@/lib/labels';
 import { formatDealAmount, isCooling } from '../lib/deal-format';
 import type { Deal } from '../api/types';
 
@@ -30,9 +29,16 @@ export function DealCard({ deal, cooling, onClick }: Props) {
         {deal.assignee && <> · {deal.assignee.name}</>}
       </span>
       <div className="flex items-center justify-between">
-        <Badge variant="secondary">{translateServiceType(deal.serviceType)}</Badge>
+        <Badge variant="secondary">{deal.serviceType.name}</Badge>
         <span className="text-sm tabular-nums">{formatDealAmount(deal.amount)}</span>
       </div>
+      {/* Primeiro caminho de leitura do motivo de perda: até a Fase 13-A ele era
+          write-only (nenhum componente o renderizava). */}
+      {deal.lostReason && (
+        <Badge variant="destructive" className="self-start">
+          {deal.lostReason.name}
+        </Badge>
+      )}
     </button>
   );
 }

@@ -1,7 +1,7 @@
+import type { CatalogItem } from '@/features/catalogos/api/types';
 import type { Paginated } from '@/features/clientes/api/types';
 
 export type { Paginated };
-export type ServiceType = 'SOFTWARE' | 'WEBSITE' | 'PAID_TRAFFIC';
 export type ProjectStatus = 'ACTIVE' | 'PAUSED' | 'DONE' | 'CANCELED';
 export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -23,7 +23,8 @@ export interface Project {
   client: { id: string; name: string };
   proposalId?: string | null;
   name: string;
-  serviceType: ServiceType;
+  serviceTypeId: string;
+  serviceType: CatalogItem;
   status: ProjectStatus;
   startDate?: string | null;
   dueDate?: string | null;
@@ -54,7 +55,7 @@ export interface Task {
 export interface CreateProjectBody {
   name: string;
   clientId: string;
-  serviceType: ServiceType;
+  serviceTypeId: string;
   proposalId?: string;
   startDate?: string;
   dueDate?: string;

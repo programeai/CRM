@@ -1,7 +1,7 @@
+import type { CatalogItem } from '@/features/catalogos/api/types';
+
 export type PersonType = 'INDIVIDUAL' | 'COMPANY';
-export type LeadSource = 'REFERRAL' | 'PAID_TRAFFIC' | 'ORGANIC' | 'OUTBOUND' | 'OTHER';
 export type ClientStatus = 'LEAD' | 'ACTIVE' | 'INACTIVE' | 'LOST';
-export type ActivityType = 'NOTE' | 'CALL' | 'MEETING' | 'EMAIL' | 'WHATSAPP' | 'FOLLOW_UP';
 
 /** Responsável, quando houver. Shape mínimo devolvido junto do registro. */
 export interface Assignee {
@@ -18,7 +18,8 @@ export interface Client {
   email?: string | null;
   phone?: string | null;
   website?: string | null;
-  source?: LeadSource | null;
+  sourceId?: string | null;
+  source?: CatalogItem | null;
   status: ClientStatus;
   tags: string[];
   notes?: string | null;
@@ -48,7 +49,8 @@ export interface Activity {
   id: string;
   clientId: string;
   dealId?: string | null;
-  type: ActivityType;
+  typeId: string;
+  type: CatalogItem;
   content: string;
   scheduledFor?: string | null;
   completedAt?: string | null;
@@ -82,6 +84,6 @@ export interface ListClientsParams {
   limit?: number;
   search?: string;
   status?: ClientStatus;
-  source?: LeadSource;
+  sourceId?: string;
   assigneeId?: string;
 }

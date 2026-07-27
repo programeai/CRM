@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
 import { useGoBack } from '@/hooks/use-go-back';
-import { translateProposalStatus, translateServiceType } from '@/lib/labels';
+import { translateProposalStatus } from '@/lib/labels';
 import { formatDate, formatDateTime } from '@/lib/format';
 import {
   useDeleteProposal,
@@ -239,7 +239,7 @@ export default function PropostaDetalhePage() {
       <div className="grid grid-cols-1 gap-4 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Tipo de serviço</span>
-          <span className="text-sm">{translateServiceType(proposal.serviceType)}</span>
+          <span className="text-sm">{proposal.serviceType.name}</span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Válida até</span>

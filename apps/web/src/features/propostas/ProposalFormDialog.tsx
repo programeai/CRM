@@ -16,7 +16,6 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger,
 } from '@/components/ui/select';
-import { SERVICE_TYPE_LABELS, translateServiceType } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
@@ -24,11 +23,13 @@ import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProposal, useUpdateProposal } from './api/hooks';
 import { ItemsEditor } from './components/ItemsEditor';
-import type { Proposal, ServiceType } from './api/types';
+import type { Proposal, } from './api/types';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
+import { comItemAtual } from '@/features/catalogos/lib/options';
 
 const schema = z.object({
   clientId: z.string().uuid('Selecione um cliente.'),
-  serviceType: z.enum(['SOFTWARE', 'WEBSITE', 'PAID_TRAFFIC']),
+  serviceTypeId: z.string().uuid('Selecione o tipo de serviço.'),
   items: z
     .array(
       z.object({
@@ -49,7 +50,7 @@ type Values = ProposalFormValues;
 
 const EMPTY: Values = {
   clientId: '',
-  serviceType: 'SOFTWARE',
+  serviceTypeId: '',
   items: [{ description: '', quantity: 1, unitPrice: 0 }],
   discount: 0,
   scope: '',
@@ -61,7 +62,7 @@ const EMPTY: Values = {
 function toValues(proposal: Proposal): Values {
   return {
     clientId: proposal.clientId,
-    serviceType: proposal.serviceType,
+    serviceTypeId: proposal.serviceTypeId,
     items: proposal.items.map((it) => ({
       description: it.description,
       quantity: Number(it.quantity),
@@ -85,6 +86,8 @@ interface Props {
 /** Cria/edita propostas (RHF+Zod) com editor de itens; edição só permitida em DRAFT. */
 export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClientId }: Props) {
   const isEdit = !!proposal;
+  const { data: servicos } = useCatalogo('servicos');
+  const servicosOptions = comItemAtual(servicos, proposal?.serviceType);
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal(proposal?.id ?? '');
 
@@ -130,7 +133,7 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
   const onSubmit = async (v: Values) => {
     const body = {
       clientId: v.clientId,
-      serviceType: v.serviceType,
+      serviceTypeId: v.serviceTypeId,
       items: v.items,
       discount: v.discount && v.discount > 0 ? v.discount : undefined,
       scope: v.scope || undefined,
@@ -242,20 +245,26 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
                   <FieldLabel required>Tipo de serviço</FieldLabel>
                   <Controller
                     control={control}
-                    name="serviceType"
+                    name="serviceTypeId"
                     render={({ field }) => (
-                      <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger />
+                      <Select<string>
+                        value={field.value}
+                        onValueChange={(v) => field.onChange(v ?? '')}
+                      >
+                        <SelectTrigger placeholder="Selecione o tipo de serviço" />
                         <SelectContent>
-                          {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {translateServiceType(s)}
+                          {servicosOptions.map((sv) => (
+                            <SelectItem key={sv.id} value={sv.id}>
+                              {sv.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     )}
                   />
+                  {errors.serviceTypeId && (
+                    <FieldError>{errors.serviceTypeId.message}</FieldError>
+                  )}
                 </Field>
 
                 <Field>

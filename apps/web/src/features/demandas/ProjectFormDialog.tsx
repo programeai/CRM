@@ -16,19 +16,21 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger,
 } from '@/components/ui/select';
-import { SERVICE_TYPE_LABELS, PROJECT_STATUS_LABELS, translateServiceType, translateProjectStatus } from '@/lib/labels';
+import { PROJECT_STATUS_LABELS, translateProjectStatus } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProject, useUpdateProject } from './api/hooks';
-import type { Project, ProjectStatus, ServiceType } from './api/types';
+import type { Project, ProjectStatus, } from './api/types';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
+import { comItemAtual } from '@/features/catalogos/lib/options';
 
 const schema = z.object({
   name: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres.'),
   clientId: z.string().uuid('Selecione um cliente.'),
-  serviceType: z.enum(['SOFTWARE', 'WEBSITE', 'PAID_TRAFFIC']),
+  serviceTypeId: z.string().uuid('Selecione o tipo de serviço.'),
   status: z.enum(['ACTIVE', 'PAUSED', 'DONE', 'CANCELED']).optional(),
   startDate: z.string().optional(),
   dueDate: z.string().optional(),
@@ -44,6 +46,8 @@ interface Props {
 
 export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId }: Props) {
   const isEdit = !!project;
+  const { data: servicos } = useCatalogo('servicos');
+  const servicosOptions = comItemAtual(servicos, project?.serviceType);
   const createProject = useCreateProject();
   const updateProject = useUpdateProject(project?.id ?? '');
 
@@ -58,7 +62,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
   const { register, handleSubmit, control, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<Values>({
       resolver: zodResolver(schema),
-      defaultValues: { name: '', clientId: defaultClientId ?? '', serviceType: 'SOFTWARE' },
+      defaultValues: { name: '', clientId: defaultClientId ?? '', serviceTypeId: '' },
     });
 
   useEffect(() => {
@@ -69,12 +73,12 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
         ? {
             name: project.name,
             clientId: project.clientId,
-            serviceType: project.serviceType,
+            serviceTypeId: project.serviceTypeId,
             status: project.status,
             startDate: project.startDate?.slice(0, 10) ?? '',
             dueDate: project.dueDate?.slice(0, 10) ?? '',
           }
-        : { name: '', clientId: defaultClientId ?? '', serviceType: 'SOFTWARE' },
+        : { name: '', clientId: defaultClientId ?? '', serviceTypeId: '' },
     );
   }, [open, project, defaultClientId, reset]);
 
@@ -98,7 +102,7 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
     const body = {
       name: v.name.trim(),
       clientId: v.clientId,
-      serviceType: v.serviceType,
+      serviceTypeId: v.serviceTypeId,
       status: v.status,
       startDate: v.startDate || undefined,
       dueDate: v.dueDate || undefined,
@@ -196,20 +200,26 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
               <FieldLabel required>Tipo de serviço</FieldLabel>
               <Controller
                 control={control}
-                name="serviceType"
+                name="serviceTypeId"
                 render={({ field }) => (
-                  <Select<ServiceType> items={SERVICE_TYPE_LABELS} value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger />
+                  <Select<string>
+                    value={field.value}
+                    onValueChange={(v) => field.onChange(v ?? '')}
+                  >
+                    <SelectTrigger placeholder="Selecione o tipo de serviço" />
                     <SelectContent>
-                      {(Object.keys(SERVICE_TYPE_LABELS) as ServiceType[]).map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {translateServiceType(s)}
+                      {servicosOptions.map((sv) => (
+                        <SelectItem key={sv.id} value={sv.id}>
+                          {sv.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 )}
               />
+              {errors.serviceTypeId && (
+                <FieldError>{errors.serviceTypeId.message}</FieldError>
+              )}
             </Field>
 
             {isEdit && (

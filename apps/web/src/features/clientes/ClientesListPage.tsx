@@ -18,20 +18,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
 import {
   CLIENT_STATUS_LABELS,
-  LEAD_SOURCE_LABELS,
   translateClientStatus,
-  translateLeadSource,
 } from '@/lib/labels';
 import { formatDocument, formatPhone, formatDate, onlyDigits } from '@/lib/format';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import {
   enumFilter,
+  idFilter,
   numberFilter,
   stringFilter,
   useUrlFilters,
 } from '@/hooks/use-url-filters';
+import { useCatalogo } from '@/features/catalogos/api/hooks';
 import { useClients } from './api/hooks';
-import type { Client, ClientStatus, LeadSource } from './api/types';
+import type { Client, ClientStatus } from './api/types';
 import { ClientFormDialog } from './ClientFormDialog';
 
 /** Normaliza a URL do site garantindo o protocolo antes de abrir em nova aba. */
@@ -65,7 +65,7 @@ const LIMIT = 20;
 const CLIENTES_FILTERS = {
   search: stringFilter(),
   status: enumFilter(Object.keys(CLIENT_STATUS_LABELS) as ClientStatus[], 'ALL' as const),
-  source: enumFilter(Object.keys(LEAD_SOURCE_LABELS) as LeadSource[], 'ALL' as const),
+  source: idFilter(),
   page: numberFilter(1),
 };
 
@@ -141,8 +141,13 @@ export default function ClientesListPage() {
     limit: LIMIT,
     search: values.search || undefined,
     status: status === 'ALL' ? undefined : status,
-    source: source === 'ALL' ? undefined : source,
+    sourceId: source === 'ALL' ? undefined : source,
   });
+
+  // Catálogo de fontes, para o filtro de coluna e a tradução na tabela — não
+  // há mais allowlist compilada: o catálogo é dado do owner.
+  const { data: fontes } = useCatalogo('fontes-de-lead');
+  const nomeDaFonte = new Map((fontes ?? []).map((f) => [f.id, f.name]));
 
   const total = data?.meta.total ?? 0;
 
@@ -187,8 +192,8 @@ export default function ClientesListPage() {
                   name="source-filter"
                   value={source}
                   onValueChange={(v) => set({ source: v, page: 1 })}
-                  options={Object.keys(LEAD_SOURCE_LABELS) as LeadSource[]}
-                  translate={translateLeadSource}
+                  options={(fontes ?? []).map((f) => f.id)}
+                  translate={(id) => nomeDaFonte.get(id) ?? '—'}
                 />
               </TableHead>
               <TableHead>Criado em</TableHead>
@@ -226,7 +231,7 @@ export default function ClientesListPage() {
                       {translateClientStatus(client.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell>{translateLeadSource(client.source) || '—'}</TableCell>
+                  <TableCell>{client.source?.name ?? '—'}</TableCell>
                   <TableCell>{formatDate(client.createdAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">

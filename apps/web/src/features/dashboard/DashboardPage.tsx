@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { TableLink } from '@/components/ui/table-link';
 import { MonthPicker } from '@/components/ui/month-picker';
 import { formatMoney, formatDate } from '@/lib/format';
-import { translateTaskPriority, translateActivityType } from '@/lib/labels';
+import { translateTaskPriority } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/hooks/use-can';
 import { booleanFilter, useUrlFilters } from '@/hooks/use-url-filters';
@@ -274,7 +274,7 @@ function ActionRow({ action }: { action: UpcomingAction }) {
       <div className="flex min-w-0 flex-col">
         <TableLink to={`/clientes/${action.clientId}`}>{action.clientName}</TableLink>
         <span className="truncate text-xs text-muted-foreground">
-          {translateActivityType(action.type)} · {action.content}
+          {action.type.name} · {action.content}
         </span>
       </div>
       <span

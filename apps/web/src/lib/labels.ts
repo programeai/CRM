@@ -4,6 +4,11 @@
  * Regra: nenhum identificador técnico de enum aparece cru na UI — sempre passe
  * pelo tradutor correspondente. Ao adicionar um valor novo ao schema, inclua a
  * tradução aqui no mesmo PR (ver apps/web/CLAUDE.md).
+ *
+ * O que NÃO vive aqui: as quatro listas configuráveis pelo owner (tipos de
+ * serviço, fontes de lead, tipos de atividade e motivos de perda). Elas vêm de
+ * `GET /catalogos/:kind` já em pt-BR — o rótulo é o dado. Ver
+ * `features/catalogos`.
  */
 
 function make<T extends string>(map: Record<T, string>) {
@@ -17,15 +22,6 @@ export const PERSON_TYPE_LABELS = {
 } as const;
 export const translatePersonType = make(PERSON_TYPE_LABELS);
 
-export const LEAD_SOURCE_LABELS = {
-  REFERRAL: 'Indicação',
-  PAID_TRAFFIC: 'Tráfego pago',
-  ORGANIC: 'Orgânico',
-  OUTBOUND: 'Prospecção ativa',
-  OTHER: 'Outro',
-} as const;
-export const translateLeadSource = make(LEAD_SOURCE_LABELS);
-
 export const CLIENT_STATUS_LABELS = {
   LEAD: 'Lead',
   ACTIVE: 'Ativo',
@@ -33,13 +29,6 @@ export const CLIENT_STATUS_LABELS = {
   LOST: 'Perdido',
 } as const;
 export const translateClientStatus = make(CLIENT_STATUS_LABELS);
-
-export const SERVICE_TYPE_LABELS = {
-  SOFTWARE: 'Software',
-  WEBSITE: 'Website',
-  PAID_TRAFFIC: 'Tráfego pago',
-} as const;
-export const translateServiceType = make(SERVICE_TYPE_LABELS);
 
 export const PROPOSAL_STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -116,16 +105,6 @@ export const SUBSCRIPTION_STATUS_LABELS = {
   INCOMPLETE: 'Incompleta',
 } as const;
 export const translateSubscriptionStatus = make(SUBSCRIPTION_STATUS_LABELS);
-
-export const ACTIVITY_TYPE_LABELS = {
-  NOTE: 'Anotação',
-  CALL: 'Ligação',
-  MEETING: 'Reunião',
-  EMAIL: 'E-mail',
-  WHATSAPP: 'WhatsApp',
-  FOLLOW_UP: 'Follow-up',
-} as const;
-export const translateActivityType = make(ACTIVITY_TYPE_LABELS);
 
 // --- auditoria (Fase 8B) ---
 

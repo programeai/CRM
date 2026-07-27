@@ -1,9 +1,6 @@
 import { useOutletContext } from 'react-router';
 import { TagBadge } from '@/components/ui/tag-badge';
-import {
-  translatePersonType,
-  translateLeadSource,
-} from '@/lib/labels';
+import { translatePersonType } from '@/lib/labels';
 import { formatDocument, formatPhone } from '@/lib/format';
 import type { Client } from '../api/types';
 
@@ -83,7 +80,7 @@ export default function DadosTab() {
         <Row label="Nome fantasia" value={client.tradeName} />
         <Row label="Tipo de pessoa" value={translatePersonType(client.personType)} />
         <Row label="Documento" value={formatDocument(client.document)} />
-        <Row label="Origem" value={translateLeadSource(client.source)} />
+        <Row label="Origem" value={client.source?.name} />
       </Section>
 
       <Section title="Contato">
