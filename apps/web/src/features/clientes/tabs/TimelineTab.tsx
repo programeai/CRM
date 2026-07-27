@@ -1,20 +1,41 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from '@/components/ui/select';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { Spinner } from '@/components/ui/spinner';
 import { ACTIVITY_TYPE_LABELS, translateActivityType } from '@/lib/labels';
@@ -45,6 +66,15 @@ export default function TimelineTab() {
   // preenchido com ele (e pode ser trocado antes de salvar).
   const { data: me } = useMe();
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const empty = (): Values => ({
+    type: 'NOTE',
+    content: '',
+    scheduledFor: '',
+    assigneeId: me?.id ?? null,
+  });
+
   const {
     register,
     handleSubmit,
@@ -54,23 +84,20 @@ export default function TimelineTab() {
     setValue,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      type: 'NOTE',
-      content: '',
-      scheduledFor: '',
-      assigneeId: me?.id ?? null,
-    },
-  });
+  } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: empty() });
 
   const type = watch('type');
 
-  // O `me` chega depois da montagem do formulário: assim que chega, o campo
+  // O `me` pode chegar depois da montagem do formulário: assim que chega, o campo
   // (ainda intocado) passa a refletir o usuário logado.
   useEffect(() => {
     if (me?.id && getValues('assigneeId') == null) setValue('assigneeId', me.id);
   }, [me?.id, getValues, setValue]);
+
+  const openCreate = () => {
+    reset(empty());
+    setDialogOpen(true);
+  };
 
   const onSubmit = async (v: Values) => {
     try {
@@ -85,13 +112,7 @@ export default function TimelineTab() {
         assigneeId: v.assigneeId ?? null,
       });
       toast.success('Atividade registrada.');
-      // Preserva o default de responsável — registrar em sequência é o caso comum.
-      reset({
-        type: 'NOTE',
-        content: '',
-        scheduledFor: '',
-        assigneeId: me?.id ?? null,
-      });
+      setDialogOpen(false);
     } catch {
       toast.error('Falha ao registrar a atividade.');
     }
@@ -109,78 +130,14 @@ export default function TimelineTab() {
   const activities = data?.data ?? [];
 
   return (
-    <div className="flex flex-col gap-6">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="flex flex-col gap-3 rounded-lg border p-4"
-      >
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Field className="sm:max-w-48">
-            <FieldLabel required>Tipo</FieldLabel>
-            <Controller
-              control={control}
-              name="type"
-              render={({ field }) => (
-                <Select<ActivityType>
-                  items={ACTIVITY_TYPE_LABELS}
-                  value={field.value}
-                  onValueChange={(v) => field.onChange(v)}
-                >
-                  <SelectTrigger />
-                  <SelectContent>
-                    {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[]).map(
-                      (t) => (
-                        <SelectItem key={t} value={t}>
-                          {translateActivityType(t)}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </Field>
-          <Field className="sm:max-w-56">
-            <FieldLabel>Responsável</FieldLabel>
-            <Controller
-              control={control}
-              name="assigneeId"
-              render={({ field }) => (
-                <AssigneeSelect value={field.value} onValueChange={field.onChange} />
-              )}
-            />
-          </Field>
-          {type === 'FOLLOW_UP' && (
-            <Field className="sm:max-w-56">
-              <FieldLabel htmlFor="scheduledFor">Agendar para</FieldLabel>
-              <input
-                id="scheduledFor"
-                type="datetime-local"
-                className="h-10 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                {...register('scheduledFor')}
-              />
-            </Field>
-          )}
-        </div>
-        <Field data-invalid={!!errors.content}>
-          <FieldLabel htmlFor="content" required>Conteúdo</FieldLabel>
-          <textarea
-            id="content"
-            rows={3}
-            placeholder="Descreva o que aconteceu…"
-            aria-invalid={!!errors.content}
-            className="min-h-20 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
-            {...register('content')}
-          />
-          {errors.content && <FieldError>{errors.content.message}</FieldError>}
-        </Field>
-        <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={isSubmitting}>
-            {isSubmitting && <Spinner data-icon="inline-start" />}
-            Registrar
-          </Button>
-        </div>
-      </form>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-sm font-medium">Timeline</h2>
+        <Button size="sm" onClick={openCreate}>
+          <Plus data-icon="inline-start" />
+          Nova atividade
+        </Button>
+      </div>
 
       {isLoading ? (
         <div className="flex flex-col gap-2">
@@ -189,7 +146,7 @@ export default function TimelineTab() {
           ))}
         </div>
       ) : activities.length > 0 ? (
-        <ol className="flex flex-col gap-3">
+        <ol className="flex flex-col gap-2">
           {activities.map((activity) => {
             const pendingFollowUp =
               !!activity.scheduledFor && !activity.completedAt;
@@ -235,10 +192,115 @@ export default function TimelineTab() {
           })}
         </ol>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Nenhuma atividade registrada ainda.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <History />
+            </EmptyMedia>
+            <EmptyTitle>Nenhuma atividade</EmptyTitle>
+            <EmptyDescription>
+              Registre a primeira atividade deste cliente.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova atividade</DialogTitle>
+            <DialogDescription>
+              Registre o que aconteceu com este cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <form onSubmit={handleSubmit(onSubmit)} id="activity-form">
+              <FieldGroup>
+                <Field>
+                  <FieldLabel required>Tipo</FieldLabel>
+                  <Controller
+                    control={control}
+                    name="type"
+                    render={({ field }) => (
+                      <Select<ActivityType>
+                        items={ACTIVITY_TYPE_LABELS}
+                        value={field.value}
+                        onValueChange={(v) => field.onChange(v)}
+                      >
+                        <SelectTrigger />
+                        <SelectContent>
+                          {(
+                            Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[]
+                          ).map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {translateActivityType(t)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>Responsável</FieldLabel>
+                  <Controller
+                    control={control}
+                    name="assigneeId"
+                    render={({ field }) => (
+                      <AssigneeSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      />
+                    )}
+                  />
+                </Field>
+                {type === 'FOLLOW_UP' && (
+                  <Field>
+                    <FieldLabel htmlFor="activity-scheduledFor">
+                      Agendar para
+                    </FieldLabel>
+                    <input
+                      id="activity-scheduledFor"
+                      type="datetime-local"
+                      className="h-10 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      {...register('scheduledFor')}
+                    />
+                  </Field>
+                )}
+                <Field data-invalid={!!errors.content}>
+                  <FieldLabel htmlFor="activity-content" required>
+                    Conteúdo
+                  </FieldLabel>
+                  <textarea
+                    id="activity-content"
+                    rows={4}
+                    placeholder="Descreva o que aconteceu…"
+                    aria-invalid={!!errors.content}
+                    className="min-h-24 w-full rounded-lg border border-input bg-transparent dark:bg-input/30 px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive"
+                    {...register('content')}
+                  />
+                  {errors.content && (
+                    <FieldError>{errors.content.message}</FieldError>
+                  )}
+                </Field>
+              </FieldGroup>
+            </form>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" form="activity-form" disabled={isSubmitting}>
+              {isSubmitting && <Spinner data-icon="inline-start" />}
+              Registrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
