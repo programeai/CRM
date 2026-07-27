@@ -6,6 +6,7 @@ import {
 import { RolesService } from './roles.service';
 import { ALL_PERMISSION_KEYS } from '../../../shared/permissions';
 import type { RoleRepository, RoleWithUsage } from '../domain/role.repository';
+import type { AuditService } from '../../audit/audit.service';
 
 const OWNER = 'owner-1';
 
@@ -26,6 +27,7 @@ function role(overrides: Partial<RoleWithUsage> = {}): RoleWithUsage {
 
 describe('RolesService', () => {
   let repo: jest.Mocked<RoleRepository>;
+  let audit: { registrar: jest.Mock };
   let service: RolesService;
 
   beforeEach(() => {
@@ -44,7 +46,8 @@ describe('RolesService', () => {
       ),
       delete: jest.fn().mockResolvedValue(undefined),
     };
-    service = new RolesService(repo);
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    service = new RolesService(repo, audit as unknown as AuditService);
   });
 
   describe('create', () => {
@@ -96,6 +99,31 @@ describe('RolesService', () => {
       await expect(
         service.update(OWNER, 'de-outro-owner', { name: 'X', permissions: [] }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('registra na trilha o diff de permissões, não só a contagem', async () => {
+      repo.findById.mockResolvedValue(
+        role({ permissions: ['cliente:ver', 'proposta:ver'] }),
+      );
+
+      await service.update(OWNER, 'r1', {
+        name: 'Comercial',
+        permissions: ['cliente:ver', 'cliente:gerenciar'],
+      });
+
+      expect(audit.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity: 'ROLE',
+          action: 'ATUALIZAR',
+          entityId: 'r1',
+          antes: expect.objectContaining({
+            permissoes: ['cliente:ver', 'proposta:ver'],
+          }),
+          depois: expect.objectContaining({
+            permissoes: ['cliente:ver', 'cliente:gerenciar'],
+          }),
+        }),
+      );
     });
   });
 

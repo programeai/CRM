@@ -7,10 +7,12 @@ import {
 import { ClientsService } from './clients.service';
 import type { ClientRepository } from '../domain/client.repository';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('ClientsService', () => {
   let repo: jest.Mocked<ClientRepository>;
   let members: jest.Mocked<WorkspaceMembersService>;
+  let audit: { registrar: jest.Mock };
   let service: ClientsService;
 
   beforeEach(() => {
@@ -29,7 +31,28 @@ describe('ClientsService', () => {
       list: jest.fn(),
       assertMember: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<WorkspaceMembersService>;
-    service = new ClientsService(repo, members);
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    service = new ClientsService(
+      repo,
+      members,
+      audit as unknown as AuditService,
+    );
+  });
+
+  it('registra o arquivamento na trilha de auditoria', async () => {
+    repo.findById.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+    repo.archive.mockResolvedValue({ id: 'c1' } as never);
+
+    await service.archive('owner-1', 'c1');
+
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'CLIENT',
+        action: 'ARQUIVAR',
+        entityId: 'c1',
+        entityLabel: 'Acme',
+      }),
+    );
   });
 
   it('cria cliente derivando ownerId e limpando o documento', async () => {

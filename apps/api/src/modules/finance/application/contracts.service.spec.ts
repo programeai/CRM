@@ -5,10 +5,12 @@ import {
 import { ContractsService } from './contracts.service';
 import type { ContractRepository } from '../domain/contract.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('ContractsService', () => {
   let repo: jest.Mocked<ContractRepository>;
   let clients: { findOne: jest.Mock };
+  let audit: { registrar: jest.Mock };
   let service: ContractsService;
 
   beforeEach(() => {
@@ -21,7 +23,12 @@ describe('ContractsService', () => {
       findActiveRecurring: jest.fn(),
     };
     clients = { findOne: jest.fn() };
-    service = new ContractsService(repo, clients as unknown as ClientsService);
+    audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    service = new ContractsService(
+      repo,
+      clients as unknown as ClientsService,
+      audit as unknown as AuditService,
+    );
   });
 
   it('lança NotFoundException ao carregar contrato inexistente', async () => {
@@ -43,7 +50,11 @@ describe('ContractsService', () => {
 
   it('cria INSTALLMENTS gerando Entrada + N parcelas com soma exata', async () => {
     clients.findOne.mockResolvedValue({ id: 'cli' });
-    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    repo.create.mockResolvedValue({
+      id: 'c1',
+      description: 'Contrato',
+      payments: [],
+    } as never);
     await service.create('owner', {
       clientId: 'cli',
       description: 'Site institucional',
@@ -86,7 +97,11 @@ describe('ContractsService', () => {
 
   it('cria ONE_TIME gerando uma única cobrança', async () => {
     clients.findOne.mockResolvedValue({ id: 'cli' });
-    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    repo.create.mockResolvedValue({
+      id: 'c1',
+      description: 'Contrato',
+      payments: [],
+    } as never);
     await service.create('owner', {
       clientId: 'cli',
       description: 'Consultoria',
@@ -105,7 +120,11 @@ describe('ContractsService', () => {
 
   it('cria RECURRING sem gerar nenhuma cobrança', async () => {
     clients.findOne.mockResolvedValue({ id: 'cli' });
-    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    repo.create.mockResolvedValue({
+      id: 'c1',
+      description: 'Contrato',
+      payments: [],
+    } as never);
     await service.create('owner', {
       clientId: 'cli',
       description: 'Manutenção mensal',
@@ -149,6 +168,8 @@ describe('ContractsService', () => {
       id: 'c1',
       clientId: 'cli',
       status: 'ACTIVE',
+      description: 'Manutenção mensal',
+      payments: [],
     } as never);
     clients.findOne.mockResolvedValue({ id: 'cli' });
     repo.update.mockResolvedValue({ id: 'c1', status: 'CANCELED' } as never);
@@ -162,5 +183,35 @@ describe('ContractsService', () => {
         },
       },
     });
+  });
+
+  it('registra UM cancelamento agregado, com a contagem de cobranças em aberto', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      clientId: 'cli',
+      status: 'ACTIVE',
+      description: 'Manutenção mensal',
+      payments: [
+        { id: 'p1', status: 'PENDING' },
+        { id: 'p2', status: 'OVERDUE' },
+        { id: 'p3', status: 'PENDING' },
+        { id: 'p4', status: 'PAID' }, // não conta: já estava fora de aberto
+      ],
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'c1', status: 'CANCELED' } as never);
+
+    await service.cancel('owner', 'c1');
+
+    expect(audit.registrar).toHaveBeenCalledTimes(1);
+    expect(audit.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'CONTRACT',
+        action: 'CANCELAR',
+        entityId: 'c1',
+        entityLabel: 'Manutenção mensal',
+        extra: { cobrancasCanceladas: 3 },
+      }),
+    );
   });
 });

@@ -13,6 +13,7 @@ import {
 import { ClientsService } from '../../clients/application/clients.service';
 import { DealsService } from '../../pipeline/application/deals.service';
 import { PipelineStagesService } from '../../pipeline/application/pipeline-stages.service';
+import { AuditService } from '../../audit/audit.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { computeTotal } from './money';
 import type { CreateProposalDto } from '../api/dto/create-proposal.dto';
@@ -36,6 +37,7 @@ export class ProposalsService {
     private readonly clients: ClientsService,
     private readonly deals: DealsService,
     private readonly stages: PipelineStagesService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string, query: ListProposalsQueryDto) {
@@ -164,18 +166,48 @@ export class ProposalsService {
       );
     }
     await this.repo.delete(id);
+    await this.audit.registrar({
+      entity: 'PROPOSAL',
+      entityId: id,
+      entityLabel: proposal.number,
+      action: 'EXCLUIR',
+    });
   }
 
   async send(ownerId: string, id: string): Promise<ProposalWithItems> {
     const proposal = await this.loadOwned(ownerId, id);
     this.assertTransition(proposal.status, 'SENT');
-    return this.repo.update(id, { status: 'SENT', sentAt: new Date() });
+    const enviada = await this.repo.update(id, {
+      status: 'SENT',
+      sentAt: new Date(),
+    });
+    await this.audit.registrar({
+      entity: 'PROPOSAL',
+      entityId: id,
+      entityLabel: proposal.number,
+      action: 'ENVIAR',
+      antes: proposal,
+      depois: enviada,
+    });
+    return enviada;
   }
 
   async reject(ownerId: string, id: string): Promise<ProposalWithItems> {
     const proposal = await this.loadOwned(ownerId, id);
     this.assertTransition(proposal.status, 'REJECTED');
-    return this.repo.update(id, { status: 'REJECTED', decidedAt: new Date() });
+    const recusada = await this.repo.update(id, {
+      status: 'REJECTED',
+      decidedAt: new Date(),
+    });
+    await this.audit.registrar({
+      entity: 'PROPOSAL',
+      entityId: id,
+      entityLabel: proposal.number,
+      action: 'RECUSAR',
+      antes: proposal,
+      depois: recusada,
+    });
+    return recusada;
   }
 
   async accept(ownerId: string, id: string): Promise<ProposalWithItems> {
@@ -187,13 +219,24 @@ export class ProposalsService {
     });
     // Move o deal vinculado para o estágio "Ganhou" (isWon), se houver.
     if (proposal.dealId) await this.moveDealToWon(ownerId, proposal.dealId);
+    // Um registro só: o movimento do deal é consequência do aceite, não uma
+    // ação independente do usuário.
+    await this.audit.registrar({
+      entity: 'PROPOSAL',
+      entityId: id,
+      entityLabel: proposal.number,
+      action: 'ACEITAR',
+      antes: proposal,
+      depois: accepted,
+      extra: { dealMovidoParaGanhou: proposal.dealId !== null },
+    });
     return accepted;
   }
 
   /** Clona a proposta como nova versão (mesmo `number`, `version+1`, DRAFT), copiando itens/campos. */
   async newVersion(ownerId: string, id: string): Promise<ProposalWithItems> {
     const source = await this.loadOwned(ownerId, id);
-    return this.repo.create({
+    const nova = await this.repo.create({
       ownerId,
       number: source.number,
       version: source.version + 1,
@@ -218,6 +261,15 @@ export class ProposalsService {
         })),
       },
     });
+    // O registro fica na proposta NOVA, com a origem no `extra`.
+    await this.audit.registrar({
+      entity: 'PROPOSAL',
+      entityId: nova.id,
+      entityLabel: nova.number,
+      action: 'NOVA_VERSAO',
+      extra: { origemId: source.id, versao: nova.version },
+    });
+    return nova;
   }
 
   /** Gera PROP-AAAA-NNNN: max sequencial do ano corrente + 1, zero-padded a 4 dígitos. */
