@@ -83,6 +83,8 @@ longo do tempo. Os que existem hoje:
 | `propostas.expiradas` | rotina diária das 3h | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
+| `catalogo.item_criado` / `catalogo.item_atualizado` / `catalogo.item_excluido` | manutenção dos catálogos do owner | `info` |
+| `catalogo.itens_provisionados` | conta nova criada (senha ou OAuth) | `info` |
 | `cadastro.bloqueado` | autocadastro tentado com `REGISTRATION_ENABLED=false` | `warn` |
 | `colaborador.convidado` / `colaborador.convite_reemitido` / `colaborador.convite_aceito` | ciclo do convite de colaborador | `info` |
 | `colaborador.papel_alterado` | troca de papel de um colaborador | `info` |

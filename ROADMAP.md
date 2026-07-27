@@ -408,12 +408,22 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 > **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
 
-**Frente A — Domínio configurável pelo owner** 🔜 **1º na trilha de produção**
+**Frente A — Domínio configurável pelo owner** ✅ **concluída**
 
-- [ ] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
-      (`SOFTWARE | WEBSITE | PAID_TRAFFIC` — [`schema.prisma:518`](apps/api/prisma/schema.prisma#L518)), com migration de dados
-- [ ] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
-- [ ] Motivos de perda como lista configurável (hoje `lostReason` é texto livre)
+- [x] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
+      (`SOFTWARE | WEBSITE | PAID_TRAFFIC`), com migration de dados
+      (`20260807100000_service_catalog`)
+- [x] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
+      (`20260805100000_lead_source_catalog`, `20260808100000_activity_type_catalog`)
+- [x] Motivos de perda como lista configurável (o antigo `lostReason` texto livre virou FK —
+      `20260806100000_lost_reason_catalog`)
+
+> **Como ficou:** as quatro listas viraram tabelas com `ownerId` + RLS, provisionadas no cadastro a
+> partir de [`shared/default-catalogs.ts`](apps/api/src/shared/default-catalogs.ts) e gerenciadas em
+> `/catalogos` (permissão `catalogo:gerenciar`). A superfície de aplicação é um módulo só —
+> `modules/catalogos`, com registry `kind → delegate` e 4 rotas em `/catalogos/:kind`. `FOLLOW_UP`
+> deixou de ser literal: virou a coluna de regra `ActivityTypeCatalog.isFollowUp`, e os três
+> predicados divergentes de "follow-up pendente" convergiram para ela.
 
 > **Por que é o 1º:** é o **único bloqueio absoluto** do roadmap. `ServiceType` não é um detalhe de
 > exibição — é obrigatório em `Deal`, `Proposal` e `Project`, e aparece em 18 arquivos entre DTOs,
