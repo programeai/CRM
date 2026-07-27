@@ -13,78 +13,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { extractApiMessage } from '@/lib/api-error';
 import { useCan } from '@/hooks/use-can';
-import {
-  NOTIFICATION_TYPE_LABELS,
-  translateNotificationChannelKind,
-  translateNotificationType,
-} from '@/lib/labels';
+import { translateNotificationChannelKind } from '@/lib/labels';
 import {
   useAtualizarDestino,
-  useCriarDestino,
-  useCriarIntegracao,
   useDestinos,
   useExcluirDestino,
   useVerificarDestino,
 } from './api/hooks';
+import { DestinoEmailDialog } from './DestinoEmailDialog';
+import { IntegracaoDialog } from './IntegracaoDialog';
+import { MatrizDeTipos } from './MatrizDeTipos';
 import type {
   DestinoDeNotificacao,
   NotificationChannelKind,
   NotificationType,
 } from './api/types';
-
-/** Os seis tipos, na ordem do catálogo — o map de rótulos é a fonte da ordem. */
-const TIPOS = Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[];
-
-/**
- * A matriz dos seis tipos. Uma só: o cartão de um destino existente e o
- * formulário de criação mostram exatamente a mesma grade — o que muda é de onde
- * vem o estado (o servidor lá, `useState` aqui).
- */
-function MatrizDeTipos({
-  selecionados,
-  onAlternar,
-  disabled = false,
-}: {
-  selecionados: NotificationType[];
-  onAlternar: (tipo: NotificationType, marcado: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {TIPOS.map((tipo) => (
-        <label
-          key={tipo}
-          className="flex cursor-pointer items-center gap-2 text-sm"
-        >
-          <Checkbox
-            checked={selecionados.includes(tipo)}
-            disabled={disabled}
-            onCheckedChange={(marcado) => onAlternar(tipo, marcado === true)}
-          />
-          <span className={disabled ? 'text-muted-foreground' : undefined}>
-            {translateNotificationType(tipo)}
-          </span>
-        </label>
-      ))}
-    </div>
-  );
-}
 
 const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   IN_APP: Bell,
@@ -98,15 +44,16 @@ const ICONE: Record<NotificationChannelKind, typeof Bell> = {
 /**
  * Aba "Notificações" de `/configuracoes`: os destinos de e-mail e as
  * integrações (Slack, Discord, Telegram, webhook) numa lista só — é uma lista
- * só no servidor, e o que muda entre elas é o `kind`.
+ * só no servidor, e o que muda entre elas é o `kind`. O cadastro dos dois sai
+ * em Dialog (padrão da aplicação); a tela mostra a lista.
  */
 export function PreferenciasDeNotificacao() {
   const { data: destinos, isLoading, isError } = useDestinos();
   const atualizar = useAtualizarDestino();
   const excluir = useExcluirDestino();
   const verificar = useVerificarDestino();
-  // O backend é a autoridade (403 pelo AccessGuard); aqui só evitamos mostrar o
-  // formulário que não seria aceito.
+  // O backend é a autoridade (403 pelo AccessGuard); aqui só evitamos mostrar a
+  // ação que não seria aceita.
   const { can } = useCan();
   const podeIntegrar = can('notificacao:integrar');
 
@@ -172,17 +119,15 @@ export function PreferenciasDeNotificacao() {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          {!novoAberto && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setNovoAberto(true)}
-            >
-              <Plus data-icon="inline-start" />
-              Novo e-mail
-            </Button>
-          )}
-          {podeIntegrar && !integracaoAberta && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setNovoAberto(true)}
+          >
+            <Plus data-icon="inline-start" />
+            Novo e-mail
+          </Button>
+          {podeIntegrar && (
             <Button
               type="button"
               variant="outline"
@@ -194,11 +139,6 @@ export function PreferenciasDeNotificacao() {
           )}
         </div>
       </div>
-
-      {novoAberto && <NovoDestinoEmail onFechar={() => setNovoAberto(false)} />}
-      {integracaoAberta && (
-        <NovaIntegracao onFechar={() => setIntegracaoAberta(false)} />
-      )}
 
       {isError ? (
         <p className="text-sm text-muted-foreground">
@@ -290,6 +230,14 @@ export function PreferenciasDeNotificacao() {
         </ul>
       )}
 
+      <DestinoEmailDialog open={novoAberto} onOpenChange={setNovoAberto} />
+      {podeIntegrar && (
+        <IntegracaoDialog
+          open={integracaoAberta}
+          onOpenChange={setIntegracaoAberta}
+        />
+      )}
+
       <ConfirmDialog
         open={!!excluindo}
         onOpenChange={(open) => !open && setExcluindo(null)}
@@ -302,266 +250,5 @@ export function PreferenciasDeNotificacao() {
         onConfirm={() => void confirmarExclusao()}
       />
     </section>
-  );
-}
-
-/** Formulário inline de um destino de e-mail novo. */
-function NovoDestinoEmail({ onFechar }: { onFechar: () => void }) {
-  const criar = useCriarDestino();
-  const [label, setLabel] = useState('');
-  const [email, setEmail] = useState('');
-
-  const salvar = async () => {
-    try {
-      await criar.mutateAsync({ label: label.trim(), email: email.trim() });
-      toast.success('Destino criado.');
-      onFechar();
-    } catch (err) {
-      toast.error(extractApiMessage(err, 'Falha ao criar o destino.'));
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-3 rounded-md border border-dashed p-3">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="destino-label" required>
-            Rótulo
-          </FieldLabel>
-          <Input
-            id="destino-label"
-            placeholder="Meu e-mail pessoal"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="destino-email" required>
-            E-mail
-          </FieldLabel>
-          <Input
-            id="destino-email"
-            type="email"
-            placeholder="voce@exemplo.com.br"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onFechar}>
-          Cancelar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={criar.isPending || !label.trim() || !email.trim()}
-          onClick={() => void salvar()}
-        >
-          {criar.isPending ? 'Criando…' : 'Criar destino'}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** Rótulos dos dois tipos de integração — o `Select` precisa do map. */
-const KIND_INTEGRACAO = {
-  WEBHOOK: 'Webhook',
-  SLACK: 'Slack',
-  DISCORD: 'Discord',
-  TELEGRAM: 'Telegram',
-} as const;
-type KindIntegracao = keyof typeof KIND_INTEGRACAO;
-
-/**
- * Monta o `sendMessage` da Bot API a partir do que o usuário tem em mãos: o
- * token que o @BotFather entrega e o id do chat. É o front que monta porque a
- * `config` do destino guarda só `{ url }` — assim o Telegram entra sem um
- * segundo campo no banco, na API e no DTO.
- *
- * O `chat_id` vai na query, e o adapter da API o move para o corpo JSON. O
- * `encodeURIComponent` importa: chat de canal pode ser `@nome`, e o `@` cru
- * quebraria a query.
- */
-function montarUrlTelegram(token: string, chatId: string): string {
-  return `https://api.telegram.org/bot${token}/sendMessage?chat_id=${encodeURIComponent(chatId)}`;
-}
-
-/**
- * Formulário de um destino de integração. Só é renderizado para quem tem
- * `notificacao:integrar` — e o aviso sobre a URL ser o segredo é obrigatório:
- * quem tiver aquele endereço escreve no canal.
- */
-function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
-  const criar = useCriarIntegracao();
-  const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<KindIntegracao>('SLACK');
-  const [url, setUrl] = useState('');
-  // O Telegram não é "cole uma URL": a Bot API quer um token e um chat_id, que é
-  // o que o usuário tem em mãos. A URL sai destes dois no `salvar`.
-  const [token, setToken] = useState('');
-  const [chatId, setChatId] = useState('');
-  // Nasce com os seis marcados: é o mesmo padrão que a API aplica quando o corpo
-  // não manda `types` (`TIPOS_PADRAO`). Quem quiser menos, desmarca aqui.
-  const [types, setTypes] = useState<NotificationType[]>(TIPOS);
-
-  const ehTelegram = kind === 'TELEGRAM';
-  // O que falta preencher, por serviço — o Telegram tem dois campos no lugar da URL.
-  const destinoIncompleto = ehTelegram
-    ? !token.trim() || !chatId.trim()
-    : !url.trim();
-
-  // O `filter` sobre TIPOS (em vez de um push) mantém a ordem do catálogo mesmo
-  // depois de desmarcar e remarcar.
-  const alternarTipo = (tipo: NotificationType, marcado: boolean) => {
-    setTypes((atuais) =>
-      marcado
-        ? TIPOS.filter((t) => t === tipo || atuais.includes(t))
-        : atuais.filter((t) => t !== tipo),
-    );
-  };
-
-  const salvar = async () => {
-    try {
-      await criar.mutateAsync({
-        label: label.trim(),
-        kind,
-        url: ehTelegram
-          ? montarUrlTelegram(token.trim(), chatId.trim())
-          : url.trim(),
-        types,
-      });
-      toast.success(
-        'Integração criada. Use "Testar e ativar" para começar a receber.',
-      );
-      onFechar();
-    } catch (err) {
-      toast.error(extractApiMessage(err, 'Falha ao criar a integração.'));
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-3 rounded-md border border-dashed p-3">
-      <p className="text-xs text-muted-foreground">
-        <strong className="font-medium text-foreground">
-          {ehTelegram ? 'O token é o segredo.' : 'A URL é o segredo.'}
-        </strong>{' '}
-        Quem tiver {ehTelegram ? 'esse token' : 'esse endereço'} consegue
-        escrever no seu canal — trate-o como uma senha. O conteúdo enviado
-        carrega nome de cliente e valor de cobrança, então use só um destino que
-        você controla.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="integracao-label" required>
-            Rótulo
-          </FieldLabel>
-          <Input
-            id="integracao-label"
-            placeholder="Canal do time"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="integracao-kind" required>
-            Serviço
-          </FieldLabel>
-          <Select<KindIntegracao>
-            items={KIND_INTEGRACAO}
-            value={kind}
-            // O `onValueChange` do base-ui pode emitir null (limpar); aqui o
-            // campo é obrigatório, então null mantém a escolha atual.
-            onValueChange={(v) => v && setKind(v)}
-          >
-            <SelectTrigger id="integracao-kind" />
-            <SelectContent>
-              {(Object.keys(KIND_INTEGRACAO) as KindIntegracao[]).map((k) => (
-                <SelectItem key={k} value={k}>
-                  {KIND_INTEGRACAO[k]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
-      {ehTelegram ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="integracao-token" required>
-              Token do bot
-            </FieldLabel>
-            <Input
-              id="integracao-token"
-              placeholder="123456789:AAE…"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-            <FieldDescription>
-              O que o @BotFather devolve ao criar o bot.
-            </FieldDescription>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="integracao-chat" required>
-              Chat ID
-            </FieldLabel>
-            <Input
-              id="integracao-chat"
-              placeholder="-1001234567890"
-              value={chatId}
-              onChange={(e) => setChatId(e.target.value)}
-            />
-            <FieldDescription>
-              O id do chat ou do grupo. Em canal público vale o @nome.
-            </FieldDescription>
-          </Field>
-        </div>
-      ) : (
-        <Field>
-          <FieldLabel htmlFor="integracao-url" required>
-            URL (HTTPS)
-          </FieldLabel>
-          <Input
-            id="integracao-url"
-            type="url"
-            placeholder="https://hooks.slack.com/services/…"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-        </Field>
-      )}
-      <Field aria-labelledby="integracao-tipos">
-        <FieldLabel id="integracao-tipos" required>
-          Eventos
-        </FieldLabel>
-        <FieldDescription>
-          Só os tipos marcados são entregues neste destino. Dá para mudar depois,
-          no cartão da integração.
-        </FieldDescription>
-        <MatrizDeTipos selecionados={types} onAlternar={alternarTipo} />
-        {types.length === 0 && (
-          <FieldError>Selecione ao menos um evento.</FieldError>
-        )}
-      </Field>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onFechar}>
-          Cancelar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={
-            criar.isPending ||
-            !label.trim() ||
-            destinoIncompleto ||
-            types.length === 0
-          }
-          onClick={() => void salvar()}
-        >
-          {criar.isPending ? 'Criando…' : 'Criar integração'}
-        </Button>
-      </div>
-    </div>
   );
 }
