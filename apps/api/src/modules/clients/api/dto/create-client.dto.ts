@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { PersonType, LeadSource, ClientStatus } from '@prisma/client';
+import { ClientStatus } from '@prisma/client';
 
 export class CreateClientDto {
   @IsString({ message: 'O nome é obrigatório.' })
@@ -17,9 +17,10 @@ export class CreateClientDto {
 
   @IsOptional() @IsString() tradeName?: string;
 
-  @IsEnum(PersonType, { message: 'Tipo de pessoa inválido.' })
-  personType: PersonType;
-
+  /**
+   * `personType` não entra pelo corpo: é deduzido do documento no service
+   * (11 dígitos = CPF/pessoa física, 14 = CNPJ/pessoa jurídica).
+   */
   @IsOptional() @IsString() document?: string;
 
   @IsOptional() @IsEmail({}, { message: 'E-mail inválido.' }) email?: string;
@@ -27,8 +28,8 @@ export class CreateClientDto {
   @IsOptional() @IsString() website?: string;
 
   @IsOptional()
-  @IsEnum(LeadSource, { message: 'Origem inválida.' })
-  source?: LeadSource;
+  @IsUUID('4', { message: 'Origem inválida.' })
+  sourceId?: string | null;
   @IsOptional()
   @IsEnum(ClientStatus, { message: 'Status inválido.' })
   status?: ClientStatus;

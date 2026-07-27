@@ -5,13 +5,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { PersonType } from '@prisma/client';
 import {
   CLIENT_REPOSITORY,
   type ClientRepository,
   type ClientTagRef,
   type ClientWithAssignee,
 } from '../domain/client.repository';
-import { isValidDocument, onlyDigits } from '../../../shared/document';
+import {
+  inferPersonType,
+  isValidDocument,
+  onlyDigits,
+} from '../../../shared/document';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
@@ -19,6 +24,7 @@ import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { assigneeMudou } from '../../../shared/assignee-changed';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
@@ -31,6 +37,7 @@ export class ClientsService {
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async create(
@@ -39,12 +46,27 @@ export class ClientsService {
   ): Promise<ClientWithAssignee> {
     // `assigneeId` entra pelo spread do DTO — sem esta linha, iria ao banco sem validação.
     await this.members.assertMember(ownerId, dto.assigneeId);
-    const document = await this.resolveDocument(
+    // `sourceId` entra pelo spread do DTO. Sem esta linha, um id de outro owner
+    // iria ao banco e estouraria na FK como 500 em vez de 404.
+    if (dto.sourceId) {
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'fontes-de-lead',
+        dto.sourceId,
+      );
+    }
+    // Sem documento não há o que deduzir: `personType` fica indefinido e o
+    // banco aplica o default do schema (COMPANY).
+    const { document, personType } = await this.resolveDocument(
       ownerId,
       dto.document,
-      dto.personType,
     );
-    const criado = await this.repo.create({ ...dto, document, ownerId });
+    const criado = await this.repo.create({
+      ...dto,
+      document,
+      personType,
+      ownerId,
+    });
     // Gatilho (f). Auto-atribuição é descartada dentro do `notificar`.
     if (dto.assigneeId) {
       await this.notifications.notificar({
@@ -70,7 +92,7 @@ export class ClientsService {
       ownerId,
       search: query.search,
       status: query.status,
-      source: query.source,
+      sourceId: query.sourceId,
       assigneeId: query.assigneeId,
       scope,
       skip,
@@ -95,15 +117,24 @@ export class ClientsService {
     dto: UpdateClientDto,
   ): Promise<ClientWithAssignee> {
     await this.members.assertMember(ownerId, dto.assigneeId);
+    if (dto.sourceId) {
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'fontes-de-lead',
+        dto.sourceId,
+      );
+    }
     const existing = await this.findOne(ownerId, id);
-    const personType = dto.personType ?? existing.personType;
     const data: Omit<UpdateClientDto, 'document'> & {
       document?: string | null;
+      personType?: PersonType;
     } = { ...dto };
+    // Trocar o documento reclassifica a pessoa; limpá-lo preserva a
+    // classificação atual, porque não sobrou de onde deduzir outra.
     if (dto.document !== undefined) {
-      data.document = dto.document
-        ? await this.resolveDocument(ownerId, dto.document, personType, id)
-        : null;
+      const resolvido = await this.resolveDocument(ownerId, dto.document, id);
+      data.document = resolvido.document ?? null;
+      if (resolvido.personType) data.personType = resolvido.personType;
     }
     const atualizado = await this.repo.update(id, ownerId, data);
     if (assigneeMudou(dto.assigneeId, existing.assigneeId)) {
@@ -187,15 +218,24 @@ export class ClientsService {
     return { removed };
   }
 
-  /** Valida formato e unicidade do documento; retorna só dígitos, ou undefined se vazio. */
+  /**
+   * Valida formato e unicidade do documento e deduz dele o tipo de pessoa —
+   * quem cadastra informa só o documento, a classificação é consequência.
+   * Retorna só os dígitos; documento vazio devolve o par indefinido.
+   */
   private async resolveDocument(
     ownerId: string,
     document: string | undefined,
-    personType: 'INDIVIDUAL' | 'COMPANY',
     exceptId?: string,
-  ): Promise<string | undefined> {
-    if (!document) return undefined;
+  ): Promise<{ document?: string; personType?: PersonType }> {
+    if (!document) return {};
     const clean = onlyDigits(document);
+    const personType = inferPersonType(clean);
+    if (!personType) {
+      throw new BadRequestException(
+        'Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).',
+      );
+    }
     if (!isValidDocument(clean, personType)) {
       throw new BadRequestException(
         personType === 'INDIVIDUAL' ? 'CPF inválido.' : 'CNPJ inválido.',
@@ -204,6 +244,6 @@ export class ClientsService {
     if (await this.repo.existsByDocument(ownerId, clean, exceptId)) {
       throw new ConflictException('Já existe um cliente com este documento.');
     }
-    return clean;
+    return { document: clean, personType };
   }
 }
