@@ -8,6 +8,7 @@ import type {
   InviteRepository,
   InviteWithUser,
 } from '../domain/invite.repository';
+import type { AuditService } from '../../audit/audit.service';
 
 const TOKEN = 'token-em-claro';
 const hashOf = (raw: string) => createHash('sha256').update(raw).digest('hex');
@@ -34,6 +35,7 @@ function invite(overrides: Partial<InviteWithUser> = {}): InviteWithUser {
 describe('InvitesService', () => {
   let repo: jest.Mocked<InviteRepository>;
   let mail: jest.Mocked<Pick<MailService, 'sendCollaboratorInvite'>>;
+  let audit: { registrarPeloSistema: jest.Mock };
   let service: InvitesService;
 
   beforeEach(() => {
@@ -47,7 +49,14 @@ describe('InvitesService', () => {
       get: jest.fn().mockReturnValue('https://crm.exemplo.com'),
     } as unknown as ConfigService;
 
-    service = new InvitesService(repo, mail as unknown as MailService, config);
+    audit = { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
+
+    service = new InvitesService(
+      repo,
+      mail as unknown as MailService,
+      config,
+      audit as unknown as AuditService,
+    );
   });
 
   describe('issue', () => {
@@ -174,6 +183,24 @@ describe('InvitesService', () => {
       await expect(
         service.accept(TOKEN, 'senha-segura'),
       ).rejects.toBeInstanceOf(GoneException);
+    });
+
+    it('registra o aceite na trilha com o convidado como autor', async () => {
+      await service.accept(TOKEN, 'senha-segura');
+
+      // Rota pública: sem CLS de acesso, mas o autor é conhecido.
+      expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ownerId: 'owner-1',
+          actorType: 'USER',
+          actorId: 'c1',
+          actorName: 'Ana',
+          entity: 'USER',
+          entityId: 'c1',
+          action: 'ACEITAR',
+          extra: { conviteId: 'i1' },
+        }),
+      );
     });
   });
 });

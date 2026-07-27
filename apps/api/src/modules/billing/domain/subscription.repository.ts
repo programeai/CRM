@@ -16,6 +16,21 @@ export type SubscriptionUpsert = Partial<SubscriptionSnapshot> & {
   stripeSubscriptionId?: string | null;
 };
 
+/**
+ * O que a sincronização do webhook mudou. `null` quando o evento não mapeia
+ * para nenhum owner (cliente Stripe desconhecido).
+ *
+ * Existe para a trilha de auditoria: o webhook roda sem ator e sem contexto de
+ * owner, e é o repositório que resolve o `ownerId` pelo `stripeCustomerId`. O
+ * `antes` permite ao `BillingWebhookService` registrar **só quando algo mudou**
+ * — o Stripe reenvia eventos, e N linhas idênticas por retentativa são ruído.
+ */
+export interface SubscriptionSyncResult {
+  ownerId: string;
+  antes: SubscriptionSnapshot | null;
+  depois: SubscriptionSnapshot;
+}
+
 export interface SubscriptionRepository {
   /** Assinatura do owner atual (caminho HTTP, sob RLS via prisma.db). */
   findByOwnerId(ownerId: string): Promise<SubscriptionSnapshot | null>;
@@ -36,9 +51,12 @@ export interface SubscriptionRepository {
   /**
    * Upsert da assinatura resolvendo o owner pelo `stripeCustomerId` do evento.
    * Usado pelo webhook (sem contexto de owner) — via client admin (bypassa RLS).
+   *
+   * Devolve o antes/depois para a trilha, ou `null` se o cliente Stripe não
+   * mapeia para nenhum owner (evento ignorado, comportamento inalterado).
    */
   upsertByStripeCustomerId(
     stripeCustomerId: string,
     data: SubscriptionUpsert,
-  ): Promise<void>;
+  ): Promise<SubscriptionSyncResult | null>;
 }

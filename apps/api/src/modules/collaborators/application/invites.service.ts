@@ -14,6 +14,7 @@ import {
   type InviteRepository,
   type InviteWithUser,
 } from '../domain/invite.repository';
+import { AuditService } from '../../audit/audit.service';
 
 /** Validade do convite. Precisa acompanhar o texto do e-mail e da interface. */
 export const INVITE_TTL_DAYS = 7;
@@ -42,6 +43,7 @@ export class InvitesService {
     @Inject(INVITE_REPOSITORY) private readonly invites: InviteRepository,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -104,6 +106,20 @@ export class InvitesService {
       msg: 'Convite de colaborador aceito.',
       colaboradorId: invite.userId,
       ownerId: invite.ownerId,
+    });
+    // Rota @Public(): não há AccessContext no CLS, mas o autor É conhecido — o
+    // próprio convidado. Vai pelo caminho de sistema (ownerId explícito, client
+    // admin), com `actorType: 'USER'` e o `actorId` preenchido.
+    await this.audit.registrarPeloSistema({
+      ownerId: invite.ownerId,
+      actorType: 'USER',
+      actorId: invite.userId,
+      actorName: invite.user.name,
+      entity: 'USER',
+      entityId: invite.userId,
+      entityLabel: invite.user.name,
+      action: 'ACEITAR',
+      extra: { conviteId: invite.id },
     });
     return invite.userId;
   }

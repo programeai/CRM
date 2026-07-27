@@ -19,6 +19,14 @@ export interface ProposalListFilter {
   take: number;
 }
 
+/** Proposta expirada pela rotina — o mínimo para a trilha (`status` = o anterior). */
+export interface PropostaExpirada {
+  id: string;
+  ownerId: string;
+  number: string;
+  status: import('@prisma/client').ProposalStatus;
+}
+
 export interface ProposalRepository {
   create(data: Prisma.ProposalUncheckedCreateInput): Promise<ProposalWithItems>;
   findById(id: string): Promise<ProposalWithItems | null>;
@@ -48,6 +56,6 @@ export interface ProposalRepository {
   maxSequenceForYear(year: number): Promise<number>;
   /** Todas as versões de uma cadeia (mesmo `number`), ordenadas por `version`. */
   findVersionsByNumber(number: string): Promise<ProposalWithItems[]>;
-  /** Marca como EXPIRED toda proposta SENT|NEGOTIATING com validUntil < now. Retorna quantas. */
-  expireOverdue(now: Date): Promise<number>;
+  /** Expira as SENT|NEGOTIATING vencidas e devolve **quais** foram (a trilha precisa dos ids). */
+  expireOverdue(now: Date): Promise<PropostaExpirada[]>;
 }

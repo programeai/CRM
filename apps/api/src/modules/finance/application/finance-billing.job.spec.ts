@@ -2,10 +2,12 @@ import { FinanceBillingJob } from './finance-billing.job';
 import { billingDatesInWindow } from './schedule';
 import type { ContractRepository } from '../domain/contract.repository';
 import type { PaymentRepository } from '../domain/payment.repository';
+import type { AuditService } from '../../audit/audit.service';
 
 describe('FinanceBillingJob', () => {
   let contracts: jest.Mocked<ContractRepository>;
   let payments: jest.Mocked<PaymentRepository>;
+  let audit: { registrarPeloSistema: jest.Mock };
   let job: FinanceBillingJob;
 
   beforeEach(() => {
@@ -23,10 +25,15 @@ describe('FinanceBillingJob', () => {
       sumByStatus: jest.fn(),
       update: jest.fn(),
       existsForDueDate: jest.fn(),
-      create: jest.fn(),
-      markOverdue: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockResolvedValue({ id: 'pay-1', description: 'X' }),
+      markOverdue: jest.fn().mockResolvedValue([]),
     };
-    job = new FinanceBillingJob(contracts, payments);
+    audit = { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
+    job = new FinanceBillingJob(
+      contracts,
+      payments,
+      audit as unknown as AuditService,
+    );
   });
 
   it('gera a mensalidade quando ainda não existe', async () => {
@@ -106,5 +113,61 @@ describe('FinanceBillingJob', () => {
     contracts.findActiveRecurring.mockResolvedValue([]);
     await job.run();
     expect(payments.markOverdue).toHaveBeenCalledWith(expect.any(Date));
+  });
+
+  it('registra uma linha de trilha por cobrança vencida, com o ownerId DA COBRANÇA', async () => {
+    contracts.findActiveRecurring.mockResolvedValue([]);
+    payments.markOverdue.mockResolvedValue([
+      { id: 'p1', ownerId: 'owner-a', description: 'Mensalidade 06/2026' },
+      { id: 'p2', ownerId: 'owner-b', description: 'Parcela 2/8' },
+    ]);
+
+    await job.run();
+
+    expect(audit.registrarPeloSistema).toHaveBeenCalledTimes(2);
+    expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 'owner-a',
+        actorType: 'CRON',
+        actorName: 'Rotina diária',
+        entity: 'PAYMENT',
+        entityId: 'p1',
+        action: 'VENCER',
+      }),
+    );
+    expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: 'owner-b', entityId: 'p2' }),
+    );
+  });
+
+  it('registra a mensalidade gerada com o contrato no extra', async () => {
+    contracts.findActiveRecurring.mockResolvedValue([
+      {
+        id: 'c1',
+        ownerId: 'owner-a',
+        billingDay: 10,
+        startDate: new Date('2000-01-01'),
+        endDate: null,
+        monthlyAmount: 800,
+      } as never,
+    ]);
+    payments.existsForDueDate.mockResolvedValue(false);
+    payments.create.mockResolvedValue({
+      id: 'pay-9',
+      description: 'Mensalidade 08/2026',
+    } as never);
+
+    await job.run();
+
+    expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 'owner-a',
+        actorType: 'CRON',
+        entity: 'PAYMENT',
+        entityId: 'pay-9',
+        action: 'CRIAR',
+        extra: expect.objectContaining({ contratoId: 'c1' }),
+      }),
+    );
   });
 });

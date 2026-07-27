@@ -4,8 +4,16 @@ import { PrismaAdminService } from '../../../prisma/prisma-admin.service';
 import type {
   SubscriptionRepository,
   SubscriptionSnapshot,
+  SubscriptionSyncResult,
   SubscriptionUpsert,
 } from '../domain/subscription.repository';
+
+const SNAPSHOT_SELECT = {
+  status: true,
+  trialEndsAt: true,
+  currentPeriodEnd: true,
+  cancelAtPeriodEnd: true,
+} as const;
 
 @Injectable()
 export class PrismaSubscriptionRepository implements SubscriptionRepository {
@@ -69,15 +77,22 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
   async upsertByStripeCustomerId(
     stripeCustomerId: string,
     data: SubscriptionUpsert,
-  ): Promise<void> {
+  ): Promise<SubscriptionSyncResult | null> {
     // Resolve o owner pelo id de cliente Stripe gravado no User.
     const user = await this.admin.user.findUnique({
       where: { stripeCustomerId },
       select: { id: true },
     });
-    if (!user) return; // evento sem owner mapeável → ignora (idempotente)
+    if (!user) return null; // evento sem owner mapeável → ignora (idempotente)
 
-    await this.admin.subscription.upsert({
+    // Estado anterior para a trilha: é o que permite ao chamador registrar só
+    // quando o evento mudou alguma coisa (o Stripe reenvia).
+    const antes = await this.admin.subscription.findUnique({
+      where: { ownerId: user.id },
+      select: SNAPSHOT_SELECT,
+    });
+
+    const depois = await this.admin.subscription.upsert({
       where: { ownerId: user.id },
       create: {
         ownerId: user.id,
@@ -102,6 +117,9 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
           ? { cancelAtPeriodEnd: data.cancelAtPeriodEnd }
           : {}),
       },
+      select: SNAPSHOT_SELECT,
     });
+
+    return { ownerId: user.id, antes, depois };
   }
 }
