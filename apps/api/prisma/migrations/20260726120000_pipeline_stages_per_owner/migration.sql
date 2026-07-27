@@ -7,8 +7,10 @@
 --  * PipelineStage.id é TEXT (@default(uuid())) → gen_random_uuid()::text.
 --  * Roda como crm_user (superuser), que bypassa RLS — não é preciso setar
 --    app.owner_id aqui.
---  * A ordem é obrigatória: criar as cópias → religar os Deal → apagar as
---    originais. Deal_stageId_fkey é ON DELETE RESTRICT; inverter viola a FK.
+--  * A ordem é obrigatória: derrubar o unique global de "name" → criar as
+--    cópias → religar os Deal → apagar as originais. O unique precisa cair
+--    primeiro porque as cópias repetem os nomes do template; e o DELETE precisa
+--    vir por último porque Deal_stageId_fkey é ON DELETE RESTRICT.
 
 -- ===========================================================================
 -- 0. Guard de integridade
@@ -16,7 +18,7 @@
 -- Deal.ownerId é coluna sem FK: nada no banco garante que aponta para um owner
 -- real. A replicação abaixo parte de `User WHERE "ownerId" IS NULL`, então um
 -- Deal com ownerId fora desse conjunto ficaria sem cópia de estágio para onde
--- apontar — e o DELETE do passo 4 estouraria na FK no meio da migration.
+-- apontar — e o DELETE do passo 5 estouraria na FK no meio da migration.
 -- Melhor abortar aqui, com mensagem clara.
 DO $$
 DECLARE orfaos INT;
@@ -45,8 +47,8 @@ ALTER TABLE "PipelineStage" ADD COLUMN "ownerId" TEXT;
 -- por 20260725130000_seed_default_pipeline_stages, possivelmente já renomeado /
 -- reordenado / acrescido por quem chegou primeiro). Se a tabela estiver vazia
 -- (ex.: banco recriado do zero, sem owners ainda), planta os 7 padrões para a
--- replicação ter de onde partir — sem owner, os passos 3-4 não fazem nada e o
--- passo 4 limpa tudo, deixando a tabela vazia e correta.
+-- replicação ter de onde partir — sem owner, os passos 4-5 não fazem nada e o
+-- passo 5 limpa tudo, deixando a tabela vazia e correta.
 INSERT INTO "PipelineStage" ("id", "name", "order", "isWon", "isLost")
 SELECT gen_random_uuid()::text, v.name, v.ordem, v.is_won, v.is_lost
 FROM (VALUES
@@ -61,7 +63,20 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM "PipelineStage");
 
 -- ===========================================================================
--- 3. Replicar o template por owner
+-- 3. Derrubar o unique global de "name"
+-- ===========================================================================
+-- Precisa cair ANTES da replicação: `PipelineStage_name_key` é UNIQUE("name")
+-- em coluna única, e o passo 4 insere cópias com os MESMOS nomes do template,
+-- que ainda está na tabela. Com o índice de pé, a primeira cópia já estoura —
+-- e só estoura onde existe owner, por isso um banco vazio (dev/CI) passava.
+--
+-- O passo 5 casa por "name" e depende de o template não ter nomes repetidos:
+-- isso continua garantido, porque as linhas de template existentes nasceram sob
+-- este índice. O unique composto entra no passo 7, depois da limpeza.
+DROP INDEX "PipelineStage_name_key";
+
+-- ===========================================================================
+-- 4. Replicar o template por owner
 -- ===========================================================================
 -- `WHERE u."ownerId" IS NULL` é o predicado canônico de "é owner" (colaborador
 -- tem ownerId preenchido e herda o funil do owner, não ganha o próprio).
@@ -82,11 +97,12 @@ SELECT gen_random_uuid()::text, o.owner_id, t."name", t."order", t."isWon", t."i
  CROSS JOIN template t;
 
 -- ===========================================================================
--- 4. Religar cada Deal à cópia do seu próprio owner
+-- 5. Religar cada Deal à cópia do seu próprio owner
 -- ===========================================================================
--- O casamento é por "name": o índice único global PipelineStage_name_key ainda
--- existe neste ponto (só cai no passo 6), então cada nome ocorre uma única vez
--- no template e o join produz exatamente uma linha por deal.
+-- O casamento é por "name". Os nomes do template são distintos entre si (o
+-- unique global vigorou durante toda a vida dessas linhas), e o filtro
+-- `clone."ownerId" = d."ownerId"` isola um único owner, então o join produz
+-- exatamente uma linha por deal.
 UPDATE "Deal" d
    SET "stageId" = clone."id"
   FROM "PipelineStage" orig
@@ -99,7 +115,7 @@ UPDATE "Deal" d
 DELETE FROM "PipelineStage" WHERE "ownerId" IS NULL;
 
 -- ===========================================================================
--- 5. NOT NULL + índice + FK
+-- 6. NOT NULL + índice + FK
 -- ===========================================================================
 ALTER TABLE "PipelineStage" ALTER COLUMN "ownerId" SET NOT NULL;
 CREATE INDEX "PipelineStage_ownerId_idx" ON "PipelineStage"("ownerId");
@@ -107,13 +123,12 @@ ALTER TABLE "PipelineStage" ADD CONSTRAINT "PipelineStage_ownerId_fkey"
   FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ===========================================================================
--- 6. Unique global → unique composta
+-- 7. Unique composta (o global caiu no passo 3)
 -- ===========================================================================
-DROP INDEX "PipelineStage_name_key";
 CREATE UNIQUE INDEX "PipelineStage_ownerId_name_key" ON "PipelineStage"("ownerId", "name");
 
 -- ===========================================================================
--- 7. RLS por ownerId (molde de 20260724050000_enable_rls)
+-- 8. RLS por ownerId (molde de 20260724050000_enable_rls)
 -- ===========================================================================
 --  * current_setting('app.owner_id', true): o `true` é missing_ok → contexto
 --    ausente vira NULL → policy casa zero linhas (FAIL-CLOSED), nunca erro.
