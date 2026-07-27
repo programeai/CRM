@@ -4,6 +4,7 @@ import { assigneeScopeWhere, resolveAssigneeScope } from './record-scope';
 describe('resolveAssigneeScope', () => {
   const access = (permissions: string[]): AccessContext => ({
     userId: 'u1',
+    userName: 'Usuária',
     ownerId: 'o1',
     isOwner: false,
     roleId: 'r1',

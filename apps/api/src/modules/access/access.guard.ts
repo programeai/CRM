@@ -6,11 +6,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ClsService } from 'nestjs-cls';
 import { IS_PUBLIC_KEY } from '../auth/public.decorator';
 import { permissionMeta, type PermissionKey } from '../../shared/permissions';
 import { AccessService } from './application/access.service';
 import { REQUIRE_PERMISSION_KEY } from './require-permission.decorator';
-import type { AuthenticatedRequest } from './domain/access-context';
+import {
+  ACCESS_CONTEXT,
+  type AuthenticatedRequest,
+} from './domain/access-context';
 
 /**
  * Registrado como `APP_GUARD` **entre** o `JwtAuthGuard` (que popula `req.user`)
@@ -29,6 +33,7 @@ export class AccessGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly access: AccessService,
+    private readonly cls: ClsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,6 +57,9 @@ export class AccessGuard implements CanActivate {
       );
     }
     req.access = access;
+    // Também no CLS: é daqui que o AuditService descobre o autor, sem que
+    // nenhum service da camada `application` precise receber o `userId`.
+    this.cls.set(ACCESS_CONTEXT, access);
 
     const required = this.reflector.getAllAndOverride<PermissionKey[]>(
       REQUIRE_PERMISSION_KEY,

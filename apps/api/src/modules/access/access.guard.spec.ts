@@ -4,8 +4,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { ClsService } from 'nestjs-cls';
 import { AccessGuard } from './access.guard';
 import type { AccessService } from './application/access.service';
+import { ACCESS_CONTEXT } from './domain/access-context';
 import type {
   AccessContext,
   AuthenticatedRequest,
@@ -13,12 +15,17 @@ import type {
 
 const OWNER: AccessContext = {
   userId: 'u1',
+  userName: 'Dono',
   ownerId: 'u1',
   isOwner: true,
   roleId: null,
   roleName: null,
   permissions: ['cliente:ver'],
 };
+
+function clsMock(): ClsService {
+  return { set: jest.fn(), get: jest.fn() } as unknown as ClsService;
+}
 
 function contextWith(req: AuthenticatedRequest): ExecutionContext {
   return {
@@ -44,7 +51,11 @@ function accessMock(resolved: AccessContext | null): AccessService {
 describe('AccessGuard', () => {
   it('libera rota pública sem resolver contexto', async () => {
     const access = accessMock(null);
-    const guard = new AccessGuard(reflectorWith({ isPublic: true }), access);
+    const guard = new AccessGuard(
+      reflectorWith({ isPublic: true }),
+      access,
+      clsMock(),
+    );
 
     await expect(
       guard.canActivate(contextWith({} as AuthenticatedRequest)),
@@ -54,14 +65,32 @@ describe('AccessGuard', () => {
 
   it('publica req.access quando a rota não exige permissão', async () => {
     const req = { user: { sub: 'u1' } } as AuthenticatedRequest;
-    const guard = new AccessGuard(reflectorWith({}), accessMock(OWNER));
+    const guard = new AccessGuard(
+      reflectorWith({}),
+      accessMock(OWNER),
+      clsMock(),
+    );
 
     await expect(guard.canActivate(contextWith(req))).resolves.toBe(true);
     expect(req.access).toEqual(OWNER);
   });
 
+  it('publica o contexto no CLS, para o AuditService descobrir o autor', async () => {
+    const req = { user: { sub: 'u1' } } as AuthenticatedRequest;
+    const cls = clsMock();
+    const guard = new AccessGuard(reflectorWith({}), accessMock(OWNER), cls);
+
+    await guard.canActivate(contextWith(req));
+
+    expect(cls.set).toHaveBeenCalledWith(ACCESS_CONTEXT, OWNER);
+  });
+
   it('nega com 401 quando o contexto não resolve (usuário desativado)', async () => {
-    const guard = new AccessGuard(reflectorWith({}), accessMock(null));
+    const guard = new AccessGuard(
+      reflectorWith({}),
+      accessMock(null),
+      clsMock(),
+    );
 
     await expect(
       guard.canActivate(
@@ -76,6 +105,7 @@ describe('AccessGuard', () => {
         requirePermission: ['cliente:ver', 'cliente:gerenciar'],
       }),
       accessMock(OWNER),
+      clsMock(),
     );
 
     await expect(
@@ -89,6 +119,7 @@ describe('AccessGuard', () => {
     const guard = new AccessGuard(
       reflectorWith({ requirePermission: ['financeiro:gerenciar'] }),
       accessMock(OWNER),
+      clsMock(),
     );
 
     await expect(
@@ -102,6 +133,7 @@ describe('AccessGuard', () => {
     const guard = new AccessGuard(
       reflectorWith({ requirePermission: ['papel:gerenciar'] }),
       accessMock(OWNER),
+      clsMock(),
     );
 
     await expect(

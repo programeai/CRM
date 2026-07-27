@@ -10,6 +10,7 @@ import { ALL_PERMISSION_KEYS } from '../../../shared/permissions';
 /** Contexto de acesso mínimo para o service — o guard já resolveu tudo isso. */
 const access = (permissions: readonly string[]): AccessContext => ({
   userId: 'u1',
+  userName: 'Usuária',
   ownerId: 'owner',
   isOwner: false,
   roleId: 'r1',

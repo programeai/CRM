@@ -12,6 +12,8 @@ import type { PermissionKey } from '../../../shared/permissions';
  */
 export interface AccessContext {
   userId: string;
+  /** Nome de quem está logado — denormalizado na trilha de auditoria (`actorName`). */
+  userName: string;
   ownerId: string;
   /** `true` quando o usuário é o dono da workspace (acesso total, imexível). */
   isOwner: boolean;
@@ -26,3 +28,13 @@ export type AuthenticatedRequest = Request & {
   user?: { sub?: string; sid?: string };
   access?: AccessContext;
 };
+
+/**
+ * Chave do `AccessContext` no CLS, publicada pelo `AccessGuard`.
+ *
+ * Existe para o `AuditService`: nenhum service da camada `application` recebe
+ * `userId` (todos recebem `ownerId`), e a trilha precisa do autor. Passar o
+ * autor por parâmetro custaria mudar ~15 assinaturas, seus controllers e todos
+ * os specs — o CLS já é global e já carrega `PRISMA_TX` e o `requestId`.
+ */
+export const ACCESS_CONTEXT = 'ACCESS_CONTEXT';

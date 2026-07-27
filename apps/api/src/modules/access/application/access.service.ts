@@ -28,6 +28,7 @@ export class AccessService {
       where: { id: userId },
       select: {
         id: true,
+        name: true,
         ownerId: true,
         active: true,
         role: {
@@ -41,6 +42,7 @@ export class AccessService {
     if (user.ownerId === null) {
       return {
         userId: user.id,
+        userName: user.name,
         ownerId: user.id,
         isOwner: true,
         roleId: null,
@@ -51,6 +53,7 @@ export class AccessService {
 
     return {
       userId: user.id,
+      userName: user.name,
       ownerId: user.ownerId,
       isOwner: false,
       roleId: user.role?.id ?? null,
