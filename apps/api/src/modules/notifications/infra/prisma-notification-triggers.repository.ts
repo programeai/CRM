@@ -28,10 +28,18 @@ export class PrismaNotificationTriggersRepository implements NotificationTrigger
 
   /** (a) Follow-up agendado para hoje e ainda não concluído. */
   async followUpsDoDia(de: Date, ate: Date): Promise<AlvoDeLembrete[]> {
-    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS).
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS),
+    // e isso vale também para ActivityTypeCatalog no filtro relacional abaixo.
+    //
+    // `type: { isFollowUp: true }` substitui o antigo `type: 'FOLLOW_UP'`: com
+    // catálogo por owner não existe mais um literal comparável entre workspaces,
+    // e a regra passou para uma coluna da linha do catálogo (o análogo de
+    // `PipelineStage.isWon`). A seletividade continua vindo do índice
+    // [scheduledFor, completedAt]; o filtro relacional só descarta os tipos
+    // errados dentro da janela do dia.
     const alvos = await this.admin.activity.findMany({
       where: {
-        type: 'FOLLOW_UP',
+        type: { isFollowUp: true },
         completedAt: null,
         scheduledFor: { gte: de, lte: ate },
       },
