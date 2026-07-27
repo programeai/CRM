@@ -15,6 +15,7 @@ import { ProjectsService } from '../../projects/application/projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { assigneeMudou } from '../../../shared/assignee-changed';
@@ -34,6 +35,7 @@ export class DealsService {
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async list(
@@ -75,6 +77,11 @@ export class DealsService {
   async create(ownerId: string, dto: CreateDealDto): Promise<DealWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida que o cliente é do dono
     await this.members.assertMember(ownerId, dto.assigneeId);
+    await this.catalogos.assertUtilizavel(
+      ownerId,
+      'servicos',
+      dto.serviceTypeId,
+    );
     const stage = dto.stageId
       ? await this.stages.findOne(ownerId, dto.stageId)
       : await this.stages.firstStage(ownerId);
@@ -84,7 +91,7 @@ export class DealsService {
       clientId: dto.clientId,
       stageId: stage.id,
       title: dto.title,
-      serviceType: dto.serviceType,
+      serviceTypeId: dto.serviceTypeId,
       amount: dto.amount ?? null,
       probability: dto.probability ?? null,
       expectedClose: dto.expectedClose ? new Date(dto.expectedClose) : null,
@@ -115,10 +122,17 @@ export class DealsService {
   ): Promise<DealWithClient> {
     const antes = await this.loadOwned(ownerId, id);
     await this.members.assertMember(ownerId, dto.assigneeId);
+    if (dto.serviceTypeId !== undefined) {
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'servicos',
+        dto.serviceTypeId,
+      );
+    }
     const atualizado = await this.repo.update(id, {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
-      ...(dto.serviceType !== undefined
-        ? { serviceType: dto.serviceType }
+      ...(dto.serviceTypeId !== undefined
+        ? { serviceTypeId: dto.serviceTypeId }
         : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.probability !== undefined
@@ -156,15 +170,20 @@ export class DealsService {
     const targetStage = await this.stages.findOne(ownerId, dto.stageId);
     const stageChanged = deal.stageId !== dto.stageId;
 
-    const patch: { stageMovedAt?: Date; lostReason?: string | null } = {};
+    const patch: { stageMovedAt?: Date; lostReasonId?: string | null } = {};
     if (stageChanged) patch.stageMovedAt = new Date();
     if (targetStage.isLost) {
-      const reason = dto.lostReason?.trim();
-      if (!reason)
+      if (!dto.lostReasonId)
         throw new UnprocessableEntityException('Informe o motivo da perda.');
-      patch.lostReason = reason;
+      // Motivo de outro owner (ou desativado) não pode entrar na FK.
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'motivos-de-perda',
+        dto.lostReasonId,
+      );
+      patch.lostReasonId = dto.lostReasonId;
     } else if (stageChanged) {
-      patch.lostReason = null; // saiu de "Perdeu" → limpa o motivo
+      patch.lostReasonId = null; // saiu de "Perdeu" → limpa o motivo
     }
 
     const moved = await this.repo.move(id, dto.stageId, dto.position, patch);

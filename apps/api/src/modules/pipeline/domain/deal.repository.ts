@@ -8,6 +8,7 @@ export type DealWithClient = Prisma.DealGetPayload<{
   include: {
     client: { select: { id: true; name: true } };
     assignee: { select: { id: true; name: true } };
+    lostReason: { select: { id: true; name: true; active: true } };
   };
 }>;
 
@@ -27,7 +28,7 @@ export interface DealListFilter {
 /** Campos ajustados no destino durante um move (calculados no service). */
 export interface DealMovePatch {
   stageMovedAt?: Date;
-  lostReason?: string | null;
+  lostReasonId?: string | null;
 }
 
 export interface DealRepository {
