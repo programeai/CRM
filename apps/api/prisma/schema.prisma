@@ -649,6 +649,7 @@ enum NotificationChannelKind {
   EMAIL
   WEBHOOK
   SLACK
+  DISCORD
 }
 
 /// O que aconteceu. Espelha os seis gatilhos do ROADMAP.
