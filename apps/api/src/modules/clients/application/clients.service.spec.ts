@@ -9,12 +9,14 @@ import type { ClientRepository } from '../domain/client.repository';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import type { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 describe('ClientsService', () => {
   let repo: jest.Mocked<ClientRepository>;
   let members: jest.Mocked<WorkspaceMembersService>;
   let audit: { registrar: jest.Mock };
   let notifications: { notificar: jest.Mock };
+  let catalogos: { assertUtilizavel: jest.Mock };
   let service: ClientsService;
 
   beforeEach(() => {
@@ -38,11 +40,15 @@ describe('ClientsService', () => {
     } as unknown as jest.Mocked<WorkspaceMembersService>;
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
+    catalogos = {
+      assertUtilizavel: jest.fn().mockResolvedValue({ id: 'fonte-1' }),
+    };
     service = new ClientsService(
       repo,
       members,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      catalogos as unknown as CatalogosService,
     );
   });
 
@@ -67,9 +73,8 @@ describe('ClientsService', () => {
     repo.create.mockResolvedValue({ id: 'c1' } as never);
     await service.create('owner-1', {
       name: 'Acme',
-      personType: 'COMPANY',
       document: '11.222.333/0001-81',
-    } as never);
+    });
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
         ownerId: 'owner-1',
@@ -78,13 +83,83 @@ describe('ClientsService', () => {
     );
   });
 
-  it('rejeita documento inválido com BadRequestException', async () => {
+  it('deduz COMPANY de um CNPJ e INDIVIDUAL de um CPF', async () => {
+    repo.existsByDocument.mockResolvedValue(false);
+    repo.create.mockResolvedValue({ id: 'c1' } as never);
+
+    await service.create('owner-1', {
+      name: 'Acme',
+      document: '11.222.333/0001-81',
+    });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ personType: 'COMPANY' }),
+    );
+
+    await service.create('owner-1', {
+      name: 'Fulano',
+      document: '390.533.447-05',
+    });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ personType: 'INDIVIDUAL' }),
+    );
+  });
+
+  it('deixa o tipo de pessoa a cargo do default quando não há documento', async () => {
+    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    await service.create('owner-1', { name: 'Sem documento' });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ personType: undefined }),
+    );
+  });
+
+  it('reclassifica a pessoa quando o documento muda na edição', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Acme',
+      personType: 'COMPANY',
+    } as never);
+    repo.existsByDocument.mockResolvedValue(false);
+    repo.update.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+    await service.update('owner-1', 'c1', { document: '390.533.447-05' });
+
+    expect(repo.update).toHaveBeenCalledWith(
+      'c1',
+      'owner-1',
+      expect.objectContaining({
+        document: '39053344705',
+        personType: 'INDIVIDUAL',
+      }),
+    );
+  });
+
+  it('preserva o tipo de pessoa ao limpar o documento', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'c1',
+      name: 'Fulano',
+      personType: 'INDIVIDUAL',
+    } as never);
+    repo.update.mockResolvedValue({ id: 'c1', name: 'Fulano' } as never);
+
+    await service.update('owner-1', 'c1', { document: '' });
+
+    const [, , data] = repo.update.mock.calls[0];
+    expect(data).toMatchObject({ document: null });
+    expect(data).not.toHaveProperty('personType');
+  });
+
+  it('rejeita documento sem tamanho de CPF nem de CNPJ', async () => {
+    await expect(
+      service.create('owner-1', { name: 'X', document: '123' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejeita CPF com 11 dígitos mas dígito verificador errado', async () => {
     await expect(
       service.create('owner-1', {
         name: 'X',
-        personType: 'INDIVIDUAL',
-        document: '123',
-      } as never),
+        document: '390.533.447-06',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -93,9 +168,8 @@ describe('ClientsService', () => {
     await expect(
       service.create('owner-1', {
         name: 'X',
-        personType: 'INDIVIDUAL',
         document: '390.533.447-05',
-      } as never),
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -205,11 +279,33 @@ describe('ClientsService', () => {
     await expect(
       service.create('owner-1', {
         name: 'Acme',
-        personType: 'COMPANY',
         assigneeId: 'de-outro-owner',
-      } as never),
+      }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
     expect(repo.create).not.toHaveBeenCalled();
+  });
+
+  // `sourceId` entra pelo spread do DTO: sem a validação explícita, um id de
+  // outro owner iria ao banco e estouraria na FK como 500 em vez de 404/422.
+  it('valida a fonte de lead antes de gravar', async () => {
+    repo.existsByDocument.mockResolvedValue(false);
+    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    await service.create('owner-1', {
+      name: 'Acme',
+      sourceId: 'fonte-1',
+    });
+    expect(catalogos.assertUtilizavel).toHaveBeenCalledWith(
+      'owner-1',
+      'fontes-de-lead',
+      'fonte-1',
+    );
+  });
+
+  it('não consulta o catálogo quando sourceId não é informado', async () => {
+    repo.existsByDocument.mockResolvedValue(false);
+    repo.create.mockResolvedValue({ id: 'c1' } as never);
+    await service.create('owner-1', { name: 'Acme' });
+    expect(catalogos.assertUtilizavel).not.toHaveBeenCalled();
   });
 
   it('não zera o responsável quando o patch não traz o campo', async () => {
@@ -233,9 +329,8 @@ describe('ClientsService', () => {
 
     await service.create('owner-1', {
       name: 'Acme',
-      personType: 'COMPANY',
       assigneeId: 'u2',
-    } as never);
+    });
 
     expect(notifications.notificar).toHaveBeenCalledWith(
       expect.objectContaining({

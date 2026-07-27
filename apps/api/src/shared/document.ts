@@ -31,6 +31,21 @@ export function isValidCNPJ(value: string): boolean {
   return calc(12) === Number(cnpj[12]) && calc(13) === Number(cnpj[13]);
 }
 
+/**
+ * Deduz o tipo de pessoa pelo tamanho do documento — 11 dígitos é CPF (pessoa
+ * física), 14 é CNPJ (pessoa jurídica). É o backend que decide isso: o tipo não
+ * é escolha de quem cadastra, é consequência do documento informado. Devolve
+ * `null` quando o tamanho não corresponde a nenhum dos dois.
+ */
+export function inferPersonType(
+  document: string,
+): 'INDIVIDUAL' | 'COMPANY' | null {
+  const digits = onlyDigits(document);
+  if (digits.length === 11) return 'INDIVIDUAL';
+  if (digits.length === 14) return 'COMPANY';
+  return null;
+}
+
 /** Valida CPF (PF) ou CNPJ (PJ) conforme o tipo de pessoa. */
 export function isValidDocument(
   document: string,
