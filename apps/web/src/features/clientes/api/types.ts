@@ -3,6 +3,12 @@ export type LeadSource = 'REFERRAL' | 'PAID_TRAFFIC' | 'ORGANIC' | 'OUTBOUND' | 
 export type ClientStatus = 'LEAD' | 'ACTIVE' | 'INACTIVE' | 'LOST';
 export type ActivityType = 'NOTE' | 'CALL' | 'MEETING' | 'EMAIL' | 'WHATSAPP' | 'FOLLOW_UP';
 
+/** Responsável, quando houver. Shape mínimo devolvido junto do registro. */
+export interface Assignee {
+  id: string;
+  name: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -24,6 +30,8 @@ export interface Client {
   city?: string | null;
   state?: string | null;
   archivedAt?: string | null;
+  assigneeId?: string | null;
+  assignee?: Assignee | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +52,8 @@ export interface Activity {
   content: string;
   scheduledFor?: string | null;
   completedAt?: string | null;
+  assigneeId?: string | null;
+  assignee?: Assignee | null;
   createdAt: string;
 }
 export interface PageMeta {
@@ -73,4 +83,5 @@ export interface ListClientsParams {
   search?: string;
   status?: ClientStatus;
   source?: LeadSource;
+  assigneeId?: string;
 }
