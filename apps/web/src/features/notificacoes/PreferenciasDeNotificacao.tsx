@@ -38,6 +38,41 @@ import type {
 /** Os seis tipos, na ordem do catálogo — o map de rótulos é a fonte da ordem. */
 const TIPOS = Object.keys(NOTIFICATION_TYPE_LABELS) as NotificationType[];
 
+/**
+ * A matriz dos seis tipos. Uma só: o cartão de um destino existente e o
+ * formulário de criação mostram exatamente a mesma grade — o que muda é de onde
+ * vem o estado (o servidor lá, `useState` aqui).
+ */
+function MatrizDeTipos({
+  selecionados,
+  onAlternar,
+  disabled = false,
+}: {
+  selecionados: NotificationType[];
+  onAlternar: (tipo: NotificationType, marcado: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {TIPOS.map((tipo) => (
+        <label
+          key={tipo}
+          className="flex cursor-pointer items-center gap-2 text-sm"
+        >
+          <Checkbox
+            checked={selecionados.includes(tipo)}
+            disabled={disabled}
+            onCheckedChange={(marcado) => onAlternar(tipo, marcado === true)}
+          />
+          <span className={disabled ? 'text-muted-foreground' : undefined}>
+            {translateNotificationType(tipo)}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   IN_APP: Bell,
   EMAIL: Mail,
@@ -230,28 +265,14 @@ export function PreferenciasDeNotificacao({
                   </div>
                 </div>
 
-                <div className="grid gap-2 border-t pt-3 sm:grid-cols-2">
-                  {TIPOS.map((tipo) => (
-                    <label
-                      key={tipo}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <Checkbox
-                        checked={destino.types.includes(tipo)}
-                        disabled={!destino.active}
-                        onCheckedChange={(marcado) =>
-                          void alternarTipo(destino, tipo, marcado === true)
-                        }
-                      />
-                      <span
-                        className={
-                          destino.active ? undefined : 'text-muted-foreground'
-                        }
-                      >
-                        {translateNotificationType(tipo)}
-                      </span>
-                    </label>
-                  ))}
+                <div className="border-t pt-3">
+                  <MatrizDeTipos
+                    selecionados={destino.types}
+                    disabled={!destino.active}
+                    onAlternar={(tipo, marcado) =>
+                      void alternarTipo(destino, tipo, marcado)
+                    }
+                  />
                 </div>
               </li>
             );
