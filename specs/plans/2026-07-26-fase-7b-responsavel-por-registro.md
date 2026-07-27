@@ -79,7 +79,7 @@ Detalhes completos no PRD.
   (`setField` + PATCH imediato). A divergência é dívida conhecida e sai do escopo desta fase.
 - **`assigneeId` em `Proposal`, `Project`, `Contract`, `Payment`.** O ROADMAP nomeia quatro modelos.
 - **Roteamento automático de lead novo** — é a Fase 15, que declara depender desta.
-- **Notificação de "registro atribuído a você"** — é a Fase 10.
+- **Notificação de "registro atribuído a você"** — é a Fase 9.
 
 ---
 

@@ -27,8 +27,8 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
 | 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
 | 8 | Governança — sessões, auditoria e lixeira (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md) · [plan A](specs/plans/2026-07-26-fase-8a-sessoes.md) · [plan B](specs/plans/2026-07-26-fase-8b-auditoria.md) · [plan C](specs/plans/2026-07-26-fase-8c-lixeira.md) |
-| 9 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
-| 10 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
+| 9 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
+| 10 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
 | 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
 | 12 | Anexos e documentos (**P1**) | ⬜ não iniciada | a definir |
 | 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ⬜ não iniciada | a definir |
@@ -266,12 +266,37 @@ independentes, **todas entregues**.
 
 ---
 
-> **Ordem do P1.** As seis fases estão ordenadas **da mais simples para a mais complexa**, pelos
-> mesmos três critérios do P2: dependência externa (integração, infra nova, credencial), tamanho de
-> schema e superfície tocada, e risco de dinheiro/irreversível. São independentes entre si — a ordem
-> é de esforço, não de pré-requisito, exceto onde a fase declara "Depende de".
+> **Ordem do P1.** A Fase 9 (notificações) vem primeiro **por decisão de produto** — é a lacuna que
+> mais pesa no uso diário, já que hoje o sistema só informa quem está olhando a tela. Da Fase 10 em
+> diante as fases seguem **da mais simples para a mais complexa**, pelos mesmos três critérios do P2:
+> dependência externa (integração, infra nova, credencial), tamanho de schema e superfície tocada, e
+> risco de dinheiro/irreversível. São independentes entre si — a ordem é de esforço, não de
+> pré-requisito, exceto onde a fase declara "Depende de".
 
-## Fase 9 — Relatórios e metas ⬜ **P1**
+## Fase 9 — Notificações e lembretes ✅ **P1**
+
+Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md)
+
+- [x] Central de notificações in-app (não lidas, marcar como lida) — sino no header, polling de 45s só na contagem
+- [x] Preferências por usuário: matriz **tipo × destino** no Perfil, com N destinos por pessoa
+- [x] Gatilhos: follow-up agendado vencendo, proposta a expirar, cobrança a vencer e vencida,
+      demanda atrasada, registro atribuído a você
+- [x] Digest diário por e-mail (resumo do dia, 7h BRT)
+- [x] Os crons existentes ([`FinanceBillingJob`](apps/api/src/modules/finance/application/finance-billing.job.ts), [`ProposalsExpirationJob`](apps/api/src/modules/proposals/application/proposals-expiration.job.ts)) passam a notificar, não só mudar status
+- [x] Quatro canais plugáveis (`IN_APP`, `EMAIL`, `WEBHOOK`, `SLACK`) num registry — canal novo é 1 arquivo + 1 linha
+
+> **Por quê:** hoje o sistema só informa quem já está olhando a tela.
+
+> **Complexidade — correção do que estava previsto.** O plano previa "dois modelos novos"; a entrega
+> tem **três** (`Notification`, `NotificationDelivery`, `UserNotificationTarget`). A divergência é
+> consciente e é o preço de "N destinos por usuário" com opt-in por destino: sem a tabela de entrega
+> não há outbox transacional (retry e status por destino), e sem a de destino o opt-in seria tipo ×
+> canal, não tipo × destino. Continua sem integração externa obrigatória — o envio de e-mail já
+> existia em [`mail.service.ts`](apps/api/src/mail/mail.service.ts) e os dois crons já rodavam.
+
+---
+
+## Fase 10 — Relatórios e metas ⬜ **P1**
 
 - [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
 - [ ] Resultado por responsável, por serviço e por fonte de lead
@@ -281,32 +306,14 @@ independentes, **todas entregues**.
 - [ ] Metas por período e por pessoa (comercial e financeira) → painel mostra "quanto falta", não só "quanto foi"
 - [ ] Exportação dos relatórios (depende da Fase 14)
 
-> **Por que é a mais simples:** é leitura agregada sobre dados que já existem, com um único modelo
-> novo (metas) e nenhuma integração, nenhuma escrita de negócio, nada irreversível. As janelas de
-> tempo em UTC e o funil já têm precedente testado na Fase 6.
+> **Complexidade:** a menor do P1 — é leitura agregada sobre dados que já existem, com um único
+> modelo novo (metas) e nenhuma integração, nenhuma escrita de negócio, nada irreversível. As janelas
+> de tempo em UTC e o funil já têm precedente testado na Fase 6.
 
 > **Ressalva:** "tempo médio por estágio" não sai do schema atual — `stageMovedAt`
 > ([`schema.prisma:260`](apps/api/prisma/schema.prisma#L260)) guarda só a **última** troca. Esse item
 > pede histórico de transições do `Deal` (modelo novo, alimentado no `PATCH /deals/:id/move`), e é o
 > único da fase que mexe em escrita. A exportação depende da Fase 14 e pode ficar por último.
-
----
-
-## Fase 10 — Notificações e lembretes ⬜ **P1**
-
-- [ ] Central de notificações in-app (não lidas, marcar como lida)
-- [ ] Preferências por usuário (in-app / e-mail / desligado, por tipo)
-- [ ] Gatilhos: follow-up agendado vencendo, proposta a expirar, cobrança a vencer e vencida,
-      demanda atrasada, registro atribuído a você
-- [ ] Digest diário por e-mail (resumo do dia)
-- [ ] Os crons existentes ([`FinanceBillingJob`](apps/api/src/modules/finance/application/finance-billing.job.ts), [`ProposalsExpirationJob`](apps/api/src/modules/proposals/application/proposals-expiration.job.ts)) passam a notificar, não só mudar status
-
-> **Por quê:** hoje o sistema só informa quem já está olhando a tela.
-
-> **Complexidade:** larga e rasa. Dois modelos novos (notificação e preferência por tipo), nenhuma
-> integração — o envio de e-mail já existe em [`mail.service.ts`](apps/api/src/mail/mail.service.ts)
-> e os dois crons já rodam. O custo é distribuído: seis gatilhos espalhados por módulos diferentes
-> (cobrança, proposta, demanda, follow-up, atribuição), cada um barato, todos a serem instrumentados.
 
 ---
 
@@ -413,7 +420,7 @@ independentes, **todas entregues**.
 
 > **Complexidade:** zero integração externa e tudo determinístico/testável, mas o motor de regras
 > configurável (evento → condição → ação, persistido e editável na UI) é desenho de arquitetura, não
-> CRUD. **Depende de** Fase 10 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço).
+> CRUD. **Depende de** Fase 9 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço).
 
 ---
 
@@ -462,6 +469,20 @@ independentes, **todas entregues**.
 - [ ] LGPD operacional: exportar e excluir dados do titular, consentimento e política de retenção
       (a [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) existe, o mecanismo não)
 - [ ] Rastreio de consentimento de comunicação (opt-out de e-mail/WhatsApp)
+
+> **Não confundir com o `WebhookChannel` da Fase 9.** O que já existe é destino **do usuário**: cada
+> pessoa aponta as *próprias* notificações para um n8n ou Slack pessoal, com a URL funcionando como
+> credencial (ver `apps/api/ENDPOINTS.md` → Notificações). O que falta aqui é o webhook **do owner**:
+> evento de negócio da workspace saindo para um sistema externo, com API key, escopos, assinatura e
+> rotação. São duas features distintas — tratar uma como a outra vira retrabalho.
+
+> **A assinatura HMAC das notificações entra aqui**, não na Fase 9: o custo não é assinar, é a máquina
+> de segredo-por-registro (geração, exibição única, mascaramento, ausência em log e no diff da
+> auditoria, rotação, recuperação) — a mesma que a API key por owner precisa. Desenho a usar:
+> `HMAC-SHA256` sobre `<timestamp>.<body>` com o corpo cru **exatamente como enviado** (serializar uma
+> vez, assinar e postar a mesma string — reserializar entre assinar e enviar é o bug clássico que
+> invalida a verificação do outro lado), em `X-CRM-Signature: sha256=<hex>`. Acrescentar cabeçalho
+> novo é aditivo: não quebra quem já recebe.
 
 ---
 
