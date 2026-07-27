@@ -93,10 +93,10 @@ export function useUpdateContact(clientId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.clients.contacts(clientId) }),
   });
 }
-export function useDeleteContact(clientId: string) {
+export function useArchiveContact(clientId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => clientsApi.deleteContact(id),
+    mutationFn: (id: string) => clientsApi.archiveContact(id),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.clients.contacts(clientId) }),
   });

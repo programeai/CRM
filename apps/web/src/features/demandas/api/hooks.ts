@@ -47,10 +47,10 @@ export function useUpdateProject(id: string) {
     onSuccess: () => invalidateProjects(qc),
   });
 }
-export function useDeleteProject() {
+export function useArchiveProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => projectsApi.remove(id),
+    mutationFn: (id: string) => projectsApi.archive(id),
     onSuccess: () => invalidateProjects(qc),
   });
 }
@@ -98,10 +98,10 @@ export function useUpdateTask(id: string) {
     onSuccess: () => invalidateTasks(qc),
   });
 }
-export function useDeleteTask() {
+export function useArchiveTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => tasksApi.remove(id),
+    mutationFn: (id: string) => tasksApi.archive(id),
     onSuccess: () => invalidateTasks(qc),
   });
 }

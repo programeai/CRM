@@ -19,5 +19,8 @@ export const dealsApi = {
     api.patch<Deal>(`/deals/${id}`, body).then((r) => r.data),
   move: (id: string, body: MoveDealBody) =>
     api.patch<Deal>(`/deals/${id}/move`, body).then((r) => r.data),
+  archive: (id: string) => api.post<Deal>(`/deals/${id}/archive`).then((r) => r.data),
+  restore: (id: string) => api.post<Deal>(`/deals/${id}/restore`).then((r) => r.data),
+  /** Expurgo — exige `lixeira:expurgar` e registro já arquivado. */
   remove: (id: string) => api.delete(`/deals/${id}`).then((r) => r.data),
 };

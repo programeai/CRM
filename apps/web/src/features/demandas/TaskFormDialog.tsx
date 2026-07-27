@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { AlignLeft, Folder, Pencil, SquareKanban } from 'lucide-react';
+import { AlignLeft, Archive, Folder, Pencil, SquareKanban } from 'lucide-react';
 import {
   Dialog, DialogBody, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
@@ -13,11 +13,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TASK_PRIORITY_LABELS, translateTaskPriority } from '@/lib/labels';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useCan } from '@/hooks/use-can';
 import { extractApiMessage } from './lib/api-error';
-import { useCreateTask, useProjects, useUpdateTask } from './api/hooks';
+import { useArchiveTask, useCreateTask, useProjects, useUpdateTask } from './api/hooks';
 import { TaskChecklist } from './components/TaskChecklist';
 import { TagDeleteDialog, TagSelect } from './components/TagSelect';
 import type { ChecklistItem, Task, TaskPriority, UpdateTaskBody } from './api/types';
@@ -68,7 +70,10 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
   const isEdit = !!task;
   const createTask = useCreateTask();
   const updateTask = useUpdateTask(task?.id ?? '');
+  const archiveTask = useArchiveTask();
+  const { can } = useCan();
 
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [form, setForm] = useState<FormState>(() => emptyForm(defaultProjectId));
   const committedTitle = useRef('');
 
@@ -192,6 +197,19 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
       onOpenChange(false);
     } catch (error) {
       toast.error(extractApiMessage(error, 'Falha ao criar a tarefa.'));
+    }
+  };
+
+  const confirmArchive = async () => {
+    if (!task) return;
+    try {
+      await archiveTask.mutateAsync(task.id);
+      toast.success('Demanda arquivada.');
+      setArchiveOpen(false);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Falha ao arquivar a demanda.'));
+      setArchiveOpen(false);
     }
   };
 
@@ -385,7 +403,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
           </div>
         </DialogBody>
 
-        {!isEdit && (
+        {!isEdit ? (
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
@@ -395,6 +413,20 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
               Criar tarefa
             </Button>
           </DialogFooter>
+        ) : (
+          can('demanda:gerenciar') && (
+            <DialogFooter className="justify-start">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => setArchiveOpen(true)}
+              >
+                <Archive data-icon="inline-start" />
+                Arquivar
+              </Button>
+            </DialogFooter>
+          )
         )}
       </DialogContent>
     </Dialog>
@@ -409,6 +441,18 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
         const tags = form.tags.filter((t) => t !== tag);
         setField({ tags }, { tags });
       }}
+    />
+
+    <ConfirmDialog
+      open={archiveOpen}
+      onOpenChange={setArchiveOpen}
+      title="Arquivar demanda"
+      description="Ela sai do quadro e vai para a lixeira, de onde pode ser restaurada."
+      confirmLabel="Arquivar"
+      pendingLabel="Arquivando…"
+      destructive
+      pending={archiveTask.isPending}
+      onConfirm={() => void confirmArchive()}
     />
     </>
   );

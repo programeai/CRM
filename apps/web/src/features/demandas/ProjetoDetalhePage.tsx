@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
-import { ArrowLeft, FolderX, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Archive, ArrowLeft, FolderX, Pencil, Plus } from 'lucide-react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { TableLink } from '@/components/ui/table-link';
 import { useGoBack } from '@/hooks/use-go-back';
 import { translateProjectStatus, translateServiceType } from '@/lib/labels';
 import { formatDate } from '@/lib/format';
-import { useBoard, useDeleteProject, useMoveTask, useProject } from './api/hooks';
+import { useArchiveProject, useBoard, useMoveTask, useProject } from './api/hooks';
 import { KanbanColumn } from './components/KanbanColumn';
 import { SortableTaskCard } from './components/SortableTaskCard';
 import { TaskCard } from './components/TaskCard';
@@ -34,10 +34,10 @@ export default function ProjetoDetalhePage() {
   const { data: project, isLoading: loadingProject, isError } = useProject(id);
   const { data: tasks, isLoading: loadingTasks } = useBoard(id);
   const moveTask = useMoveTask(id);
-  const deleteProject = useDeleteProject();
+  const archiveProject = useArchiveProject();
 
   const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
 
@@ -80,15 +80,15 @@ export default function ProjetoDetalhePage() {
     setTaskFormOpen(true);
   };
 
-  const confirmDelete = async () => {
+  const confirmArchive = async () => {
     try {
-      await deleteProject.mutateAsync(id);
-      toast.success('Projeto excluído.');
+      await archiveProject.mutateAsync(id);
+      toast.success('Projeto arquivado.');
       navigate('/projetos');
     } catch (error) {
-      toast.error(extractApiMessage(error, 'Falha ao excluir o projeto.'));
+      toast.error(extractApiMessage(error, 'Falha ao arquivar o projeto.'));
     } finally {
-      setDeleteOpen(false);
+      setArchiveOpen(false);
     }
   };
 
@@ -152,9 +152,9 @@ export default function ProjetoDetalhePage() {
               <Pencil data-icon="inline-start" />
               Editar
             </Button>
-            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-              <Trash2 data-icon="inline-start" />
-              Excluir
+            <Button variant="destructive" onClick={() => setArchiveOpen(true)}>
+              <Archive data-icon="inline-start" />
+              Arquivar
             </Button>
             <Button onClick={openCreateTask}>
               <Plus data-icon="inline-start" />
@@ -202,15 +202,15 @@ export default function ProjetoDetalhePage() {
       />
 
       <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Excluir projeto"
-        description={`Tem certeza que deseja excluir o projeto "${project.name}"? Esta ação não pode ser desfeita.`}
-        confirmLabel="Excluir"
-        pendingLabel="Excluindo…"
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title="Arquivar projeto"
+        description={`Tem certeza que deseja arquivar o projeto "${project.name}"? Ele sai da listagem e vai para a lixeira, de onde pode ser restaurado. As demandas dele continuam ativas.`}
+        confirmLabel="Arquivar"
+        pendingLabel="Arquivando…"
         destructive
-        pending={deleteProject.isPending}
-        onConfirm={() => void confirmDelete()}
+        pending={archiveProject.isPending}
+        onConfirm={() => void confirmArchive()}
       />
     </div>
   );

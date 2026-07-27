@@ -19,6 +19,10 @@ export const clientsApi = {
     api.patch<Client>(`/clients/${id}`, body).then((r) => r.data),
   archive: (id: string) =>
     api.post<Client>(`/clients/${id}/archive`).then((r) => r.data),
+  restore: (id: string) =>
+    api.post<Client>(`/clients/${id}/restore`).then((r) => r.data),
+  /** Expurgo — exige `lixeira:expurgar`, registro já arquivado e sem vínculos. */
+  remove: (id: string) => api.delete(`/clients/${id}`).then((r) => r.data),
   // tags (agregadas dos clientes do dono)
   listTags: () => api.get<TagUsage[]>('/clients/tags').then((r) => r.data),
   tagUsage: (tag: string) =>
@@ -36,8 +40,12 @@ export const clientsApi = {
     api.post<Contact>(`/clients/${clientId}/contacts`, body).then((r) => r.data),
   updateContact: (id: string, body: Partial<Contact>) =>
     api.patch<Contact>(`/contacts/${id}`, body).then((r) => r.data),
-  deleteContact: (id: string) =>
-    api.delete(`/contacts/${id}`).then((r) => r.data),
+  archiveContact: (id: string) =>
+    api.post<Contact>(`/contacts/${id}/archive`).then((r) => r.data),
+  restoreContact: (id: string) =>
+    api.post<Contact>(`/contacts/${id}/restore`).then((r) => r.data),
+  /** Expurgo — exige `lixeira:expurgar` e registro já arquivado. */
+  purgeContact: (id: string) => api.delete(`/contacts/${id}`).then((r) => r.data),
   // activities
   listActivities: (clientId: string) =>
     api
