@@ -1,8 +1,8 @@
 export const COLLABORATOR_REPOSITORY = Symbol('COLLABORATOR_REPOSITORY');
 
 /**
- * Colaborador como o painel precisa dele — nunca com `passwordHash` nem
- * `refreshTokenHash`. O convite pendente é derivado de `acceptedAt` nulo.
+ * Colaborador como o painel precisa dele — nunca com `passwordHash`. O convite
+ * pendente é derivado de `acceptedAt` nulo.
  */
 export interface CollaboratorView {
   id: string;
@@ -40,6 +40,6 @@ export interface CollaboratorRepository {
     ownerId: string,
     data: { roleId?: string; active?: boolean },
   ): Promise<CollaboratorView>;
-  /** Revoga a sessão vigente (usado ao desativar). */
-  revokeSession(id: string, ownerId: string): Promise<void>;
+  /** Revoga todas as sessões ativas (usado ao desativar). Devolve a quantidade. */
+  revokeSessions(id: string, ownerId: string): Promise<number>;
 }

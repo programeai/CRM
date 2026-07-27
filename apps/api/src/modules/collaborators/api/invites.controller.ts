@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import {
   InvitesService,
   INVITE_TTL_DAYS,
@@ -51,10 +51,14 @@ export class InvitesController {
   async accept(
     @Param('token') token: string,
     @Body() dto: AcceptInviteDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const userId = await this.invites.accept(token, dto.password);
-    const { accessToken, refreshToken } = await this.auth.issueSession(userId);
+    const { accessToken, refreshToken } = await this.auth.issueSession(userId, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
     setRefreshCookie(res, refreshToken, this.config);
     return { accessToken };
   }

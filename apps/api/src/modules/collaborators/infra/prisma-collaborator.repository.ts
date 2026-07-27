@@ -7,7 +7,7 @@ import type {
   CollaboratorView,
 } from '../domain/collaborator.repository';
 
-/** Projeção que nunca traz `passwordHash`/`refreshTokenHash`. */
+/** Projeção que nunca traz `passwordHash`. */
 const SELECT = {
   id: true,
   name: true,
@@ -94,10 +94,21 @@ export class PrismaCollaboratorRepository implements CollaboratorRepository {
       );
   }
 
-  async revokeSession(id: string, ownerId: string): Promise<void> {
-    await this.prisma.db.user.updateMany({
+  /**
+   * Desativar sem revogar deixaria vivos os refresh tokens dos navegadores dele.
+   * O filtro por `ownerId` é redundante com o `findOrFail` do service, mas
+   * `Session`/`User` não têm RLS — a defesa é explícita por princípio.
+   */
+  async revokeSessions(id: string, ownerId: string): Promise<number> {
+    const target = await this.prisma.db.user.findFirst({
       where: { id, ownerId },
-      data: { refreshTokenHash: null },
+      select: { id: true },
     });
+    if (!target) return 0;
+    const { count } = await this.prisma.db.session.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return count;
   }
 }
