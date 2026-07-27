@@ -42,6 +42,8 @@ model User {
   assignedTasks      Task[]
   assignedActivities Activity[]
   invites            CollaboratorInvite[]
+  notifications        Notification[]
+  notificationTargets  UserNotificationTarget[]
 
   @@index([ownerId])
 }
@@ -306,6 +308,7 @@ model Proposal {
 
   @@index([clientId, status])
   @@index([ownerId])
+  @@index([validUntil, status]) // ← gatilho (b), varredura cross-owner
 }
 
 model ProposalItem {
@@ -373,6 +376,7 @@ model Task {
   @@index([ownerId])
   @@index([ownerId, assigneeId])
   @@index([ownerId, archivedAt])
+  @@index([dueDate, status]) // ← gatilho (e), varredura cross-owner
 }
 
 model Contract {
@@ -446,6 +450,7 @@ model Activity {
   @@index([clientId, createdAt])
   @@index([ownerId])
   @@index([ownerId, assigneeId])
+  @@index([scheduledFor, completedAt]) // ← gatilho (a), varredura cross-owner
 }
 
 /// Trilha de auditoria: uma linha por mudança sensível de estado.
@@ -607,6 +612,7 @@ enum AuditEntity {
   ROLE
   USER
   SUBSCRIPTION
+  ACTIVITY   // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
 }
 
 /// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
@@ -632,4 +638,131 @@ enum AuditAction {
   ALTERAR_PAPEL
   EXPIRAR
   VENCER
+}
+
+// --- notificações (Fase 9) ---
+
+/// Natureza do destino. Um usuário pode ter N destinos do MESMO kind
+/// (dois e-mails, três webhooks) — por isso destino é linha, não coluna.
+enum NotificationChannelKind {
+  IN_APP
+  EMAIL
+  WEBHOOK
+  SLACK
+}
+
+/// O que aconteceu. Espelha os seis gatilhos do ROADMAP.
+enum NotificationType {
+  FOLLOW_UP_DUE
+  PROPOSAL_EXPIRING
+  PAYMENT_DUE
+  PAYMENT_OVERDUE
+  TASK_OVERDUE
+  RECORD_ASSIGNED
+}
+
+/// Estado de UMA entrega, num destino. `SKIPPED` = o canal existe mas está
+/// desligado por configuração (ex.: EMAIL sem SMTP_HOST) — não é falha.
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// O fato notificável, já traduzido para conteúdo neutro em pt-BR. Uma linha
+/// por (destinatário, evento); o fan-out para os destinos vive nas deliveries.
+///
+/// `title`/`body` são DENORMALIZADOS pelo mesmo motivo do `AuditLog.entityLabel`:
+/// a central não faz join e o registro guarda o que era verdade na emissão —
+/// renomear um cliente não reescreve a notificação de ontem.
+model Notification {
+  id          String       @id @default(uuid())
+  ownerId     String
+  /// Destinatário. CASCADE: apagar o usuário apaga as notificações dele (o
+  /// oposto de `assigneeId`, que é dado de negócio do owner e usa SET NULL).
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  entity      AuditEntity
+  entityId    String
+  /// Título curto em pt-BR ("Cobrança a vencer em 3 dias").
+  title       String
+  /// Uma frase de corpo em pt-BR. Texto puro — NUNCA HTML (quem renderiza é o adapter).
+  body        String
+  /// Caminho relativo no front (`/propostas/<id>`). Null quando não há tela de destino.
+  link        String?
+  /// Contexto estruturado para o adapter usar sem reparsear o corpo.
+  data        Json?
+  /// Idempotência dos gatilhos recorrentes: `PAYMENT_DUE:<id>:2026-08-01`.
+  /// NULL no caminho do request — reatribuir um registro DEVE notificar de novo.
+  /// Em Postgres, NULLs são distintos entre si, então o unique abaixo nunca
+  /// colide para as notificações sem chave.
+  dedupeKey   String?
+  createdAt   DateTime     @default(now())
+  deliveries  NotificationDelivery[]
+
+  @@unique([userId, dedupeKey])
+  @@index([ownerId, userId, createdAt])
+}
+
+/// Uma tentativa de entrega, num destino. É a linha do outbox.
+///
+/// `userId` e `createdAt` são denormalizados da `Notification` de propósito: por
+/// **D1** o inbox filtra AQUI (`kind='IN_APP'`, `readAt IS NULL`) e ordena por
+/// data, e sem a denormalização o índice não cobriria filtro + ordenação juntos.
+model NotificationDelivery {
+  id             String                 @id @default(uuid())
+  ownerId        String
+  notificationId String
+  notification   Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  createdAt      DateTime               @default(now())
+  /// SET NULL, não CASCADE: apagar um destino não pode apagar o histórico do
+  /// inbox. O dispatch marca SKIPPED a pendente que ficou sem destino.
+  targetId       String?
+  target         UserNotificationTarget? @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  kind           NotificationChannelKind
+  status         NotificationDeliveryStatus @default(PENDING)
+  attempts       Int                    @default(0)
+  nextAttemptAt  DateTime               @default(now())
+  /// Mensagem de erro TRUNCADA da última tentativa. Nunca a config do destino.
+  lastError      String?
+  sentAt         DateTime?
+  /// Só faz sentido em `kind = IN_APP` — é o "lida" da central (D1).
+  readAt         DateTime?
+
+  @@index([ownerId, userId, kind, readAt, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([notificationId])
+}
+
+/// Um destino de notificação de um usuário. N do mesmo `kind` são permitidos.
+///
+/// `config` CARREGA SEGREDO — a URL de um webhook do Slack É a credencial de
+/// escrita naquele canal. Nunca vai crua na resposta da API nem em log.
+model UserNotificationTarget {
+  id         String                  @id @default(uuid())
+  /// Denormalizado p/ RLS. A tabela fica DENTRO do RLS, como `Subscription`:
+  /// só é tocada em rota autenticada (ver a nota da migration).
+  ownerId    String
+  userId     String
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       NotificationChannelKind
+  /// Rótulo dado pelo usuário ("Meu e-mail", "n8n de casa").
+  label      String
+  /// IN_APP: `{}`. EMAIL: `{ "email": "…" }`. WEBHOOK/SLACK: `{ "url": "https://…" }`.
+  config     Json
+  /// Opt-in: quais tipos este destino recebe. Vazio = nenhum. Mesmo desenho de
+  /// `Role.permissions` (String[] no próprio registro), e é o que faz a matriz
+  /// de preferências ser tipo × DESTINO, não tipo × kind.
+  types      NotificationType[]      @default([])
+  /// WEBHOOK/SLACK só entregam depois de verificados (D4). IN_APP/EMAIL nascem true.
+  verified   Boolean                 @default(false)
+  active     Boolean                 @default(true)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  deliveries NotificationDelivery[]
+
+  @@index([ownerId, userId])
 }

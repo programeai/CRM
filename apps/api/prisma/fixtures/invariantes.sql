@@ -82,3 +82,39 @@ BEGIN
     RAISE EXCEPTION 'Tabela(s) sem RLS habilitado e forçado: %', sem_rls;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Notificações (20260731100000_notifications)
+-- ---------------------------------------------------------------------------
+-- As três tabelas nascem com RLS habilitado, forçado E com policy. Aqui não há
+-- backfill a conferir (a migration é aditiva e as tabelas nascem vazias), mas o
+-- que ela cria é justamente o isolamento — e `Notification` é a única tabela do
+-- sistema endereçada por PESSOA dentro da workspace, então um RLS ausente aqui
+-- vazaria a caixa de um colaborador para outro owner sem nada reclamar.
+DO $$
+DECLARE
+  sem_rls    TEXT;
+  sem_policy TEXT;
+BEGIN
+  SELECT string_agg(c.relname, ', ') INTO sem_rls
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public'
+     AND c.relname IN ('Notification', 'NotificationDelivery', 'UserNotificationTarget')
+     AND (c.relrowsecurity IS FALSE OR c.relforcerowsecurity IS FALSE);
+  IF sem_rls IS NOT NULL THEN
+    RAISE EXCEPTION 'Tabela(s) de notificação sem RLS habilitado e forçado: %', sem_rls;
+  END IF;
+
+  -- RLS habilitado sem policy nenhuma casa zero linhas: fail-closed silencioso,
+  -- que faria o sino ficar permanentemente vazio em produção.
+  SELECT string_agg(t.nome, ', ') INTO sem_policy
+    FROM (VALUES ('Notification'), ('NotificationDelivery'), ('UserNotificationTarget')) AS t(nome)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_policies p
+      WHERE p.schemaname = 'public' AND p.tablename = t.nome AND p.policyname = 'owner_isolation'
+   );
+  IF sem_policy IS NOT NULL THEN
+    RAISE EXCEPTION 'Tabela(s) de notificação sem a policy owner_isolation: %', sem_policy;
+  END IF;
+END $$;
