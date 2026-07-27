@@ -228,10 +228,30 @@ export class PrismaPaymentRepository implements PaymentRepository {
     const where = { status: 'PENDING' as const, dueDate: { lt: now } };
     const alvos = await this.admin.payment.findMany({
       where,
-      select: { id: true, ownerId: true, description: true },
+      // `dueDate`, `amount` e o cliente entram para a notificação da Fase 9: o
+      // corpo dela cita valor, prazo e cliente, e o destinatário é derivado por
+      // `contract → client.assigneeId` (D2).
+      select: {
+        id: true,
+        ownerId: true,
+        description: true,
+        dueDate: true,
+        amount: true,
+        contract: {
+          select: { client: { select: { name: true, assigneeId: true } } },
+        },
+      },
     });
     if (alvos.length === 0) return [];
     await this.admin.payment.updateMany({ where, data: { status: 'OVERDUE' } });
-    return alvos;
+    return alvos.map((p) => ({
+      id: p.id,
+      ownerId: p.ownerId,
+      description: p.description,
+      dueDate: p.dueDate,
+      amount: Number(p.amount),
+      clienteNome: p.contract.client.name,
+      assigneeId: p.contract.client.assigneeId,
+    }));
   }
 }

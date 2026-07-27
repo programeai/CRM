@@ -142,13 +142,32 @@ export class PrismaProposalRepository implements ProposalRepository {
     };
     const alvos = await this.admin.proposal.findMany({
       where,
-      select: { id: true, ownerId: true, number: true, status: true },
+      // O cliente e o `validUntil` entram para a notificação da Fase 9; o
+      // destinatário é derivado por `deal ?? client` (D2) — Proposal não tem
+      // `assigneeId` próprio.
+      select: {
+        id: true,
+        ownerId: true,
+        number: true,
+        status: true,
+        validUntil: true,
+        deal: { select: { assigneeId: true } },
+        client: { select: { name: true, assigneeId: true } },
+      },
     });
     if (alvos.length === 0) return [];
     await this.admin.proposal.updateMany({
       where,
       data: { status: 'EXPIRED' },
     });
-    return alvos;
+    return alvos.map((p) => ({
+      id: p.id,
+      ownerId: p.ownerId,
+      number: p.number,
+      status: p.status,
+      clienteNome: p.client.name,
+      assigneeId: p.deal?.assigneeId ?? p.client.assigneeId,
+      validUntil: p.validUntil!,
+    }));
   }
 }

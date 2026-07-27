@@ -10,6 +10,7 @@ import {
 } from '../domain/payment.repository';
 import { billingDatesInWindow } from './schedule';
 import { AuditService } from '../../audit/audit.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 
 /** Nome exibido na tela de auditoria para as duas rotinas diárias. */
 const ATOR_ROTINA = 'Rotina diária';
@@ -22,6 +23,7 @@ export class FinanceBillingJob {
     @Inject(CONTRACT_REPOSITORY) private readonly contracts: ContractRepository,
     @Inject(PAYMENT_REPOSITORY) private readonly payments: PaymentRepository,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -42,6 +44,29 @@ export class FinanceBillingJob {
         action: 'VENCER',
         antes: { status: 'PENDING' },
         depois: { status: 'OVERDUE' },
+      });
+      // Gatilho (d). `notificarPeloSistema` já engole a própria exceção, então
+      // não precisa de try/catch aqui — mas a trilha ACIMA também não tem, e é
+      // ela que abortaria o lote se falhasse. Não mexa nessa ordem.
+      //
+      // Idempotência, declarada: o `updateMany` do `markOverdue` commita
+      // `PENDING → OVERDUE` ANTES deste loop. Se o processo cair no meio, a
+      // reexecução não reencontra nada (o filtro `status: 'PENDING'` já não casa)
+      // e as notificações que faltaram se perdem — o mesmo comportamento que a
+      // trilha tem desde a Fase 8B. O `dedupeKey` protege o caso oposto: um
+      // reprocessamento manual não duplica.
+      await this.notifications.notificarPeloSistema({
+        ownerId: p.ownerId,
+        userId: p.assigneeId ?? p.ownerId,
+        dedupeKey: `PAYMENT_OVERDUE:${p.id}`,
+        evento: {
+          tipo: 'PAYMENT_OVERDUE',
+          entityId: p.id,
+          descricao: p.description,
+          clienteNome: p.clienteNome,
+          valor: p.amount,
+          dataAlvo: p.dueDate,
+        },
       });
     }
     if (generated > 0) {

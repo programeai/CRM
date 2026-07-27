@@ -3,11 +3,13 @@ import { billingDatesInWindow } from './schedule';
 import type { ContractRepository } from '../domain/contract.repository';
 import type { PaymentRepository } from '../domain/payment.repository';
 import type { AuditService } from '../../audit/audit.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
 
 describe('FinanceBillingJob', () => {
   let contracts: jest.Mocked<ContractRepository>;
   let payments: jest.Mocked<PaymentRepository>;
   let audit: { registrarPeloSistema: jest.Mock };
+  let notifications: { notificarPeloSistema: jest.Mock };
   let job: FinanceBillingJob;
 
   beforeEach(() => {
@@ -29,10 +31,14 @@ describe('FinanceBillingJob', () => {
       markOverdue: jest.fn().mockResolvedValue([]),
     };
     audit = { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
+    notifications = {
+      notificarPeloSistema: jest.fn().mockResolvedValue(undefined),
+    };
     job = new FinanceBillingJob(
       contracts,
       payments,
       audit as unknown as AuditService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -118,8 +124,24 @@ describe('FinanceBillingJob', () => {
   it('registra uma linha de trilha por cobrança vencida, com o ownerId DA COBRANÇA', async () => {
     contracts.findActiveRecurring.mockResolvedValue([]);
     payments.markOverdue.mockResolvedValue([
-      { id: 'p1', ownerId: 'owner-a', description: 'Mensalidade 06/2026' },
-      { id: 'p2', ownerId: 'owner-b', description: 'Parcela 2/8' },
+      {
+        id: 'p1',
+        ownerId: 'owner-a',
+        description: 'Mensalidade 06/2026',
+        dueDate: new Date('2026-06-10'),
+        amount: 800,
+        clienteNome: 'Acme',
+        assigneeId: 'u2',
+      },
+      {
+        id: 'p2',
+        ownerId: 'owner-b',
+        description: 'Parcela 2/8',
+        dueDate: new Date('2026-06-15'),
+        amount: 500,
+        clienteNome: 'Beta',
+        assigneeId: null,
+      },
     ]);
 
     await job.run();
@@ -137,6 +159,59 @@ describe('FinanceBillingJob', () => {
     );
     expect(audit.registrarPeloSistema).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: 'owner-b', entityId: 'p2' }),
+    );
+  });
+
+  it('notifica uma vez por cobrança vencida, com o userId derivado do cliente', async () => {
+    contracts.findActiveRecurring.mockResolvedValue([]);
+    payments.markOverdue.mockResolvedValue([
+      {
+        id: 'p1',
+        ownerId: 'owner-a',
+        description: 'Mensalidade 06/2026',
+        dueDate: new Date('2026-06-10'),
+        amount: 800,
+        clienteNome: 'Acme',
+        assigneeId: 'u2',
+      },
+    ]);
+
+    await job.run();
+
+    expect(notifications.notificarPeloSistema).toHaveBeenCalledTimes(1);
+    expect(notifications.notificarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerId: 'owner-a',
+        userId: 'u2',
+        dedupeKey: 'PAYMENT_OVERDUE:p1',
+        evento: expect.objectContaining({
+          tipo: 'PAYMENT_OVERDUE',
+          entityId: 'p1',
+          clienteNome: 'Acme',
+          valor: 800,
+        }),
+      }),
+    );
+  });
+
+  it('cai no owner quando o cliente da cobrança não tem responsável', async () => {
+    contracts.findActiveRecurring.mockResolvedValue([]);
+    payments.markOverdue.mockResolvedValue([
+      {
+        id: 'p2',
+        ownerId: 'owner-b',
+        description: 'Parcela 2/8',
+        dueDate: new Date('2026-06-15'),
+        amount: 500,
+        clienteNome: 'Beta',
+        assigneeId: null,
+      },
+    ]);
+
+    await job.run();
+
+    expect(notifications.notificarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: 'owner-b', userId: 'owner-b' }),
     );
   });
 

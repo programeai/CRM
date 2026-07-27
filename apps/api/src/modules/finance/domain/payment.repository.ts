@@ -55,11 +55,16 @@ export interface PaymentStatusSum {
   paidAmount: number; // Σ paidAmount (0 quando ausente)
 }
 
-/** Cobrança marcada como vencida pela rotina — o mínimo para a trilha. */
+/** Cobrança marcada como vencida pela rotina — a trilha e a notificação juntas. */
 export interface PaymentVencido {
   id: string;
   ownerId: string;
   description: string;
+  dueDate: Date;
+  amount: number;
+  clienteNome: string;
+  /** Derivado por `contract → client` (D2). Null → o gatilho cai no owner. */
+  assigneeId: string | null;
 }
 
 export interface PaymentRepository {
