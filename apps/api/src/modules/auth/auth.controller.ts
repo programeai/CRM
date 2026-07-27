@@ -32,6 +32,7 @@ import {
   REFRESH_COOKIE_PATH,
   setRefreshCookie,
 } from './refresh-cookie';
+import { resolveDeviceId } from './device-cookie';
 import {
   CurrentAccess,
   CurrentSessionId,
@@ -55,9 +56,17 @@ export class AuthController {
     setRefreshCookie(res, token, this.config);
   }
 
-  /** Dispositivo da requisição — `req.ip` já é o IP real (trust proxy, ver main.ts). */
-  private device(req: Request): DeviceInfo {
-    return { ip: req.ip, userAgent: req.headers['user-agent'] };
+  /**
+   * Dispositivo da requisição — `req.ip` já é o IP real (trust proxy, ver
+   * main.ts). Precisa do `res` porque emite o cookie `device_id` quando o
+   * aparelho ainda não tem um.
+   */
+  private device(req: Request, res: Response): DeviceInfo {
+    return {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+      deviceId: resolveDeviceId(req, res, this.config),
+    };
   }
 
   @Public()
@@ -73,7 +82,7 @@ export class AuthController {
       dto.name,
       dto.email,
       dto.password,
-      this.device(req),
+      this.device(req, res),
     );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
@@ -90,7 +99,7 @@ export class AuthController {
     const { accessToken, refreshToken } = await this.auth.login(
       dto.email,
       dto.password,
-      this.device(req),
+      this.device(req, res),
     );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
@@ -140,7 +149,7 @@ export class AuthController {
       sid,
       sub,
       token,
-      this.device(req),
+      this.device(req, res),
     );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
@@ -255,7 +264,7 @@ export class AuthController {
       const { refreshToken } = await this.auth.oauthLogin(
         this.oauth.enumOf(provider),
         profile,
-        this.device(req),
+        this.device(req, res),
       );
       this.setRefreshCookie(res, refreshToken);
       return res.redirect(this.config.get<string>('FRONTEND_URL') ?? '/');

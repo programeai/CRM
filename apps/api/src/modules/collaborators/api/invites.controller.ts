@@ -9,6 +9,7 @@ import {
 import { AuthService } from '../../auth/auth.service';
 import { Public } from '../../auth/public.decorator';
 import { setRefreshCookie } from '../../auth/refresh-cookie';
+import { resolveDeviceId } from '../../auth/device-cookie';
 import { AllowWithoutSubscription } from '../../billing/allow-without-subscription.decorator';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 
@@ -58,6 +59,7 @@ export class InvitesController {
     const { accessToken, refreshToken } = await this.auth.issueSession(userId, {
       ip: req.ip,
       userAgent: req.headers['user-agent'],
+      deviceId: resolveDeviceId(req, res, this.config),
     });
     setRefreshCookie(res, refreshToken, this.config);
     return { accessToken };
