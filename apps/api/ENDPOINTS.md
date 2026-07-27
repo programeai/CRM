@@ -222,12 +222,28 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.update`
 
 ### POST /clients/:id/archive
-- **Propósito:** Arquivar (soft delete) um cliente, setando `archivedAt`. O cliente some da listagem padrão.
+- **Propósito:** Arquivar (soft delete) um cliente, setando `archivedAt`. O cliente some da listagem padrão e passa a aparecer em `GET /trash`.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 Client` (com `archivedAt` preenchido).
 - **Erros:** `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.archive`
+
+### POST /clients/:id/restore
+- **Propósito:** Restaurar um cliente arquivado (limpa `archivedAt`), devolvendo-o às listagens.
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Client` (com `archivedAt: null`).
+- **Erros:** `404 Cliente não encontrado.`, `401`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.restore`
+
+### DELETE /clients/:id
+- **Propósito:** Excluir em definitivo (expurgo) um cliente já arquivado. Exige que todos os vínculos (contatos, atividades, oportunidades, propostas, projetos, contratos) já tenham sido removidos antes — todas as FKs de filho para `Client` são `RESTRICT`.
+- **Auth:** Bearer (access token). Permissão: `lixeira:expurgar`.
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Cliente não encontrado.`, `422 Só é possível excluir em definitivo um cliente que já esteja na lixeira. Arquive antes.`, `409 Não é possível excluir em definitivo um cliente com registros vinculados (…). Expurgue-os primeiro.`, `403`, `401`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.purge`
 
 ---
 
@@ -257,13 +273,29 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Contato não encontrado.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/contacts/api/contacts.controller.ts` → `ContactsController.update`
 
-### DELETE /contacts/:id
-- **Propósito:** Excluir um contato do cliente.
+### POST /contacts/:id/archive
+- **Propósito:** Arquivar (soft delete) um contato do cliente, setando `archivedAt`. O contato some da aba de contatos e passa a aparecer em `GET /trash`.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** —
-- **Resposta:** `200` (sem corpo).
+- **Resposta:** `200 Contact` (com `archivedAt` preenchido).
 - **Erros:** `404 Contato não encontrado.` (ou cliente de outro dono), `401`.
-- **Handler:** `modules/contacts/api/contacts.controller.ts` → `ContactsController.remove`
+- **Handler:** `modules/contacts/api/contacts.controller.ts` → `ContactsController.archive`
+
+### POST /contacts/:id/restore
+- **Propósito:** Restaurar um contato arquivado (limpa `archivedAt`), devolvendo-o à aba do cliente.
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Contact` (com `archivedAt: null`).
+- **Erros:** `404 Contato não encontrado.` (ou cliente de outro dono), `401`.
+- **Handler:** `modules/contacts/api/contacts.controller.ts` → `ContactsController.restore`
+
+### DELETE /contacts/:id
+- **Propósito:** Excluir em definitivo (expurgo) um contato já arquivado.
+- **Auth:** Bearer (access token). Permissão: `lixeira:expurgar`.
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Contato não encontrado.` (ou cliente de outro dono), `422 Só é possível excluir em definitivo um contato que já esteja na lixeira. Arquive antes.`, `403`, `401`.
+- **Handler:** `modules/contacts/api/contacts.controller.ts` → `ContactsController.purge`
 
 ---
 
@@ -341,11 +373,11 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.update`
 
 ### DELETE /pipeline-stages/:id
-- **Propósito:** Excluir um estágio do owner, desde que não possua oportunidades vinculadas.
+- **Propósito:** Excluir um estágio do owner, desde que não possua oportunidades vinculadas (a contagem inclui as arquivadas — `Deal.stageId` é `RESTRICT`).
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** —
 - **Resposta:** `200` (sem corpo).
-- **Erros:** `404 Estágio não encontrado.` (inexistente ou de outro owner), `409 Não é possível excluir um estágio que possui oportunidades.`, `403`, `401`.
+- **Erros:** `404 Estágio não encontrado.` (inexistente ou de outro owner), `409 Não é possível excluir um estágio que possui oportunidades, inclusive arquivadas. Mova ou expurgue as oportunidades antes.`, `403`, `401`.
 - **Handler:** `modules/pipeline/api/pipeline-stages.controller.ts` → `PipelineStagesController.remove`
 
 ---
@@ -400,13 +432,29 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.`, `422 Informe o motivo da perda.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.move`
 
-### DELETE /deals/:id
-- **Propósito:** Excluir (hard delete) uma oportunidade. `Proposal`/`Activity` vinculados mantêm o registro com `dealId = null`.
+### POST /deals/:id/archive
+- **Propósito:** Arquivar (soft delete) uma oportunidade, setando `archivedAt`. Some do quadro `/pipeline`, da listagem e do funil do dashboard, e passa a aparecer em `GET /trash`. Sem cascata: projetos/propostas vinculados não são afetados.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** —
-- **Resposta:** `200` (sem corpo).
+- **Resposta:** `200 Deal` (com `archivedAt` preenchido).
 - **Erros:** `404 Oportunidade não encontrada.`, `401`.
-- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.remove`
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.archive`
+
+### POST /deals/:id/restore
+- **Propósito:** Restaurar uma oportunidade arquivada (limpa `archivedAt`), devolvendo-a ao funil na posição em que estava.
+- **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Deal` (com `archivedAt: null`).
+- **Erros:** `404 Oportunidade não encontrada.`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.restore`
+
+### DELETE /deals/:id
+- **Propósito:** Excluir em definitivo (expurgo) uma oportunidade já arquivada. `Proposal`/`Project`/`Activity` vinculados são FKs opcionais com `SET NULL` — sobrevivem com `dealId = null`.
+- **Auth:** Bearer (access token). Permissão: `lixeira:expurgar`.
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Oportunidade não encontrada.`, `422 Só é possível excluir em definitivo uma oportunidade que já esteja na lixeira. Arquive antes.`, `403`, `401`.
+- **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.purge`
 
 ---
 
@@ -526,13 +574,29 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
 - **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.update`
 
-### DELETE /projects/:id
-- **Propósito:** Excluir um projeto, desde que não possua tarefas vinculadas.
+### POST /projects/:id/archive
+- **Propósito:** Arquivar (soft delete) um projeto, setando `archivedAt`. Some da listagem e passa a aparecer em `GET /trash`. Sem cascata: as tarefas do projeto continuam ativas (o `_count.tasks` do card some do card, mas elas seguem em "Minhas demandas").
 - **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
 - **Body:** —
+- **Resposta:** `200 Project` (com `archivedAt` preenchido).
+- **Erros:** `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.archive`
+
+### POST /projects/:id/restore
+- **Propósito:** Restaurar um projeto arquivado (limpa `archivedAt`), devolvendo-o à listagem.
+- **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Project` (com `archivedAt: null`).
+- **Erros:** `404 Projeto não encontrado.`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.restore`
+
+### DELETE /projects/:id
+- **Propósito:** Excluir em definitivo (expurgo) um projeto já arquivado, desde que não possua nenhuma tarefa vinculada (ativa ou arquivada — `Task.projectId` é `RESTRICT`). `Contract.projectId` é opcional com `SET NULL` e não bloqueia.
+- **Auth:** Bearer (access token). Permissão: `lixeira:expurgar`.
+- **Body:** —
 - **Resposta:** `200` (sem corpo).
-- **Erros:** `404 Projeto não encontrado.`, `409 Não é possível excluir um projeto que possui tarefas.`, `401`.
-- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.remove`
+- **Erros:** `404 Projeto não encontrado.`, `422 Só é possível excluir em definitivo um projeto que já esteja na lixeira. Arquive antes.`, `409 Não é possível excluir em definitivo um projeto que ainda tem demandas. Expurgue as demandas dele primeiro.`, `403`, `401`.
+- **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.purge`
 
 ## Tasks
 
@@ -608,13 +672,29 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.move`
 
-### DELETE /tasks/:id
-- **Propósito:** Excluir uma tarefa.
+### POST /tasks/:id/archive
+- **Propósito:** Arquivar (soft delete) uma tarefa, setando `archivedAt`. Some do quadro do projeto, de "Minhas demandas" e do dashboard, e passa a aparecer em `GET /trash`.
 - **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
 - **Body:** —
-- **Resposta:** `200` (sem corpo).
+- **Resposta:** `200 Task` (com `archivedAt` preenchido).
 - **Erros:** `404 Tarefa não encontrada.`, `401`.
-- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.remove`
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.archive`
+
+### POST /tasks/:id/restore
+- **Propósito:** Restaurar uma tarefa arquivada (limpa `archivedAt`), devolvendo-a ao quadro no status em que estava.
+- **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Task` (com `archivedAt: null`).
+- **Erros:** `404 Tarefa não encontrada.`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.restore`
+
+### DELETE /tasks/:id
+- **Propósito:** Excluir em definitivo (expurgo) uma tarefa já arquivada. Task não tem filhos — sem trava adicional.
+- **Auth:** Bearer (access token). Permissão: `lixeira:expurgar`.
+- **Body:** —
+- **Resposta:** `200` (sem corpo).
+- **Erros:** `404 Tarefa não encontrada.`, `422 Só é possível excluir em definitivo uma demanda que já esteja na lixeira. Arquive antes.`, `403`, `401`.
+- **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.purge`
 
 ---
 
@@ -948,3 +1028,17 @@ Uma linha nasce a cada mudança instrumentada (baixa/estorno/cancelamento de cob
 - **Resposta:** `200 AuditLog[]` (mais recente primeiro).
 - **Erros:** `400` (entidade fora do enum), `403`, `401`.
 - **Handler:** `modules/audit/api/audit.controller.ts` → `AuditController.byEntity`
+
+---
+
+## Lixeira
+
+Read model somente leitura que atravessa `Client`, `Contact`, `Deal`, `Project` e `Task` — os cinco recursos com soft delete (`archivedAt`). Arquivar/restaurar/expurgar são rotas **do recurso** (`POST /<recurso>/:id/archive`, `POST /<recurso>/:id/restore`, `DELETE /<recurso>/:id`), documentadas nas seções acima; esta seção só cobre a listagem unificada.
+
+### GET /trash
+- **Propósito:** Listar os registros arquivados dos cinco tipos, paginado (paginação em memória, ordenado por `archivedAt desc`) e filtrável por tipo.
+- **Auth:** Bearer (access token). Permissão: `lixeira:ver`.
+- **Body:** — (query: `page?`, `limit?`, `type?` ∈ `CLIENT | CONTACT | DEAL | PROJECT | TASK`).
+- **Resposta:** `200 Paginated<TrashItem>` — cada item traz `type`, `id`, `label` (rótulo humano do registro), `context` (cliente ou projeto a que pertence, ou `null`) e `archivedAt`.
+- **Erros:** `400` (validação), `403 Você não tem permissão para ver a lixeira.`, `401`.
+- **Handler:** `modules/trash/api/trash.controller.ts` → `TrashController.list`

@@ -131,6 +131,10 @@ não deixa registro órfão.
 Em código transversal (middleware, filtro, bootstrap), onde não há DI, use
 `registrarLog('info', { evento: … })` direto de `shared/logging/log.ts`.
 
+As ações de arquivar/restaurar/expurgar da lixeira (`modules/trash/`) não
+ganham `evento` estruturado novo: são só `audit.registrar(…)` — a trilha já
+responde "quem arquivou o quê e quando" sem duplicar a informação no Loki.
+
 ## Peças no código
 
 | Arquivo | Papel |
