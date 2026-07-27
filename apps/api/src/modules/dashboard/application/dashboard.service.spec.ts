@@ -4,7 +4,18 @@ import {
   monthBounds,
 } from './dashboard.service';
 import type { DashboardRepository } from '../domain/dashboard.repository';
+import type { AccessContext } from '../../access/domain/access-context';
 import { ALL_PERMISSION_KEYS } from '../../../shared/permissions';
+
+/** Contexto de acesso mínimo para o service — o guard já resolveu tudo isso. */
+const access = (permissions: readonly string[]): AccessContext => ({
+  userId: 'u1',
+  ownerId: 'owner',
+  isOwner: false,
+  roleId: 'r1',
+  roleName: 'Papel',
+  permissions: permissions as never,
+});
 
 describe('monthBounds', () => {
   const now = new Date('2026-07-23T15:00:00.000Z');
@@ -112,7 +123,7 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    const result = await service.summary('owner', access(ALL_PERMISSION_KEYS));
     expect(result.funnel!.totalOpen).toBe(3); // 2 + 1
     expect(result.funnel!.amountInNegotiation).toBe(1500); // 1000 + 500
   });
@@ -131,7 +142,7 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    const result = await service.summary('owner', access(ALL_PERMISSION_KEYS));
     expect(result.proposals!.conversionRate).toBe(0.75); // 3 / (3 + 1)
     expect(result.proposals!.acceptedThisMonth).toBe(3);
   });
@@ -141,10 +152,10 @@ describe('DashboardService', () => {
     repo.upcomingActions.mockResolvedValue([]);
 
     // Papel só-comercial: vê pipeline e clientes, não vê propostas nem demandas.
-    const result = await service.summary('owner', [
-      'cliente:ver',
-      'oportunidade:ver',
-    ]);
+    const result = await service.summary(
+      'owner',
+      access(['cliente:ver', 'oportunidade:ver']),
+    );
 
     expect(result.funnel).not.toBeNull();
     expect(result.proposals).toBeNull();
@@ -156,7 +167,7 @@ describe('DashboardService', () => {
   });
 
   it('não consulta nada de módulo nenhum para papel sem permissão', async () => {
-    const result = await service.summary('owner', []);
+    const result = await service.summary('owner', access([]));
 
     expect(result).toEqual({
       funnel: null,
@@ -178,8 +189,45 @@ describe('DashboardService', () => {
     repo.upcomingTasks.mockResolvedValue([]);
     repo.upcomingActions.mockResolvedValue([]);
 
-    const result = await service.summary('owner', ALL_PERMISSION_KEYS);
+    const result = await service.summary('owner', access(ALL_PERMISSION_KEYS));
     expect(result.proposals!.conversionRate).toBe(0);
+  });
+
+  it('onlyMine propaga o escopo `mine` para os três blocos com responsável', async () => {
+    repo.funnel.mockResolvedValue([]);
+    repo.proposalsOpen.mockResolvedValue({ count: 0, amount: 0 });
+    repo.proposalsAcceptedCount.mockResolvedValue(0);
+    repo.proposalsDecidedSince.mockResolvedValue([]);
+    repo.tasksInProgressCount.mockResolvedValue(0);
+    repo.tasksOverdueCount.mockResolvedValue(0);
+    repo.upcomingTasks.mockResolvedValue([]);
+    repo.upcomingActions.mockResolvedValue([]);
+
+    await service.summary('owner', access(ALL_PERMISSION_KEYS), true);
+
+    const mine = { kind: 'mine', userId: 'u1' };
+    expect(repo.funnel).toHaveBeenCalledWith('owner', mine);
+    expect(repo.tasksInProgressCount).toHaveBeenCalledWith('owner', mine);
+    expect(repo.upcomingActions).toHaveBeenCalledWith(
+      'owner',
+      expect.any(Number),
+      mine,
+    );
+  });
+
+  it('sem onlyMine e com as chaves amplas, não recorta nada', async () => {
+    repo.funnel.mockResolvedValue([]);
+    repo.proposalsOpen.mockResolvedValue({ count: 0, amount: 0 });
+    repo.proposalsAcceptedCount.mockResolvedValue(0);
+    repo.proposalsDecidedSince.mockResolvedValue([]);
+    repo.tasksInProgressCount.mockResolvedValue(0);
+    repo.tasksOverdueCount.mockResolvedValue(0);
+    repo.upcomingTasks.mockResolvedValue([]);
+    repo.upcomingActions.mockResolvedValue([]);
+
+    await service.summary('owner', access(ALL_PERMISSION_KEYS));
+
+    expect(repo.funnel).toHaveBeenCalledWith('owner', { kind: 'all' });
   });
 
   it('repassa os agregados financeiros do repositório', async () => {
