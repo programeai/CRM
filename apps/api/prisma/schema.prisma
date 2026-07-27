@@ -137,6 +137,12 @@ model Session {
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash  String
+  /// Aparelho de onde a sessão veio: o cookie `device_id`, estável entre logins
+  /// (ver `modules/auth/device-cookie.ts`). É o que faz a tela "Dispositivos"
+  /// listar aparelhos e não logins — o login novo revoga a sessão anterior do
+  /// MESMO `deviceId`. Nulo em sessão anterior ao cookie; o primeiro refresh
+  /// preenche, e a que nunca mais for usada morre com o `expiresAt`.
+  deviceId   String?
   /// User-Agent cru da requisição que criou/renovou a sessão (truncado em 255).
   userAgent  String?
   /// IP do cliente (req.ip, já resolvido por trust proxy — ver main.ts).
@@ -148,6 +154,8 @@ model Session {
   revokedAt  DateTime?
 
   @@index([userId, revokedAt])
+  /// Serve à revogação da sessão anterior do mesmo aparelho, no login.
+  @@index([userId, deviceId])
   @@index([expiresAt])
 }
 
