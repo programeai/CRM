@@ -17,6 +17,13 @@ pnpm --filter api prisma db seed        # popula admin + estágios de pipeline
 ```
 O schema (fonte de verdade do modelo de dados) fica em `prisma/schema.prisma`.
 
+## Testes
+```bash
+pnpm --filter api test        # unitários (Prisma mockado)
+pnpm --filter api test:e2e    # e2e — requer docker compose up -d (Postgres em localhost:5435)
+```
+O e2e provisiona e trunca o banco `crm_test` sozinho; não afeta os dados de `crm_db`.
+
 ## Mais
 - Setup completo do monorepo: [README raiz](../../README.md).
 - Regras de arquitetura do backend: [CLAUDE.md](./CLAUDE.md).
