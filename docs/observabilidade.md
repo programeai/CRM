@@ -88,6 +88,8 @@ longo do tempo. Os que existem hoje:
 | `colaborador.papel_alterado` | troca de papel de um colaborador | `info` |
 | `papel.criado` / `papel.atualizado` / `papel.excluido` | manutenção de papéis e permissões | `info` |
 | `sessao.revogada` | uma sessão encerrada pelo próprio usuário | `info` |
+| `sessao.substituida` | login novo derrubou a sessão anterior do mesmo dispositivo | `info` |
+| `sessoes.expurgadas` | rotina diária das 3h — apaga sessão vencida há mais de 30 dias | `info` |
 | `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
 | `auditoria.sem_contexto` | `AuditService.registrar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
 | `auditoria.registro_falhou` | falha ao gravar trilha de ação do sistema (cron/webhook) — o lote continua | `error` |
