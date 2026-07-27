@@ -177,7 +177,8 @@ export class PrismaDashboardRepository implements DashboardRepository {
     const rows = await this.prisma.db.activity.findMany({
       where: {
         client: { ownerId },
-        type: 'FOLLOW_UP',
+        // Regra do catálogo (ver ActivityTypeCatalog.isFollowUp), não literal.
+        type: { isFollowUp: true },
         completedAt: null,
         scheduledFor: { not: null },
         ...(scoped ? { AND: [scoped] } : {}),
@@ -186,7 +187,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
       take,
       select: {
         id: true,
-        type: true,
+        type: { select: { id: true, name: true, active: true } },
         content: true,
         scheduledFor: true,
         client: { select: { id: true, name: true } },
