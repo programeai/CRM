@@ -16,6 +16,10 @@ import { ATIVO, ativoWhere } from '../../../shared/soft-delete';
 const withClient = {
   client: { select: { id: true, name: true } },
   assignee: { select: { id: true, name: true } },
+  // O rótulo do motivo é o dado (catálogo por owner) — sem o include, a UI
+  // exibiria o uuid. Ver features/catalogos no web.
+  lostReason: { select: { id: true, name: true, active: true } },
+  serviceType: { select: { id: true, name: true, active: true } },
 } as const;
 
 @Injectable()

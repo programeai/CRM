@@ -10,6 +10,7 @@ import type { ProjectsService } from '../../projects/application/projects.servic
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import type { CatalogosService } from '../../catalogos/application/catalogos.service';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
@@ -19,6 +20,7 @@ describe('DealsService', () => {
   let members: { assertMember: jest.Mock };
   let audit: { registrar: jest.Mock };
   let notifications: { notificar: jest.Mock };
+  let catalogos: { assertUtilizavel: jest.Mock };
   let service: DealsService;
 
   beforeEach(() => {
@@ -40,6 +42,9 @@ describe('DealsService', () => {
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     notifications = { notificar: jest.fn().mockResolvedValue(undefined) };
+    catalogos = {
+      assertUtilizavel: jest.fn().mockResolvedValue({ id: 'motivo-1' }),
+    };
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
@@ -48,6 +53,7 @@ describe('DealsService', () => {
       members as unknown as WorkspaceMembersService,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      catalogos as unknown as CatalogosService,
     );
   });
 
@@ -89,6 +95,58 @@ describe('DealsService', () => {
     expect(repo.move).not.toHaveBeenCalled();
   });
 
+  it('rejeita motivo de perda desativado (ou de outro owner) ao mover para isLost', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 's1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({ id: 'perdeu', isLost: true });
+    catalogos.assertUtilizavel.mockRejectedValue(
+      new UnprocessableEntityException(
+        'Este motivo de perda está desativado. Reative-o no catálogo ou escolha outro.',
+      ),
+    );
+    await expect(
+      service.move('owner', 'd1', {
+        stageId: 'perdeu',
+        position: 0,
+        lostReasonId: 'motivo-desativado',
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.move).not.toHaveBeenCalled();
+  });
+
+  it('grava o motivo validado ao mover para isLost', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 's1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({ id: 'perdeu', isLost: true });
+    repo.move.mockResolvedValue({ id: 'd1' } as never);
+
+    await service.move('owner', 'd1', {
+      stageId: 'perdeu',
+      position: 0,
+      lostReasonId: 'motivo-1',
+    });
+
+    expect(catalogos.assertUtilizavel).toHaveBeenCalledWith(
+      'owner',
+      'motivos-de-perda',
+      'motivo-1',
+    );
+    expect(repo.move).toHaveBeenCalledWith(
+      'd1',
+      'perdeu',
+      0,
+      expect.objectContaining({ lostReasonId: 'motivo-1' }),
+    );
+  });
+
   it('atualiza stageMovedAt ao mudar de estágio', async () => {
     repo.findById.mockResolvedValue({
       id: 'd1',
@@ -105,7 +163,7 @@ describe('DealsService', () => {
       0,
       expect.objectContaining({
         stageMovedAt: expect.any(Date),
-        lostReason: null,
+        lostReasonId: null,
       }),
     );
     expect(projects.createFromDeal).not.toHaveBeenCalled();

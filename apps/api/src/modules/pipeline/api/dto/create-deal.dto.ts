@@ -1,6 +1,5 @@
 import {
   IsDateString,
-  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,7 +9,6 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { ServiceType } from '@prisma/client';
 
 export class CreateDealDto {
   @IsString({ message: 'O título é obrigatório.' })
@@ -24,8 +22,8 @@ export class CreateDealDto {
   @IsUUID('4', { message: 'Estágio inválido.' })
   stageId?: string;
 
-  @IsEnum(ServiceType, { message: 'Tipo de serviço inválido.' })
-  serviceType: ServiceType;
+  @IsUUID('4', { message: 'Tipo de serviço inválido.' })
+  serviceTypeId: string;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Valor inválido.' })
