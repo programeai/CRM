@@ -1,5 +1,8 @@
 import type { Request, Response } from 'express';
-import { contextoDaRequisicao } from './request-context.middleware';
+import {
+  contextoDaRequisicao,
+  normalizarRota,
+} from './request-context.middleware';
 
 type ResponseFalso = Response & {
   disparaFinish: () => void;
@@ -115,6 +118,43 @@ describe('contextoDaRequisicao', () => {
     expect(res.cabecalhos['x-request-id']).toBeDefined();
   });
 
+  it('normaliza a rota e guarda o caminho cru só quando ele difere', () => {
+    const req = requisicaoFalsa(
+      '/api/v1/clients/2f1c9b6e-3a4d-4f7a-9c21-8b5e0d7a1234/contacts',
+    );
+    const res = respostaFalsa(200);
+
+    contextoDaRequisicao(req, res, jest.fn());
+    res.disparaFinish();
+
+    expect(linhas[0]).toMatchObject({
+      rota: '/api/v1/clients/:id/contacts',
+      caminho: '/api/v1/clients/2f1c9b6e-3a4d-4f7a-9c21-8b5e0d7a1234/contacts',
+    });
+  });
+
+  it('omite o caminho cru quando a rota não tem parâmetro', () => {
+    const res = respostaFalsa(200);
+    contextoDaRequisicao(requisicaoFalsa('/api/v1/clients'), res, jest.fn());
+    res.disparaFinish();
+
+    expect(linhas[0].rota).toBe('/api/v1/clients');
+    expect(linhas[0]).not.toHaveProperty('caminho');
+  });
+
+  it('loga o ownerId publicado pelo AccessGuard', () => {
+    const req = requisicaoFalsa('/api/v1/clients');
+    (req as Request & { access?: { ownerId: string } }).access = {
+      ownerId: 'own-1',
+    };
+    const res = respostaFalsa(200);
+
+    contextoDaRequisicao(req, res, jest.fn());
+    res.disparaFinish();
+
+    expect(linhas[0].ownerId).toBe('own-1');
+  });
+
   it('loga o IP que o Express resolveu em req.ip, não o cabeçalho cru', () => {
     // Em produção req.ip já vem do x-forwarded-for, porque o bootstrap configura
     // `trust proxy` (TRUST_PROXY_HOPS). O middleware não interpreta o cabeçalho:
@@ -130,5 +170,30 @@ describe('contextoDaRequisicao', () => {
     res.disparaFinish();
 
     expect(linhas[0].ip).toBe('10.0.0.1');
+  });
+});
+
+describe('normalizarRota', () => {
+  it('troca uuid, número e token opaco pelo nome do parâmetro', () => {
+    expect(
+      normalizarRota('/api/v1/proposals/2f1c9b6e-3a4d-4f7a-9c21-8b5e0d7a1234'),
+    ).toBe('/api/v1/proposals/:id');
+    expect(normalizarRota('/api/v1/deals/42/move')).toBe(
+      '/api/v1/deals/:n/move',
+    );
+    expect(
+      normalizarRota(`/api/v1/collaborators/${'a1b2c3d4'.repeat(8)}/accept`),
+    ).toBe('/api/v1/collaborators/:token/accept');
+  });
+
+  it('preserva os segmentos fixos, inclusive os de baixa cardinalidade', () => {
+    // `google` e `permissions` distinguem uma rota da outra: normalizar isso
+    // colapsaria rotas diferentes na mesma série.
+    expect(normalizarRota('/api/v1/auth/oauth/google/callback')).toBe(
+      '/api/v1/auth/oauth/google/callback',
+    );
+    expect(normalizarRota('/api/v1/roles/permissions')).toBe(
+      '/api/v1/roles/permissions',
+    );
   });
 });
