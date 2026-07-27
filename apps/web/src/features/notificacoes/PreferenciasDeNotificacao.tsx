@@ -5,7 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -375,10 +380,28 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
   const [label, setLabel] = useState('');
   const [kind, setKind] = useState<KindIntegracao>('SLACK');
   const [url, setUrl] = useState('');
+  // Nasce com os seis marcados: é o mesmo padrão que a API aplica quando o corpo
+  // não manda `types` (`TIPOS_PADRAO`). Quem quiser menos, desmarca aqui.
+  const [types, setTypes] = useState<NotificationType[]>(TIPOS);
+
+  // O `filter` sobre TIPOS (em vez de um push) mantém a ordem do catálogo mesmo
+  // depois de desmarcar e remarcar.
+  const alternarTipo = (tipo: NotificationType, marcado: boolean) => {
+    setTypes((atuais) =>
+      marcado
+        ? TIPOS.filter((t) => t === tipo || atuais.includes(t))
+        : atuais.filter((t) => t !== tipo),
+    );
+  };
 
   const salvar = async () => {
     try {
-      await criar.mutateAsync({ label: label.trim(), kind, url: url.trim() });
+      await criar.mutateAsync({
+        label: label.trim(),
+        kind,
+        url: url.trim(),
+        types,
+      });
       toast.success(
         'Integração criada. Use "Testar e ativar" para começar a receber.',
       );
@@ -444,6 +467,19 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
           onChange={(e) => setUrl(e.target.value)}
         />
       </Field>
+      <Field aria-labelledby="integracao-tipos">
+        <FieldLabel id="integracao-tipos" required>
+          Eventos
+        </FieldLabel>
+        <FieldDescription>
+          Só os tipos marcados são entregues neste destino. Dá para mudar depois,
+          no cartão da integração.
+        </FieldDescription>
+        <MatrizDeTipos selecionados={types} onAlternar={alternarTipo} />
+        {types.length === 0 && (
+          <FieldError>Selecione ao menos um evento.</FieldError>
+        )}
+      </Field>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onFechar}>
           Cancelar
@@ -451,7 +487,12 @@ function NovaIntegracao({ onFechar }: { onFechar: () => void }) {
         <Button
           type="button"
           size="sm"
-          disabled={criar.isPending || !label.trim() || !url.trim()}
+          disabled={
+            criar.isPending ||
+            !label.trim() ||
+            !url.trim() ||
+            types.length === 0
+          }
           onClick={() => void salvar()}
         >
           {criar.isPending ? 'Criando…' : 'Criar integração'}
