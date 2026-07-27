@@ -52,6 +52,23 @@ jobs:
   construir:
     runs-on: ubuntu-latest
 
+    # Postgres para o e2e. Sobe junto com o job — não custa minuto extra de
+    # runner, só os ~20s de healthcheck na primeira vez.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crm_user
+          POSTGRES_PASSWORD: crm_password
+          POSTGRES_DB: crm_db
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U crm_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # fetch-depth: 0 para o diff funcionar em push com vários commits. O repo
       # tem ~1,4 MB, então o histórico completo é irrelevante no tempo.
@@ -156,6 +173,12 @@ jobs:
       - name: Testes da API
         if: steps.detectar.outputs.api == 'true'
         run: pnpm --filter api test
+
+      # O e2e sobe o AppModule real contra o Postgres do `services` acima. O
+      # global-setup cria o banco crm_test e aplica as migrations sozinho.
+      - name: Testes e2e da API
+        if: steps.detectar.outputs.api == 'true'
+        run: pnpm --filter api test:e2e
 
       # -----------------------------------------------------------------------
       # Build e push das imagens que mudaram (tags `latest` e `<sha>`).
