@@ -3,7 +3,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Archive, Plus } from 'lucide-react';
 import {
   Dialog, DialogBody, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
@@ -18,13 +18,15 @@ import {
 } from '@/components/ui/select';
 import { MoneyInput } from '@/components/ui/money-input';
 import { AssigneeSelect } from '@/components/ui/assignee-select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SERVICE_TYPE_LABELS, translateServiceType } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useCan } from '@/hooks/use-can';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
 import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
-import { useCreateDeal, useUpdateDeal } from './api/hooks';
+import { useArchiveDeal, useCreateDeal, useUpdateDeal } from './api/hooks';
 import type { Deal, ServiceType } from './api/types';
 
 const schema = z.object({
@@ -54,7 +56,10 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
   const isEdit = !!deal;
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal(deal?.id ?? '');
+  const archiveDeal = useArchiveDeal();
+  const { can } = useCan();
 
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const debounced = useDebouncedValue(clientSearch, 300);
   const { data: clientOptions } = useClientOptions(debounced);
@@ -145,6 +150,19 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
           isEdit ? 'Falha ao atualizar a oportunidade.' : 'Falha ao criar a oportunidade.',
         ),
       );
+    }
+  };
+
+  const confirmArchive = async () => {
+    if (!deal) return;
+    try {
+      await archiveDeal.mutateAsync(deal.id);
+      toast.success('Oportunidade arquivada.');
+      setArchiveOpen(false);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(extractApiMessage(error, 'Falha ao arquivar a oportunidade.'));
+      setArchiveOpen(false);
     }
   };
 
@@ -287,14 +305,29 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
             </Field>
           </form>
         </DialogBody>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="deal-form" disabled={isSubmitting}>
-            {isSubmitting && <Spinner data-icon="inline-start" />}
-            {isEdit ? 'Salvar' : 'Criar oportunidade'}
-          </Button>
+        <DialogFooter className="justify-between">
+          {deal && can('oportunidade:gerenciar') ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => setArchiveOpen(true)}
+            >
+              <Archive data-icon="inline-start" />
+              Arquivar
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="deal-form" disabled={isSubmitting}>
+              {isSubmitting && <Spinner data-icon="inline-start" />}
+              {isEdit ? 'Salvar' : 'Criar oportunidade'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -305,6 +338,18 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
       open={clientFormOpen}
       onOpenChange={setClientFormOpen}
       onCreated={handleClientCreated}
+    />
+
+    <ConfirmDialog
+      open={archiveOpen}
+      onOpenChange={setArchiveOpen}
+      title="Arquivar oportunidade"
+      description="Ela sai do funil e vai para a lixeira, de onde pode ser restaurada."
+      confirmLabel="Arquivar"
+      pendingLabel="Arquivando…"
+      destructive
+      pending={archiveDeal.isPending}
+      onConfirm={() => void confirmArchive()}
     />
     </>
   );

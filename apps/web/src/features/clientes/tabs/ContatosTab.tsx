@@ -4,7 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Pencil, Star, Trash2, UserPlus } from 'lucide-react';
+import { Archive, Pencil, Star, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ import {
   useContacts,
   useCreateContact,
   useUpdateContact,
-  useDeleteContact,
+  useArchiveContact,
 } from '../api/hooks';
 import type { Client, Contact } from '../api/types';
 
@@ -63,11 +63,11 @@ export default function ContatosTab() {
   const { data: contacts, isLoading } = useContacts(clientId);
   const createContact = useCreateContact(clientId);
   const updateContact = useUpdateContact(clientId);
-  const deleteContact = useDeleteContact(clientId);
+  const archiveContact = useArchiveContact(clientId);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | undefined>();
-  const [toDelete, setToDelete] = useState<Contact | undefined>();
+  const [toArchive, setToArchive] = useState<Contact | undefined>();
 
   const {
     register,
@@ -126,15 +126,15 @@ export default function ContatosTab() {
     }
   };
 
-  const confirmDelete = async () => {
-    if (!toDelete) return;
+  const confirmArchive = async () => {
+    if (!toArchive) return;
     try {
-      await deleteContact.mutateAsync(toDelete.id);
-      toast.success('Contato excluído.');
+      await archiveContact.mutateAsync(toArchive.id);
+      toast.success('Contato arquivado.');
     } catch {
-      toast.error('Falha ao excluir o contato.');
+      toast.error('Falha ao arquivar o contato.');
     } finally {
-      setToDelete(undefined);
+      setToArchive(undefined);
     }
   };
 
@@ -196,10 +196,10 @@ export default function ContatosTab() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Excluir contato"
-                  onClick={() => setToDelete(contact)}
+                  aria-label="Arquivar contato"
+                  onClick={() => setToArchive(contact)}
                 >
-                  <Trash2 />
+                  <Archive />
                 </Button>
               </div>
             </li>
@@ -291,15 +291,15 @@ export default function ContatosTab() {
       </Dialog>
 
       <ConfirmDialog
-        open={!!toDelete}
-        onOpenChange={(open) => !open && setToDelete(undefined)}
-        title="Excluir contato"
-        description={`Tem certeza que deseja excluir “${toDelete?.name}”?`}
-        confirmLabel="Excluir"
-        pendingLabel="Excluindo…"
+        open={!!toArchive}
+        onOpenChange={(open) => !open && setToArchive(undefined)}
+        title="Arquivar contato"
+        description={`Tem certeza que deseja arquivar “${toArchive?.name}”? Ele sai da lista e vai para a lixeira, de onde pode ser restaurado.`}
+        confirmLabel="Arquivar"
+        pendingLabel="Arquivando…"
         destructive
-        pending={deleteContact.isPending}
-        onConfirm={() => void confirmDelete()}
+        pending={archiveContact.isPending}
+        onConfirm={() => void confirmArchive()}
       />
     </div>
   );

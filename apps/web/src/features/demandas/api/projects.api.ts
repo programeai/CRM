@@ -12,5 +12,8 @@ export const projectsApi = {
   create: (body: CreateProjectBody) => api.post<Project>('/projects', body).then((r) => r.data),
   update: (id: string, body: UpdateProjectBody) =>
     api.patch<Project>(`/projects/${id}`, body).then((r) => r.data),
+  archive: (id: string) => api.post<Project>(`/projects/${id}/archive`).then((r) => r.data),
+  restore: (id: string) => api.post<Project>(`/projects/${id}/restore`).then((r) => r.data),
+  /** Expurgo — exige `lixeira:expurgar`, registro já arquivado e sem demandas vinculadas. */
   remove: (id: string) => api.delete(`/projects/${id}`).then((r) => r.data),
 };

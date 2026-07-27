@@ -19,6 +19,9 @@ export const tasksApi = {
     api.patch<Task>(`/tasks/${id}`, body).then((r) => r.data),
   move: (id: string, body: MoveTaskBody) =>
     api.patch<Task>(`/tasks/${id}/move`, body).then((r) => r.data),
+  archive: (id: string) => api.post<Task>(`/tasks/${id}/archive`).then((r) => r.data),
+  restore: (id: string) => api.post<Task>(`/tasks/${id}/restore`).then((r) => r.data),
+  /** Expurgo — exige `lixeira:expurgar` e registro já arquivado. */
   remove: (id: string) => api.delete(`/tasks/${id}`).then((r) => r.data),
   listTags: () => api.get<TagUsage[]>('/tasks/tags').then((r) => r.data),
   tagUsage: (tag: string) =>

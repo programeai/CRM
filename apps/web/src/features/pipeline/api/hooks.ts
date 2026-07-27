@@ -53,10 +53,10 @@ export function useUpdateDeal(id: string) {
     onSuccess: () => invalidateDeals(qc),
   });
 }
-export function useDeleteDeal() {
+export function useArchiveDeal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => dealsApi.remove(id),
+    mutationFn: (id: string) => dealsApi.archive(id),
     onSuccess: () => invalidateDeals(qc),
   });
 }

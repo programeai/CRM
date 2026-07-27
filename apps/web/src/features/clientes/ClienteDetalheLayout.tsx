@@ -226,7 +226,7 @@ export default function ClienteDetalheLayout() {
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
         title="Arquivar cliente"
-        description={`Tem certeza que deseja arquivar “${client.name}”? Ele sairá da listagem padrão.`}
+        description={`Tem certeza que deseja arquivar “${client.name}”? Ele sai das listagens e vai para a lixeira, de onde pode ser restaurado.`}
         confirmLabel="Arquivar"
         pendingLabel="Arquivando…"
         destructive
