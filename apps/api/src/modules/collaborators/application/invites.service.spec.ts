@@ -9,6 +9,7 @@ import type {
   InviteWithUser,
 } from '../domain/invite.repository';
 import type { AuditService } from '../../audit/audit.service';
+import type { NotificationTargetRepository } from '../../notifications/domain/notification-target.repository';
 
 const TOKEN = 'token-em-claro';
 const hashOf = (raw: string) => createHash('sha256').update(raw).digest('hex');
@@ -36,6 +37,9 @@ describe('InvitesService', () => {
   let repo: jest.Mocked<InviteRepository>;
   let mail: jest.Mocked<Pick<MailService, 'sendCollaboratorInvite'>>;
   let audit: { registrarPeloSistema: jest.Mock };
+  let targets: jest.Mocked<
+    Pick<NotificationTargetRepository, 'provisionarPadraoPeloSistema'>
+  >;
   let service: InvitesService;
 
   beforeEach(() => {
@@ -50,12 +54,16 @@ describe('InvitesService', () => {
     } as unknown as ConfigService;
 
     audit = { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
+    targets = {
+      provisionarPadraoPeloSistema: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new InvitesService(
       repo,
       mail as unknown as MailService,
       config,
       audit as unknown as AuditService,
+      targets as unknown as NotificationTargetRepository,
     );
   });
 
@@ -183,6 +191,17 @@ describe('InvitesService', () => {
       await expect(
         service.accept(TOKEN, 'senha-segura'),
       ).rejects.toBeInstanceOf(GoneException);
+    });
+
+    it('provisiona os destinos de notificação padrão com o ownerId de quem convidou', async () => {
+      await service.accept(TOKEN, 'senha-segura');
+
+      expect(targets.provisionarPadraoPeloSistema).toHaveBeenCalledWith({
+        ownerId: 'owner-1',
+        userId: 'c1',
+        email: 'ana@exemplo.com',
+        kinds: ['IN_APP', 'EMAIL'],
+      });
     });
 
     it('registra o aceite na trilha com o convidado como autor', async () => {

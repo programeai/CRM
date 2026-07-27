@@ -15,6 +15,10 @@ import {
   type InviteWithUser,
 } from '../domain/invite.repository';
 import { AuditService } from '../../audit/audit.service';
+import {
+  NOTIFICATION_TARGET_REPOSITORY,
+  type NotificationTargetRepository,
+} from '../../notifications/domain/notification-target.repository';
 
 /** Validade do convite. Precisa acompanhar o texto do e-mail e da interface. */
 export const INVITE_TTL_DAYS = 7;
@@ -44,6 +48,8 @@ export class InvitesService {
     private readonly mail: MailService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    @Inject(NOTIFICATION_TARGET_REPOSITORY)
+    private readonly targets: NotificationTargetRepository,
   ) {}
 
   /**
@@ -106,6 +112,24 @@ export class InvitesService {
       msg: 'Convite de colaborador aceito.',
       colaboradorId: invite.userId,
       ownerId: invite.ownerId,
+    });
+    // O colaborador só vira gente de verdade agora (acceptedAt preenchido) — é
+    // aqui que ele ganha os destinos, com `ownerId: invite.ownerId` (não o
+    // próprio id: quem é dono da workspace é quem convidou).
+    // Rota @Public(): sem contexto de owner. Mesmo caminho de sistema da trilha
+    // logo abaixo — client admin, ownerId explícito.
+    await this.targets.provisionarPadraoPeloSistema({
+      ownerId: invite.ownerId,
+      userId: invite.userId,
+      email: invite.user.email,
+      kinds: ['IN_APP', 'EMAIL'],
+    });
+    this.logger.log({
+      evento: 'notificacao.destinos_provisionados',
+      msg: 'Destinos de notificação padrão criados para o colaborador.',
+      ownerId: invite.ownerId,
+      userId: invite.userId,
+      quantidade: 2,
     });
     // Rota @Public(): não há AccessContext no CLS, mas o autor É conhecido — o
     // próprio convidado. Vai pelo caminho de sistema (ownerId explícito, client
