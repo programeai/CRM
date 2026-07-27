@@ -67,6 +67,14 @@ Gere os segredos com `openssl rand -hex 32`. **`APP_DB_PASSWORD` não pode conte
 apóstrofo nem barra invertida** — ela entra literal num `ALTER ROLE` e o
 entrypoint aborta se encontrar esses caracteres.
 
+Secret com **`$`** é seguro, mas só porque o workflow de deploy escapa o `$`
+como `$$` ao gerar o `.env`. Sem esse escape o Compose interpreta o que vem
+depois do `$` como nome de variável e substitui por vazio: em 27/07/2026 um
+`SMTP_PASSWORD` de 32 caracteres chegou ao container com 13 e o envio de e-mail
+morreu sem nenhum erro no boot. Se você editar o `.env` da VPS na mão, escape o
+`$` você também — e confira com
+`docker exec crm-api printenv SMTP_PASSWORD | wc -c`.
+
 Opcionais (podem ficar em branco): OAuth (`GOOGLE_*`, `GITHUB_*`), captcha
 (`TURNSTILE_SECRET_KEY` + `VITE_TURNSTILE_SITE_KEY`), SMTP (`SMTP_*`,
 `MAIL_FROM`), Stripe (`BILLING_ENABLED`, `STRIPE_*`) e o autocadastro
