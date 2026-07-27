@@ -3,7 +3,10 @@ import { Plus, Settings2 } from 'lucide-react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AssigneeFilterSelect } from '@/components/ui/assignee-filter-select';
 import { useKanbanDnd } from '@/hooks/use-kanban-dnd';
+import { stringFilter, useUrlFilters } from '@/hooks/use-url-filters';
+import { useResolvedAssigneeFilter } from '@/lib/members-lookup';
 import { useBoard, useMoveDeal, useStages } from './api/hooks';
 import { KanbanColumn } from './components/KanbanColumn';
 import { SortableDealCard } from './components/SortableDealCard';
@@ -15,16 +18,26 @@ import type { Deal } from './api/types';
 
 const getDealId = (d: Deal) => d.id;
 
+/** Filtro do quadro persistido na URL (sobrevive à ida/volta de uma tela de detalhe). */
+const PIPELINE_FILTERS = {
+  /** `''` = todos; `'me'` = o usuário logado; senão o id de um membro. */
+  assignee: stringFilter(),
+};
+
 export default function PipelineBoardPage() {
+  const { values, set } = useUrlFilters(PIPELINE_FILTERS);
+  const assigneeId = useResolvedAssigneeFilter(values.assignee);
+  const boardParams = assigneeId ? { assigneeId } : {};
+
   const { data: stages, isLoading: loadingStages } = useStages();
-  const { data: deals, isLoading: loadingDeals } = useBoard();
+  const { data: deals, isLoading: loadingDeals } = useBoard(boardParams);
   const [formOpen, setFormOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [editing, setEditing] = useState<Deal | undefined>();
   const [pendingLost, setPendingLost] = useState<{ id: string; stageId: string; position: number } | null>(
     null,
   );
-  const moveDeal = useMoveDeal();
+  const moveDeal = useMoveDeal(boardParams);
 
   const byStage = useMemo(() => {
     const map = new Map<string, Deal[]>();
@@ -76,6 +89,11 @@ export default function PipelineBoardPage() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-heading text-2xl font-semibold">Pipeline</h1>
         <div className="flex items-center gap-2">
+          <AssigneeFilterSelect
+            className="w-56"
+            value={values.assignee}
+            onValueChange={(assignee) => set({ assignee })}
+          />
           <Button variant="outline" onClick={() => setConfigOpen(true)}>
             <Settings2 data-icon="inline-start" />
             Configurar estágios

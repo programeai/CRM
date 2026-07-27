@@ -11,6 +11,12 @@ export interface PipelineStage {
   isLost: boolean;
 }
 
+/** Responsável, quando houver. Shape mínimo devolvido junto do registro. */
+export interface Assignee {
+  id: string;
+  name: string;
+}
+
 export interface Deal {
   id: string;
   clientId: string;
@@ -24,6 +30,8 @@ export interface Deal {
   lostReason?: string | null;
   position: number;
   stageMovedAt: string;
+  assigneeId?: string | null;
+  assignee?: Assignee | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +43,7 @@ export interface CreateDealBody {
   amount?: number;
   probability?: number;
   expectedClose?: string;
+  assigneeId?: string | null;
 }
 export type UpdateDealBody = Partial<Omit<CreateDealBody, 'clientId'>>;
 export interface MoveDealBody {
