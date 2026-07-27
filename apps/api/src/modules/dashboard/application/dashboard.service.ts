@@ -3,6 +3,11 @@ import {
   DASHBOARD_REPOSITORY,
   type DashboardRepository,
 } from '../domain/dashboard.repository';
+import type { AccessContext } from '../../access/domain/access-context';
+import {
+  resolveAssigneeScope,
+  type AssigneeScope,
+} from '../../../shared/record-scope';
 
 const UPCOMING_TAKE = 5; // itens exibidos nas listas de "próximos"
 const UPCOMING_DAYS = 7; // janela de "próximas entregas/vencimentos"
@@ -70,8 +75,13 @@ export class DashboardService {
    * bloco é agregado de um módulo diferente. Por isso recebe as permissões da
    * sessão e devolve `null` no bloco que o usuário não pode ver — sem isso, quem
    * não tem `proposta:ver` leria os totais de propostas por aqui.
+   *
+   * Cada bloco também é recortado por responsável: sem a chave `:ver_todos` do
+   * recurso, o usuário vê apenas os registros dele e os sem responsável;
+   * `onlyMine` (o alternador da interface) estreita ainda mais.
    */
-  async summary(ownerId: string, permissions: readonly string[]) {
+  async summary(ownerId: string, access: AccessContext, onlyMine = false) {
+    const permissions: readonly string[] = access.permissions;
     const may = (...keys: string[]) =>
       keys.some((k) => permissions.includes(k));
     const mayDeals = may('oportunidade:ver', 'oportunidade:gerenciar');
@@ -83,21 +93,41 @@ export class DashboardService {
     );
     const mayClients = may('cliente:ver', 'cliente:gerenciar');
 
+    // Cada bloco tem a sua chave de escopo; o alternador vale para os três.
+    const dealScope = resolveAssigneeScope(
+      access,
+      'oportunidade:ver_todas',
+      onlyMine,
+    );
+    const taskScope = resolveAssigneeScope(
+      access,
+      'demanda:ver_todas',
+      onlyMine,
+    );
+    const clientScope = resolveAssigneeScope(
+      access,
+      'cliente:ver_todos',
+      onlyMine,
+    );
+
     const w = buildWindows(new Date());
     const [funnel, proposals, demands, upcomingActions] = await Promise.all([
-      mayDeals ? this.funnelBlock(ownerId) : null,
+      mayDeals ? this.funnelBlock(ownerId, dealScope) : null,
+      // Propostas ficam de fora do recorte: `Proposal` não tem responsável.
       mayProposals ? this.proposalsBlock(ownerId, w) : null,
-      mayTasks ? this.demandsBlock(ownerId, w) : null,
+      mayTasks ? this.demandsBlock(ownerId, w, taskScope) : null,
       // Próximas ações são follow-ups de clientes (ver Activity).
-      mayClients ? this.repo.upcomingActions(ownerId, UPCOMING_TAKE) : [],
+      mayClients
+        ? this.repo.upcomingActions(ownerId, UPCOMING_TAKE, clientScope)
+        : [],
     ]);
 
     return { funnel, proposals, demands, upcomingActions };
   }
 
   /** Funil de oportunidades + totais em aberto. */
-  private async funnelBlock(ownerId: string) {
-    const stages = await this.repo.funnel(ownerId);
+  private async funnelBlock(ownerId: string, scope?: AssigneeScope) {
+    const stages = await this.repo.funnel(ownerId, scope);
     // Estágios "abertos" = nem ganho nem perdido (oportunidades em negociação).
     const openStages = stages.filter((s) => !s.isWon && !s.isLost);
     return {
@@ -125,11 +155,21 @@ export class DashboardService {
     };
   }
 
-  private async demandsBlock(ownerId: string, w: DashboardWindows) {
+  private async demandsBlock(
+    ownerId: string,
+    w: DashboardWindows,
+    scope?: AssigneeScope,
+  ) {
     const [inProgress, overdue, upcoming] = await Promise.all([
-      this.repo.tasksInProgressCount(ownerId),
-      this.repo.tasksOverdueCount(ownerId, w.now),
-      this.repo.upcomingTasks(ownerId, w.now, w.upcomingUntil, UPCOMING_TAKE),
+      this.repo.tasksInProgressCount(ownerId, scope),
+      this.repo.tasksOverdueCount(ownerId, w.now, scope),
+      this.repo.upcomingTasks(
+        ownerId,
+        w.now,
+        w.upcomingUntil,
+        UPCOMING_TAKE,
+        scope,
+      ),
     ]);
     return { inProgress, overdue, upcoming };
   }

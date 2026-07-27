@@ -8,6 +8,11 @@ import type {
   UpcomingPaymentRow,
   UpcomingTaskRow,
 } from '../domain/dashboard.repository';
+import {
+  ALL_RECORDS,
+  assigneeScopeWhere,
+  type AssigneeScope,
+} from '../../../shared/record-scope';
 
 const toNumber = (value: { toString(): string } | null | undefined): number =>
   value == null ? 0 : Number(value);
@@ -16,8 +21,13 @@ const toNumber = (value: { toString(): string } | null | undefined): number =>
 export class PrismaDashboardRepository implements DashboardRepository {
   constructor(private prisma: PrismaService) {}
 
-  async funnel(ownerId: string): Promise<FunnelStageRow[]> {
-    // Estágios e agregados, ambos do owner (RLS + filtro explícito).
+  async funnel(
+    ownerId: string,
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<FunnelStageRow[]> {
+    const scoped = assigneeScopeWhere(scope);
+    // Estágios e agregados, ambos do owner (RLS + filtro explícito). O recorte
+    // por responsável vale só para os deals — estágio é do owner, não de alguém.
     const [stages, grouped] = await Promise.all([
       this.prisma.db.pipelineStage.findMany({
         where: { ownerId },
@@ -25,7 +35,7 @@ export class PrismaDashboardRepository implements DashboardRepository {
       }),
       this.prisma.db.deal.groupBy({
         by: ['stageId'],
-        where: { client: { ownerId } },
+        where: { client: { ownerId }, ...(scoped ? { AND: [scoped] } : {}) },
         _count: { _all: true },
         _sum: { amount: true },
       }),
@@ -78,18 +88,29 @@ export class PrismaDashboardRepository implements DashboardRepository {
     return rows.map((r) => ({ status: r.status, count: r._count._all }));
   }
 
-  tasksInProgressCount(ownerId: string) {
+  tasksInProgressCount(ownerId: string, scope: AssigneeScope = ALL_RECORDS) {
+    const scoped = assigneeScopeWhere(scope);
     return this.prisma.db.task.count({
-      where: { project: { client: { ownerId } }, status: 'IN_PROGRESS' },
+      where: {
+        project: { client: { ownerId } },
+        status: 'IN_PROGRESS',
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
     });
   }
 
-  tasksOverdueCount(ownerId: string, now: Date) {
+  tasksOverdueCount(
+    ownerId: string,
+    now: Date,
+    scope: AssigneeScope = ALL_RECORDS,
+  ) {
+    const scoped = assigneeScopeWhere(scope);
     return this.prisma.db.task.count({
       where: {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
         dueDate: { lt: now },
+        ...(scoped ? { AND: [scoped] } : {}),
       },
     });
   }
@@ -99,12 +120,15 @@ export class PrismaDashboardRepository implements DashboardRepository {
     now: Date,
     until: Date,
     take: number,
+    scope: AssigneeScope = ALL_RECORDS,
   ): Promise<UpcomingTaskRow[]> {
+    const scoped = assigneeScopeWhere(scope);
     const rows = await this.prisma.db.task.findMany({
       where: {
         project: { client: { ownerId } },
         status: { not: 'DONE' },
         dueDate: { gte: now, lte: until },
+        ...(scoped ? { AND: [scoped] } : {}),
       },
       orderBy: { dueDate: 'asc' },
       take,
@@ -139,13 +163,16 @@ export class PrismaDashboardRepository implements DashboardRepository {
   async upcomingActions(
     ownerId: string,
     take: number,
+    scope: AssigneeScope = ALL_RECORDS,
   ): Promise<UpcomingActionRow[]> {
+    const scoped = assigneeScopeWhere(scope);
     const rows = await this.prisma.db.activity.findMany({
       where: {
         client: { ownerId },
         type: 'FOLLOW_UP',
         completedAt: null,
         scheduledFor: { not: null },
+        ...(scoped ? { AND: [scoped] } : {}),
       },
       orderBy: { scheduledFor: 'asc' },
       take,
