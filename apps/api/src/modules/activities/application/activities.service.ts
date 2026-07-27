@@ -6,6 +6,7 @@ import {
 } from '../domain/activity.repository';
 import { ClientsService } from '../../clients/application/clients.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { assigneeMudou } from '../../../shared/assignee-changed';
@@ -21,6 +22,7 @@ export class ActivitiesService {
     private readonly clients: ClientsService,
     private readonly members: WorkspaceMembersService,
     private readonly notifications: NotificationsService,
+    private readonly catalogos: CatalogosService,
   ) {}
 
   async create(
@@ -29,11 +31,16 @@ export class ActivitiesService {
   ): Promise<ActivityWithAssignee> {
     await this.clients.findOne(ownerId, dto.clientId); // garante posse
     await this.members.assertMember(ownerId, dto.assigneeId);
+    await this.catalogos.assertUtilizavel(
+      ownerId,
+      'tipos-de-atividade',
+      dto.typeId,
+    );
     const criada = await this.repo.create({
       ownerId,
       clientId: dto.clientId,
       dealId: dto.dealId,
-      type: dto.type,
+      typeId: dto.typeId,
       content: dto.content,
       scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : undefined,
       assigneeId: dto.assigneeId ?? null,
@@ -84,9 +91,16 @@ export class ActivitiesService {
   ): Promise<ActivityWithAssignee> {
     const antes = await this.loadOwned(ownerId, id);
     await this.members.assertMember(ownerId, dto.assigneeId);
+    if (dto.typeId !== undefined) {
+      await this.catalogos.assertUtilizavel(
+        ownerId,
+        'tipos-de-atividade',
+        dto.typeId,
+      );
+    }
     const atualizada = await this.repo.update(id, {
       ...(dto.dealId !== undefined ? { dealId: dto.dealId } : {}),
-      ...(dto.type !== undefined ? { type: dto.type } : {}),
+      ...(dto.typeId !== undefined ? { typeId: dto.typeId } : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
       ...(dto.scheduledFor !== undefined
         ? { scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null }

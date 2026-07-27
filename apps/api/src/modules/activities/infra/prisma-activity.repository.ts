@@ -14,6 +14,9 @@ import {
 /** Responsável embutido na leitura — a timeline exibe o nome. */
 const withAssignee = {
   assignee: { select: { id: true, name: true } },
+  // O rótulo do tipo é o dado (catálogo por owner), e `isFollowUp` é a REGRA
+  // de que a timeline depende para o predicado de follow-up pendente.
+  type: { select: { id: true, name: true, active: true, isFollowUp: true } },
 } satisfies Prisma.ActivityInclude;
 
 @Injectable()
