@@ -1,7 +1,8 @@
 # Roadmap — CRM ProgrameAi
 
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
-> Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada.
+> Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada · ⏸️ adiada.
+> Fases recortadas trazem o número do recorte no status (ex.: `13-A`) — ver [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
 > **P2** evolução de produto · **P3** plataforma e governança.
 >
@@ -27,23 +28,63 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
 | 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
 | 8 | Governança — sessões, auditoria e lixeira (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md) · [plan A](specs/plans/2026-07-26-fase-8a-sessoes.md) · [plan B](specs/plans/2026-07-26-fase-8b-auditoria.md) · [plan C](specs/plans/2026-07-26-fase-8c-lixeira.md) |
-| 9 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
-| 10 | Relatórios e metas (**P1**) | ⬜ não iniciada | a definir |
+| 9 | Notificações e lembretes (**P1**) | ✅ concluída | [plan](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md) |
+| 10 | Relatórios e metas (**P1**) | ⏸️ adiada | a definir |
 | 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
-| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada | a definir |
-| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ⬜ não iniciada | a definir |
-| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ não iniciada | a definir |
+| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada · **4º na trilha** | a definir |
+| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | 🔜 **13-A é a próxima** · 13-B adiada | a definir |
+| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ **14-A é o 2º** · 14-B 5º · 14-C adiada | a definir |
 | 15 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
 | 16 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
 | 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ⬜ não iniciada | a definir |
 | 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
-| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ⬜ não iniciada | a definir |
+| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ⬜ **19-A é o 3º** · 19-B P3 | a definir |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
 
 As fases 0–6 entregaram o MVP; as fases 7+ são o caminho para o CRM cobrir o que se espera de um
 CRM profissional. A ordem é a recomendada, não obrigatória — cada fase é independente das seguintes,
 exceto onde indicado em "Depende de".
+
+---
+
+## Trilha de produção — revisão de 2026-07-27
+
+**Decisão:** o objetivo imediato deixou de ser "avançar no roadmap" e passou a ser **abrir o produto a
+usuários reais**. Com o autocadastro aberto em `crm.programeai.com.br`, quem se cadastra não é mais a
+nossa agência — e o critério de prioridade muda: vale o que **impede alguém de usar o sistema**, não o
+que o completa.
+
+Sob esse critério, as fases 12–14 não entram inteiras. A maior parte de cada uma **não** é bloqueio de
+produção, e as partes mais difíceis (campos customizados, mesclagem de clientes) são justamente as que
+menos bloqueiam. Cada fase foi **recortada**: a letra **A** é o recorte de produção, as seguintes ficam
+para depois. Os números das fases não mudaram — as specs e os links continuam válidos.
+
+| Ordem | Recorte | Fase | Por quê |
+|---|---|---|---|
+| 1 | Catálogo de serviços, fontes de lead e motivos de perda por owner | **13-A** | único bloqueio absoluto: `ServiceType` é enum fechado no nosso mix de serviço |
+| 2 | Importação CSV/XLSX de clientes e contatos + exportação das listagens | **14-A** | onboarding de base existente e fechamento de mês fora da tela |
+| 3 | LGPD mínimo: excluir a própria conta, exportar meus dados | **19-A** | risco legal com dado de terceiro, não feature |
+| 4 | Anexos e documentos | **12** | primeira infra externa (S3/MinIO); desbloqueia o logo da Fase 11 |
+| 5 | Busca global + detecção de duplicidade | **14-B** | conveniência: cada listagem já tem `?search=` |
+
+**Adiado explicitamente:** campos customizados (**13-B**), mesclagem de clientes e unicidade de
+`document` (**14-C**), Fase 10 inteira (relatório é de quem já tem meses de dado) e o resto da Fase 19
+(**19-B**: API pública, 2FA, consentimento).
+
+> **Por que a Fase 12 desce para 4º**, mesmo sendo lacuna real: ninguém abandona o produto por não
+> anexar arquivo — continua no Drive, como hoje. E é a única das três que pede **credencial e mudança
+> de deploy**, justo na janela em que se quer estabilizar. Ela sobe de prioridade no momento em que a
+> Fase 11 (proposta que o cliente vê) entrar, porque o logo do owner pressupõe upload.
+
+> **Por que a mesclagem de clientes (14-C) é a última coisa a entrar:** é a única frente do P1 que
+> **reescreve chave de registro financeiro** e não tem volta. Numa produção recém-aberta, o custo de
+> errar é maior que o de conviver com duplicata.
+
+**O que já está de pé e não é gargalo:** deploy com Traefik ([docs/deploy.md](docs/deploy.md)), backup
+com `pg_dump` documentado, billing Stripe ([docs/billing-stripe.md](docs/billing-stripe.md)),
+observabilidade ([docs/observabilidade.md](docs/observabilidade.md)), auditoria, sessões múltiplas e
+lixeira. O gargalo é o **domínio ser fechado no nosso mix de serviço**.
 
 ---
 
@@ -266,12 +307,14 @@ independentes, **todas entregues**.
 
 ---
 
-> **Ordem do P1.** A Fase 9 (notificações) vem primeiro **por decisão de produto** — é a lacuna que
-> mais pesa no uso diário, já que hoje o sistema só informa quem está olhando a tela. Da Fase 10 em
-> diante as fases seguem **da mais simples para a mais complexa**, pelos mesmos três critérios do P2:
+> **Ordem do P1 — superada pela [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).**
+> A Fase 9 (notificações) veio primeiro **por decisão de produto** e está entregue. A ordem original da
+> Fase 10 em diante era **da mais simples para a mais complexa**, pelos mesmos três critérios do P2:
 > dependência externa (integração, infra nova, credencial), tamanho de schema e superfície tocada, e
-> risco de dinheiro/irreversível. São independentes entre si — a ordem é de esforço, não de
-> pré-requisito, exceto onde a fase declara "Depende de".
+> risco de dinheiro/irreversível. Essa ordem **não é mais a de execução** — a trilha de produção
+> reordenou por "o que impede alguém de usar" e recortou as fases 12–14. As fases seguem independentes
+> entre si, exceto onde declaram "Depende de"; os critérios abaixo continuam valendo como leitura de
+> **esforço**.
 
 ## Fase 9 — Notificações e lembretes ✅ **P1**
 
@@ -296,7 +339,11 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 10 — Relatórios e metas ⬜ **P1**
+## Fase 10 — Relatórios e metas ⬜ **P1** · ⏸️ adiada
+
+> **Adiada na revisão de 2026-07-27.** Não bloqueia usuário novo: relatório com comparação de período,
+> tempo médio de ciclo e "quanto falta para a meta" só dizem algo depois de meses de dado acumulado.
+> Volta à fila quando os primeiros owners tiverem histórico.
 
 - [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
 - [ ] Resultado por responsável, por serviço e por fonte de lead
@@ -334,7 +381,7 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 12 — Anexos e documentos ⬜ **P1**
+## Fase 12 — Anexos e documentos ⬜ **P1** · 4º na trilha de produção
 
 - [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
 - [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
@@ -344,6 +391,12 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > **Por quê:** não existe upload em nenhum ponto do sistema — contrato assinado, briefing, arte e
 > comprovante de pagamento continuam no Drive/WhatsApp.
 
+> **Posição na trilha (4º), não recortada.** A fase entra inteira — o recorte aqui não ajudaria, porque
+> o custo é a infra, e ela é indivisível: sem bucket não há upload nenhum. Fica depois de 13-A/14-A/19-A
+> porque a ausência de anexo **não impede o uso** (o arquivo continua no Drive, como hoje), e porque é a
+> primeira fase a exigir credencial e mudança de deploy — o que se quer evitar na janela de
+> estabilização. Sobe de prioridade junto com a Fase 11, que precisa do logo do owner.
+
 > **Complexidade:** primeira fase com **infra externa** — bucket S3-compatível (ou MinIO na
 > autohospedagem) significa env, credencial e mudança de deploy, não só código. Soma-se uma
 > capacidade que a API nunca teve (multipart), anexo polimórfico ligado a seis entidades e uma
@@ -351,43 +404,80 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 13 — Extensibilidade do domínio ⬜ **P1**
-
-- [ ] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
-      (`SOFTWARE | WEBSITE | PAID_TRAFFIC` — [`schema.prisma:405`](apps/api/prisma/schema.prisma#L405)), com migration de dados
-- [ ] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
-- [ ] Campos customizados em cliente, oportunidade e projeto (texto, número, data, seleção, booleano),
-      exibidos nos formulários, nos filtros e na exportação
-- [ ] Motivos de perda como lista configurável (hoje `lostReason` é texto livre)
+## Fase 13 — Extensibilidade do domínio ⬜ **P1** · recortada
 
 > **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
 
-> **Complexidade:** nenhuma integração, e ainda assim alta. Trocar o enum `ServiceType` por catálogo
-> exige **migration de dados sobre registros vivos** (com RLS por owner), e campos customizados são o
-> item estruturalmente difícil do roadmap: valor dinâmico por tipo, validação em runtime, e todo
-> formulário, filtro e exportação passando a se montar a partir de definição, não de código.
+**Frente A — Domínio configurável pelo owner** 🔜 **1º na trilha de produção**
+
+- [ ] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
+      (`SOFTWARE | WEBSITE | PAID_TRAFFIC` — [`schema.prisma:518`](apps/api/prisma/schema.prisma#L518)), com migration de dados
+- [ ] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
+- [ ] Motivos de perda como lista configurável (hoje `lostReason` é texto livre)
+
+> **Por que é o 1º:** é o **único bloqueio absoluto** do roadmap. `ServiceType` não é um detalhe de
+> exibição — é obrigatório em `Deal`, `Proposal` e `Project`, e aparece em 18 arquivos entre DTOs,
+> tipos do front, formulários e [`labels.ts`](apps/web/src/lib/labels.ts). Quem se cadastra e não é
+> agência com o nosso mix trava no primeiro formulário de oportunidade, sem contorno na UI.
+
+> **Complexidade:** nenhuma integração, mas **migration de dados sobre registros vivos** com RLS por
+> owner — cada owner existente precisa herdar os três serviços atuais como catálogo próprio, e os
+> `Deal`/`Proposal`/`Project` religados por FK. Tem precedente direto: a Frente A da Fase 7 fez
+> exatamente isso com `PipelineStage` (`20260726120000_pipeline_stages_per_owner`), incluindo o seed
+> por conta em vez de por instância. Seguir aquele plano de perto.
+
+**Frente B — Campos customizados** ⬜ adiada
+
+- [ ] Campos customizados em cliente, oportunidade e projeto (texto, número, data, seleção, booleano),
+      exibidos nos formulários, nos filtros e na exportação
+
+> **Adiada na revisão de 2026-07-27.** É o item estruturalmente mais difícil do roadmap — valor dinâmico
+> por tipo, validação em runtime, e todo formulário, filtro e exportação passando a se montar a partir de
+> definição, não de código. E não bloqueia ninguém: sem campo customizado o CRM funciona, sem serviço
+> configurável não. Depende da Frente A e, para a exportação, de 14-A.
 
 ---
 
-## Fase 14 — Dados: importação, exportação, busca e duplicidade ⬜ **P1**
-
-- [ ] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
-- [ ] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
-- [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
-- [ ] Detecção de duplicidade por documento/e-mail/telefone na criação
-- [ ] Mesclagem de clientes duplicados (move contatos, oportunidades, propostas, contratos e timeline)
-- [ ] `document` com unicidade por owner quando informado
+## Fase 14 — Dados: importação, exportação, busca e duplicidade ⬜ **P1** · recortada
 
 > **Por quê:** sem import, o onboarding de um cliente real morre no primeiro dia; sem export, o
 > financeiro não fecha o mês fora da tela.
 
-> **Por que é a mais complexa do P1:** são seis frentes de naturezas diferentes numa fase — ingestão
+> **Por que era a mais complexa do P1:** são seis frentes de naturezas diferentes numa fase — ingestão
 > com mapeamento e relatório de erro, egressão genérica que atravessa **todas** as listagens
 > respeitando filtro e permissão, busca full-text (índice novo no Postgres) sobre seis entidades, e
 > **mesclagem de clientes**: religar FKs de contatos, oportunidades, propostas, contratos, cobranças e
-> timeline num só `$transaction`, sem volta. É a única frente do P1 que reescreve chave de registro
-> financeiro — pede a trilha da Fase 8 e testes de posse. Some-se a unicidade de `document`, que só
-> entra depois de resolver as duplicatas já existentes.
+> timeline num só `$transaction`, sem volta. Daí o recorte em três: só a Frente A é bloqueio de produção.
+
+**Frente A — Entrada e saída de dados** 🔜 **2º na trilha de produção**
+
+- [ ] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
+- [ ] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
+
+> **Por que é o 2º:** são as duas pontas do onboarding. Nenhum owner migra a base à mão, e hoje **não
+> existe nenhum endpoint de exportação** em todo o `ENDPOINTS.md` — o dado entra e não sai. Ambas são
+> autocontidas: nenhum modelo novo de negócio, nada irreversível (import falho não corrompe, só não
+> importa), e a exportação reaproveita os filtros e as permissões que cada listagem já aplica.
+
+**Frente B — Busca global e duplicidade** ⬜ 5º na trilha
+
+- [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
+- [ ] Detecção de duplicidade por documento/e-mail/telefone na criação
+
+> **Adiada por ser conveniência, não bloqueio.** Toda listagem já tem `?search=` própria (clientes,
+> deals, propostas, projetos, cobranças — ver `ENDPOINTS.md`); a busca global economiza cliques, não
+> destrava uso. Custo real: índice full-text novo no Postgres sobre seis entidades, com RLS.
+
+**Frente C — Mesclagem e unicidade** ⬜ adiada
+
+- [ ] Mesclagem de clientes duplicados (move contatos, oportunidades, propostas, contratos e timeline)
+- [ ] `document` com unicidade por owner quando informado
+
+> **Última coisa a entrar.** É a única frente do P1 que **reescreve chave de registro financeiro** e não
+> tem volta: religar FKs de cobrança num só `$transaction`. Numa produção recém-aberta, o custo de errar
+> é maior que o de conviver com duplicata. Pede a trilha da Fase 8 e testes de posse. A unicidade de
+> `document` só entra **depois** de resolver as duplicatas já existentes, e a detecção da Frente B é o
+> pré-requisito prático para saber quais são.
 
 ---
 
@@ -461,13 +551,29 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 19 — Plataforma: API pública, 2FA e LGPD ⬜ **P3**
+## Fase 19 — Plataforma: API pública, 2FA e LGPD ⬜ **P3** · recortada
+
+**Frente A — LGPD mínimo** 🔜 **3º na trilha de produção** (promovida de P3 para bloqueio de produção)
+
+- [ ] Excluir a própria conta (owner), com o efeito em cascata explícito e irreversível
+- [ ] Exportar meus dados — dump da workspace num formato legível pelo titular
+
+> **Por que sobe de P3 para o 3º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
+> governança futura. Com autocadastro aberto, estranhos passam a guardar **dado de terceiros** (clientes
+> deles, CPF/CNPJ, telefone) na nossa instância — e não existe **nenhum** endpoint de exclusão de conta
+> ou de exportação de dados em todo o `ENDPOINTS.md`. A
+> [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) promete o que o sistema não
+> cumpre. Isso é exposição legal, não feature — e é o recorte mais barato dos três primeiros.
+
+> **Escopo mínimo de propósito:** só as duas operações do titular. Consentimento, política de retenção
+> e opt-out ficam na Frente B. A exportação pode reaproveitar a egressão de 14-A.
+
+**Frente B — Plataforma aberta** ⬜ **P3**
 
 - [ ] API key por owner, com escopos e rotação
 - [ ] Webhooks de saída (eventos de negócio) para n8n/Zapier
 - [ ] 2FA/MFA no login (TOTP), com códigos de recuperação
-- [ ] LGPD operacional: exportar e excluir dados do titular, consentimento e política de retenção
-      (a [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) existe, o mecanismo não)
+- [ ] LGPD completo: consentimento e política de retenção
 - [ ] Rastreio de consentimento de comunicação (opt-out de e-mail/WhatsApp)
 
 > **Não confundir com o `WebhookChannel` da Fase 9.** O que já existe é destino **do usuário**: cada
