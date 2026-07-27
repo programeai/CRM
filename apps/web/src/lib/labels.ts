@@ -207,6 +207,7 @@ export const NOTIFICATION_CHANNEL_KIND_LABELS = {
   EMAIL: 'E-mail',
   WEBHOOK: 'Webhook',
   SLACK: 'Slack',
+  DISCORD: 'Discord',
 } as const;
 export const translateNotificationChannelKind = make(
   NOTIFICATION_CHANNEL_KIND_LABELS,
