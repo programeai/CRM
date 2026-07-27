@@ -1,4 +1,4 @@
-import { AlignLeft, CalendarClock, CheckSquare, Folder } from 'lucide-react';
+import { AlignLeft, CalendarClock, CheckSquare, Folder, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { TagBadge } from '@/components/ui/tag-badge';
 import {
@@ -86,6 +86,12 @@ export function TaskCard({ task, onClick, showProject = false }: Props) {
           >
             <CheckSquare className="size-3" />
             {checklistDone}/{checklistTotal}
+          </span>
+        )}
+        {task.assignee && (
+          <span className="flex items-center gap-1 truncate">
+            <User className="size-3 shrink-0" />
+            <span className="truncate">{task.assignee.name}</span>
           </span>
         )}
         <Badge

@@ -7,9 +7,11 @@ import type {
 export const tasksApi = {
   list: (params: ListTasksParams) =>
     api.get<Paginated<Task>>('/tasks', { params }).then((r) => r.data),
-  board: (projectId?: string) =>
+  board: (projectId?: string, params: { assigneeId?: string } = {}) =>
     api
-      .get<Task[]>('/tasks/board', { params: projectId ? { projectId } : {} })
+      .get<Task[]>('/tasks/board', {
+        params: { ...(projectId ? { projectId } : {}), ...params },
+      })
       .then((r) => r.data),
   get: (id: string) => api.get<Task>(`/tasks/${id}`).then((r) => r.data),
   create: (body: CreateTaskBody) => api.post<Task>('/tasks', body).then((r) => r.data),

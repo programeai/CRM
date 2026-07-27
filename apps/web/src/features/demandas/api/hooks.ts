@@ -63,11 +63,15 @@ export function useBoard(projectId: string) {
     enabled: !!projectId,
   });
 }
-/** Board cross-projeto de "Minhas demandas" (todas as tarefas do dono). */
-export function useMyBoard() {
+/**
+ * Board cross-projeto de "Minhas demandas". `params` entra na query key: sem isso,
+ * o cache de "atribuídos a mim" sobrescreveria o de "todos" (e o optimistic update
+ * de `useMoveMyTask` escreveria no recorte errado).
+ */
+export function useMyBoard(params: { assigneeId?: string } = {}) {
   return useQuery({
-    queryKey: queryKeys.tasks.myBoard,
-    queryFn: () => tasksApi.board(),
+    queryKey: queryKeys.tasks.myBoard(params),
+    queryFn: () => tasksApi.board(undefined, params),
   });
 }
 export function useTasks(params: ListTasksParams) {
@@ -156,9 +160,10 @@ export function useMoveTask(projectId: string) {
  * (a posição é reindexada por-projeto no backend). Optimistic: atualiza o status
  * no cache; reverte em erro e reconcilia no settle.
  */
-export function useMoveMyTask() {
+export function useMoveMyTask(params: { assigneeId?: string } = {}) {
   const qc = useQueryClient();
-  const key = queryKeys.tasks.myBoard;
+  // Mesma chave do `useMyBoard` ativo — senão o card "pula" de volta ao soltar.
+  const key = queryKeys.tasks.myBoard(params);
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: MoveTaskBody }) => tasksApi.move(id, body),
     onMutate: async ({ id, body }) => {
