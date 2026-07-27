@@ -126,3 +126,54 @@ export const ACTIVITY_TYPE_LABELS = {
   FOLLOW_UP: 'Follow-up',
 } as const;
 export const translateActivityType = make(ACTIVITY_TYPE_LABELS);
+
+// --- auditoria (Fase 8B) ---
+
+export const AUDIT_ACTOR_TYPE_LABELS = {
+  USER: 'Pessoa',
+  CRON: 'Rotina automática',
+  WEBHOOK: 'Integração',
+  SISTEMA: 'Sistema',
+} as const;
+export const translateAuditActorType = make(AUDIT_ACTOR_TYPE_LABELS);
+
+export const AUDIT_ENTITY_LABELS = {
+  CLIENT: 'Cliente',
+  CONTACT: 'Contato',
+  DEAL: 'Oportunidade',
+  PROPOSAL: 'Proposta',
+  PROJECT: 'Projeto',
+  TASK: 'Demanda',
+  CONTRACT: 'Contrato',
+  PAYMENT: 'Cobrança',
+  ROLE: 'Papel',
+  USER: 'Colaborador',
+  SUBSCRIPTION: 'Assinatura',
+} as const;
+export const translateAuditEntity = make(AUDIT_ENTITY_LABELS);
+
+/** Verbo no passado: a linha da trilha se lê "Fulana <ação> <registro>". */
+export const AUDIT_ACTION_LABELS = {
+  CRIAR: 'Criou',
+  ATUALIZAR: 'Editou',
+  EXCLUIR: 'Excluiu',
+  ARQUIVAR: 'Arquivou',
+  RESTAURAR: 'Restaurou',
+  EXPURGAR: 'Excluiu em definitivo',
+  PAGAR: 'Deu baixa',
+  ESTORNAR: 'Estornou',
+  CANCELAR: 'Cancelou',
+  PAUSAR: 'Pausou',
+  RETOMAR: 'Retomou',
+  ENVIAR: 'Enviou',
+  ACEITAR: 'Aceitou',
+  RECUSAR: 'Recusou',
+  NOVA_VERSAO: 'Criou nova versão',
+  CONVIDAR: 'Convidou',
+  ATIVAR: 'Reativou',
+  DESATIVAR: 'Desativou',
+  ALTERAR_PAPEL: 'Alterou o papel',
+  EXPIRAR: 'Expirou',
+  VENCER: 'Marcou como vencida',
+} as const;
+export const translateAuditAction = make(AUDIT_ACTION_LABELS);
