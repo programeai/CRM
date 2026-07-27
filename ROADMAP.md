@@ -25,7 +25,7 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ✅ concluída | [research](specs/research/2026-07-23-fase-4-demandas.md) · [plan](specs/plans/2026-07-23-fase-4-demandas.md) |
 | 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ concluída | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
 | 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
-| 7 | Base — funil por owner e responsável por registro (**P0**) | ⬜ não iniciada | a definir |
+| 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
 | 8 | Governança — sessões, auditoria e lixeira (**P0**) | ⬜ não iniciada | a definir |
 | 9 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
 | 10 | Notificações e lembretes (**P1**) | ⬜ não iniciada | a definir |
@@ -199,12 +199,13 @@ do web). Cada fase abaixo é uma lacuna **fechada em si mesma**, entregável iso
 
 ---
 
-## Fase 7 — Base: funil por owner e responsável por registro ⬜ **P0**
+## Fase 7 — Base: funil por owner e responsável por registro ✅ **P0**
 
-Dois defeitos estruturais que já afetam o uso real: o funil não é isolado por owner e nenhum registro
-tem responsável — o que esvazia o multiusuário entregue depois do MVP.
+Dois defeitos estruturais que já afetavam o uso real: o funil não era isolado por owner e nenhum
+registro tinha responsável — o que esvaziava o multiusuário entregue depois do MVP. A fase foi
+partida em duas frentes independentes, **ambas entregues**.
 
-**Isolamento do funil** — entregue (ver `specs/plans/2026-07-26-fase-7a-funil-por-owner.md`)
+**Frente A — Isolamento do funil** ✅ entregue ([plano](specs/plans/2026-07-26-fase-7a-funil-por-owner.md))
 - [x] `PipelineStage` recebe `ownerId`
 - [x] RLS em `PipelineStage` (`20260726120000_pipeline_stages_per_owner`)
 - [x] Trocar `name @unique` global por `@@unique([ownerId, name])`
@@ -214,15 +215,20 @@ tem responsável — o que esvazia o multiusuário entregue depois do MVP.
 > **Por quê:** numa instância multi-owner, renomear/reordenar/excluir um estágio hoje afeta todos
 > os owners. Funil configurável por owner é premissa de CRM, não feature.
 
-**Responsável por registro**
-- [ ] `assigneeId` (FK → `User`, opcional) em `Deal`, `Task`, `Activity` e `Client`
-- [ ] Atribuição na criação e edição, com troca de responsável; filtro `?assigneeId=` nas listagens
-- [ ] "Minhas demandas" e o board do pipeline filtram pelo usuário logado (hoje [`MinhasDemandasPage.tsx`](apps/web/src/features/demandas/MinhasDemandasPage.tsx) mostra o workspace inteiro)
-- [ ] Permissões novas: ver/gerenciar só os próprios registros × os de todos (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts))
-- [ ] Dashboard com corte por responsável
+**Frente B — Responsável por registro** ✅ entregue ([plano](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md))
 
-> **Por quê:** papéis definem *o que* alguém pode fazer, mas não existe *de quem* é o registro —
+- [x] `assigneeId` (FK → `User`, opcional, `ON DELETE SET NULL`) em `Deal`, `Task`, `Activity` e `Client` (`20260727100000_assignee_per_record`)
+- [x] Atribuição na criação e edição, com troca de responsável e validação de pertencimento à workspace (`422`); filtro `?assigneeId=` nas listagens
+- [x] "Minhas demandas" e o board do pipeline filtram por responsável (filtro do servidor, persistido na URL); `GET /workspace/members` alimenta o seletor
+- [x] Permissões novas: `cliente:ver_todos`, `oportunidade:ver_todas` e `demanda:ver_todas` (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts)); sem elas, a pessoa vê apenas os seus registros e os sem responsável
+- [x] Dashboard com corte por responsável (automático + alternador "Somente meus")
+
+> **Por quê:** papéis definem *o que* alguém pode fazer, mas não existia *de quem* é o registro —
 > sem carteira por vendedor, sem distribuição de lead, sem métrica por pessoa.
+
+> **Fora do escopo, por decisão:** escopo por registro nas **escritas** (sem `:ver_todos`, editar
+> um registro alheio continua permitido por `:gerenciar`), filtro "sem responsável", reatribuição
+> automática ao desativar colaborador, e `assigneeId` em `Proposal`/`Project`/`Contract`/`Payment`.
 
 ---
 
