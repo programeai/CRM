@@ -96,3 +96,16 @@ Ordem dos guards globais no `app.module.ts` — **não altere**: `ThrottlerGuard
 - O catálogo de permissões é **fonte única** em `shared/permissions.ts` e é exposto por `GET /permissions` — o `apps/web` consome os rótulos de lá e **nunca** duplica esses textos em pt-BR.
 - **Owner tem todas as permissões** por definição e não pode ser desativado — por isso não existe (nem é necessária) trava anti-lockout. O papel `system` ("Administrador") também vale o catálogo inteiro, resolvido em tempo de execução para não desatualizar quando uma permissão nova entra.
 - Rota que agrega módulos diferentes sem exigir permissão (ex.: `GET /dashboard/summary`) recebe as permissões da sessão e devolve `null` no bloco que o usuário não pode ver — não vaze agregado por falta de decorator.
+
+## Testes — o que pode e o que não pode ser mockado
+
+Mockar o Prisma nos specs de regra de negócio é o certo: eles testam a regra,
+não o ORM. Mas **classe que fala com infraestrutura direto tem spec que a
+instancia de verdade** — `PrismaService`, `PrismaAdminService` e os adapters de
+e-mail e Stripe. Para o adapter em si, o mock testa o mock.
+
+Além disso, todo seam de infraestrutura tem cobertura e2e (`test/*.e2e-spec.ts`,
+`pnpm --filter api test:e2e`): as rotas públicas de auth e o isolamento por
+`ownerId`. Rota nova que rode FORA da transação do `OwnerContextInterceptor`
+(ou seja, marcada com `@Public()`) entra no `auth.e2e-spec.ts` no mesmo PR —
+é o caminho que já quebrou uma vez com a suíte inteira verde.
