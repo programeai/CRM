@@ -91,3 +91,31 @@ export function formatMoney(value?: string | number | null): string {
   if (value == null || value === '') return '—';
   return currencyFmt.format(Number(value));
 }
+
+const relativeFmt = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
+
+/** Escalas em segundos, da maior para a menor — a primeira que couber vence. */
+const RELATIVE_UNITS: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 31_536_000],
+  ['month', 2_592_000],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
+];
+
+/**
+ * Tempo relativo em pt-BR ("agora mesmo", "há 5 minutos", "há 2 dias").
+ * Usa `Intl.RelativeTimeFormat` — sem dependência de data no projeto.
+ */
+export function formatRelativeTime(value?: string | Date | null): string {
+  if (!value) return '';
+  const diff = (new Date(value).getTime() - Date.now()) / 1000;
+  const abs = Math.abs(diff);
+  if (abs < 60) return 'agora mesmo';
+  for (const [unit, seconds] of RELATIVE_UNITS) {
+    if (abs >= seconds) {
+      return relativeFmt.format(Math.round(diff / seconds), unit);
+    }
+  }
+  return 'agora mesmo';
+}

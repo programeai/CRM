@@ -18,6 +18,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useMe, useUpdateProfile } from './api/hooks';
+import { SessoesAtivas } from './SessoesAtivas';
 
 const schema = z.object({
   name: z
@@ -73,7 +74,8 @@ export function PerfilDialog({ open, onOpenChange }: PerfilDialogProps) {
         <DialogHeader>
           <DialogTitle>Perfil</DialogTitle>
           <DialogDescription>
-            Atualize seu nome e e-mail de acesso.
+            Atualize seu nome e e-mail de acesso e veja os dispositivos com
+            acesso à sua conta.
           </DialogDescription>
         </DialogHeader>
 
@@ -118,6 +120,8 @@ export function PerfilDialog({ open, onOpenChange }: PerfilDialogProps) {
               </Field>
             </form>
           )}
+
+          <SessoesAtivas enabled={open} />
         </DialogBody>
 
         <DialogFooter>

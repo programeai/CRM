@@ -19,3 +19,31 @@ export function useUpdateProfile() {
     },
   });
 }
+
+export function useSessions(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.auth.sessions,
+    queryFn: () => perfilApi.sessions(),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+function invalidateSessions(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: queryKeys.auth.sessions });
+}
+
+export function useRevokeSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => perfilApi.revokeSession(id),
+    onSuccess: () => invalidateSessions(qc),
+  });
+}
+
+export function useRevokeOtherSessions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => perfilApi.revokeOtherSessions(),
+    onSuccess: () => invalidateSessions(qc),
+  });
+}

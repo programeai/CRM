@@ -75,5 +75,6 @@ export const queryKeys = {
     oauthProviders: ['auth', 'oauth-providers'] as const,
     registration: ['auth', 'registration'] as const,
     me: ['auth', 'me'] as const,
+    sessions: ['auth', 'sessions'] as const,
   },
 } as const;
