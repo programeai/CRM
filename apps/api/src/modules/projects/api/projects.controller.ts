@@ -51,8 +51,25 @@ export class ProjectsController {
   }
 
   @RequirePermission('projeto:gerenciar')
+  @Post(':id/archive')
+  archive(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.projects.archive(ownerId, id);
+  }
+
+  @RequirePermission('projeto:gerenciar')
+  @Post(':id/restore')
+  restore(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.projects.restore(ownerId, id);
+  }
+
+  /**
+   * Expurgo — destrutivo e irreversível. A chave é `lixeira:expurgar`, não a do
+   * módulo: quem gerencia projetos pode arquivar, mas apagar de vez é uma
+   * decisão de governança.
+   */
+  @RequirePermission('lixeira:expurgar')
   @Delete(':id')
-  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.projects.delete(ownerId, id);
+  purge(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.projects.purge(ownerId, id);
   }
 }

@@ -44,8 +44,25 @@ export class ContactsController {
   }
 
   @RequirePermission('cliente:gerenciar')
+  @Post('contacts/:id/archive')
+  archive(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.contacts.archive(ownerId, id);
+  }
+
+  @RequirePermission('cliente:gerenciar')
+  @Post('contacts/:id/restore')
+  restore(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.contacts.restore(ownerId, id);
+  }
+
+  /**
+   * Expurgo — destrutivo e irreversível. A chave é `lixeira:expurgar`, não a do
+   * módulo: quem gerencia clientes pode arquivar um contato, mas apagar de vez é
+   * uma decisão de governança.
+   */
+  @RequirePermission('lixeira:expurgar')
   @Delete('contacts/:id')
-  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.contacts.delete(ownerId, id);
+  purge(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.contacts.purge(ownerId, id);
   }
 }

@@ -88,8 +88,25 @@ export class DealsController {
   }
 
   @RequirePermission('oportunidade:gerenciar')
+  @Post(':id/archive')
+  archive(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.deals.archive(ownerId, id);
+  }
+
+  @RequirePermission('oportunidade:gerenciar')
+  @Post(':id/restore')
+  restore(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.deals.restore(ownerId, id);
+  }
+
+  /**
+   * Expurgo — destrutivo e irreversível. A chave é `lixeira:expurgar`, não a do
+   * módulo: quem gerencia oportunidades pode arquivar, mas apagar de vez é uma
+   * decisão de governança.
+   */
+  @RequirePermission('lixeira:expurgar')
   @Delete(':id')
-  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.deals.delete(ownerId, id);
+  purge(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.deals.purge(ownerId, id);
   }
 }

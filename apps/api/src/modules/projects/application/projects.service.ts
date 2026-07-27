@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Deal } from '@prisma/client';
 import {
   PROJECT_REPOSITORY,
@@ -11,6 +6,8 @@ import {
   type ProjectWithClient,
 } from '../domain/project.repository';
 import { ClientsService } from '../../clients/application/clients.service';
+import { AuditService } from '../../audit/audit.service';
+import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import type { CreateProjectDto } from '../api/dto/create-project.dto';
 import type { UpdateProjectDto } from '../api/dto/update-project.dto';
@@ -21,6 +18,7 @@ export class ProjectsService {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: ProjectRepository,
     private readonly clients: ClientsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(ownerId: string, query: ListProjectsQueryDto) {
@@ -86,14 +84,51 @@ export class ProjectsService {
     });
   }
 
-  async delete(ownerId: string, id: string): Promise<void> {
-    await this.loadOwned(ownerId, id);
-    if ((await this.repo.countTasks(id)) > 0) {
-      throw new ConflictException(
-        'Não é possível excluir um projeto que possui tarefas.',
-      );
-    }
+  /** Manda o projeto para a lixeira. Sem cascata: as tarefas dele continuam ativas. */
+  async archive(ownerId: string, id: string): Promise<ProjectWithClient> {
+    const project = await this.loadOwned(ownerId, id);
+    const arquivado = await this.repo.archive(id);
+    await this.audit.registrar({
+      entity: 'PROJECT',
+      entityId: id,
+      entityLabel: project.name,
+      action: 'ARQUIVAR',
+    });
+    return arquivado;
+  }
+
+  /** Devolve o projeto à área de trabalho. */
+  async restore(ownerId: string, id: string): Promise<ProjectWithClient> {
+    const project = await this.loadOwned(ownerId, id, true);
+    const restaurado = await this.repo.restore(id);
+    await this.audit.registrar({
+      entity: 'PROJECT',
+      entityId: id,
+      entityLabel: project.name,
+      action: 'RESTAURAR',
+    });
+    return restaurado;
+  }
+
+  /**
+   * Expurgo. `Task.projectId` é FK obrigatória com RESTRICT: um projeto com
+   * qualquer tarefa (ativa OU arquivada) não pode ser apagado. `Contract.projectId`
+   * é opcional com SET NULL — contrato vinculado não bloqueia.
+   */
+  async purge(ownerId: string, id: string): Promise<void> {
+    const project = await this.loadOwned(ownerId, id, true);
+    assertArquivado(project.archivedAt, 'um projeto');
+    assertSemFilhos(
+      await this.repo.countTasks(id),
+      'Não é possível excluir em definitivo um projeto que ainda tem demandas. Expurgue as demandas dele primeiro.',
+    );
     await this.repo.delete(id);
+    await this.audit.registrar({
+      entity: 'PROJECT',
+      entityId: id,
+      entityLabel: project.name,
+      action: 'EXPURGAR',
+    });
   }
 
   /**
@@ -117,8 +152,9 @@ export class ProjectsService {
   private async loadOwned(
     ownerId: string,
     id: string,
+    includeArchived = false,
   ): Promise<ProjectWithClient> {
-    const project = await this.repo.findById(id);
+    const project = await this.repo.findById(id, includeArchived);
     if (!project) throw new NotFoundException('Projeto não encontrado.');
     await this.clients.findOne(ownerId, project.clientId); // 404 se não for do dono
     return project;

@@ -15,6 +15,7 @@ import { isValidDocument, onlyDigits } from '../../../shared/document';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
+import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
@@ -101,6 +102,42 @@ export class ClientsService {
       action: 'ARQUIVAR',
     });
     return arquivado;
+  }
+
+  /** Devolve o cliente à área de trabalho. */
+  async restore(ownerId: string, id: string): Promise<ClientWithAssignee> {
+    const client = await this.findOne(ownerId, id);
+    const restaurado = await this.repo.restore(id, ownerId);
+    await this.audit.registrar({
+      entity: 'CLIENT',
+      entityId: id,
+      entityLabel: client.name,
+      action: 'RESTAURAR',
+    });
+    return restaurado;
+  }
+
+  /**
+   * Expurgo de cliente. TODAS as FKs de filho para Client são RESTRICT
+   * (contatos, atividades, oportunidades, propostas, projetos, contratos) — ver
+   * specs/research/2026-07-21-fase-1-clientes.md:140. A contagem é somada e a
+   * mensagem cita o que sobrou, senão o usuário tenta N vezes sem saber o motivo.
+   */
+  async purge(ownerId: string, id: string): Promise<void> {
+    const client = await this.findOne(ownerId, id);
+    assertArquivado(client.archivedAt, 'um cliente');
+    const vinculos = await this.repo.countChildren(id);
+    assertSemFilhos(
+      vinculos.total,
+      `Não é possível excluir em definitivo um cliente com registros vinculados (${vinculos.descricao}). Expurgue-os primeiro.`,
+    );
+    await this.repo.delete(id);
+    await this.audit.registrar({
+      entity: 'CLIENT',
+      entityId: id,
+      entityLabel: client.name,
+      action: 'EXPURGAR',
+    });
   }
 
   /** Tags existentes do dono (agregadas dos clientes) com contagem de uso. */

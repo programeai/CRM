@@ -32,6 +32,12 @@ export interface ClientTagRef {
   name: string;
 }
 
+/** Contagem de vínculos que bloqueiam o expurgo (FKs RESTRICT), já com descrição em pt-BR. */
+export interface ClientChildrenCount {
+  total: number;
+  descricao: string;
+}
+
 export interface ClientRepository {
   create(data: Prisma.ClientUncheckedCreateInput): Promise<ClientWithAssignee>;
   findById(
@@ -48,6 +54,11 @@ export interface ClientRepository {
     data: Prisma.ClientUpdateInput,
   ): Promise<ClientWithAssignee>;
   archive(id: string, ownerId: string): Promise<ClientWithAssignee>;
+  /** Devolve o cliente à área de trabalho. */
+  restore(id: string, ownerId: string): Promise<ClientWithAssignee>;
+  delete(id: string): Promise<void>;
+  /** Conta os vínculos (FKs RESTRICT) que impedem o expurgo. */
+  countChildren(id: string): Promise<ClientChildrenCount>;
   /** Existe cliente com este documento (mesmo owner), excluindo opcionalmente um id? */
   existsByDocument(
     ownerId: string,
