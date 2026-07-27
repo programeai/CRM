@@ -37,6 +37,20 @@ export function enumFilter<T extends string, F extends string = T>(
   };
 }
 
+/**
+ * Id de item de catálogo (lista de runtime), com sentinela de "sem filtro".
+ * Diferente de `enumFilter`, **não** há allowlist compilada para validar contra:
+ * o catálogo é dado do owner. A proteção contra URL adulterada passa a ser do
+ * servidor — o DTO exige `@IsUUID`, e um uuid de outro owner não casa a policy
+ * de RLS e devolve lista vazia.
+ */
+export function idFilter(fallback = 'ALL' as const): FilterCodec<string> {
+  return {
+    decode: (raw) => raw ?? fallback,
+    encode: (value) => (value === fallback ? null : value),
+  };
+}
+
 /** Número (ex.: página). O `fallback` é omitido da URL. */
 export function numberFilter(fallback: number): FilterCodec<number> {
   return {
