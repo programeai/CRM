@@ -15,8 +15,16 @@ import type {
 } from './types';
 
 // --- Board / stages ---
-export function useBoard() {
-  return useQuery({ queryKey: queryKeys.deals.board, queryFn: dealsApi.board });
+/**
+ * Quadro do funil. `params` entra na query key: sem isso, o cache de
+ * "atribuídos a mim" sobrescreveria o de "todos" (e o optimistic update de
+ * `useMoveDeal` escreveria no recorte errado).
+ */
+export function useBoard(params: { assigneeId?: string } = {}) {
+  return useQuery({
+    queryKey: queryKeys.deals.board(params),
+    queryFn: () => dealsApi.board(params),
+  });
 }
 export function useStages() {
   return useQuery({ queryKey: queryKeys.stages.all, queryFn: stagesApi.list });
@@ -54,27 +62,27 @@ export function useDeleteDeal() {
 }
 
 /** Move com optimistic update no cache do board; reverte em erro e reconcilia no settle. */
-export function useMoveDeal() {
+export function useMoveDeal(params: { assigneeId?: string } = {}) {
   const qc = useQueryClient();
+  // Mesma chave do `useBoard` ativo — senão o card "pula" de volta ao soltar.
+  const key = queryKeys.deals.board(params);
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: MoveDealBody }) => dealsApi.move(id, body),
     onMutate: async ({ id, body }) => {
-      await qc.cancelQueries({ queryKey: queryKeys.deals.board });
-      const prev = qc.getQueryData<Deal[]>(queryKeys.deals.board);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Deal[]>(key);
       if (prev) {
-        qc.setQueryData<Deal[]>(
-          queryKeys.deals.board,
-          reindexBoard(prev, id, body.stageId, body.position),
-        );
+        qc.setQueryData<Deal[]>(key, reindexBoard(prev, id, body.stageId, body.position));
       }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(queryKeys.deals.board, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
       toast.error('Falha ao mover a oportunidade.');
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.deals.board });
+      // Prefixo: invalida todos os recortes do quadro, não só o ativo.
+      void qc.invalidateQueries({ queryKey: ['deals', 'board'] });
       void qc.invalidateQueries({ queryKey: queryKeys.projects.all });
     },
   });
@@ -83,7 +91,7 @@ export function useMoveDeal() {
 // --- Stage mutations ---
 function invalidateStages(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: queryKeys.stages.all });
-  void qc.invalidateQueries({ queryKey: queryKeys.deals.board });
+  void qc.invalidateQueries({ queryKey: ['deals', 'board'] });
 }
 export function useCreateStage() {
   const qc = useQueryClient();

@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger,
 } from '@/components/ui/select';
 import { MoneyInput } from '@/components/ui/money-input';
+import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { SERVICE_TYPE_LABELS, translateServiceType } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
@@ -38,6 +39,7 @@ const schema = z.object({
     .max(100, 'A probabilidade deve estar entre 0 e 100.')
     .optional(),
   expectedClose: z.string().optional(),
+  assigneeId: z.string().nullable().optional(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -69,7 +71,12 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
   const { register, handleSubmit, control, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<Values>({
       resolver: zodResolver(schema),
-      defaultValues: { title: '', clientId: defaultClientId ?? '', serviceType: 'SOFTWARE' },
+      defaultValues: {
+        title: '',
+        clientId: defaultClientId ?? '',
+        serviceType: 'SOFTWARE',
+        assigneeId: null,
+      },
     });
 
   useEffect(() => {
@@ -84,8 +91,14 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
             amount: deal.amount != null ? Number(deal.amount) : undefined,
             probability: deal.probability ?? undefined,
             expectedClose: deal.expectedClose?.slice(0, 10) ?? '',
+            assigneeId: deal.assigneeId ?? null,
           }
-        : { title: '', clientId: defaultClientId ?? '', serviceType: 'SOFTWARE' },
+        : {
+            title: '',
+            clientId: defaultClientId ?? '',
+            serviceType: 'SOFTWARE',
+            assigneeId: null,
+          },
     );
   }, [open, deal, defaultClientId, reset]);
 
@@ -113,6 +126,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
       amount: v.amount && v.amount > 0 ? v.amount : undefined,
       probability: v.probability,
       expectedClose: v.expectedClose || undefined,
+      assigneeId: v.assigneeId ?? null,
     };
     try {
       if (isEdit) {
@@ -255,6 +269,21 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
             <Field>
               <FieldLabel htmlFor="expectedClose">Fechamento previsto</FieldLabel>
               <Input id="expectedClose" type="date" {...register('expectedClose')} />
+            </Field>
+
+            <Field>
+              <FieldLabel>Responsável</FieldLabel>
+              <Controller
+                control={control}
+                name="assigneeId"
+                render={({ field }) => (
+                  <AssigneeSelect
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    current={deal?.assignee}
+                  />
+                )}
+              />
             </Field>
           </form>
         </DialogBody>

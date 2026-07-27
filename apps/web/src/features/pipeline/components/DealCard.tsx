@@ -25,7 +25,10 @@ export function DealCard({ deal, cooling, onClick }: Props) {
           </Badge>
         )}
       </div>
-      <span className="text-xs text-muted-foreground">{deal.client.name}</span>
+      <span className="text-xs text-muted-foreground">
+        {deal.client.name}
+        {deal.assignee && <> · {deal.assignee.name}</>}
+      </span>
       <div className="flex items-center justify-between">
         <Badge variant="secondary">{translateServiceType(deal.serviceType)}</Badge>
         <span className="text-sm tabular-nums">{formatDealAmount(deal.amount)}</span>

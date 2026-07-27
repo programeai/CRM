@@ -8,7 +8,8 @@ import type {
 } from './types';
 
 export const dealsApi = {
-  board: () => api.get<Deal[]>('/deals/board').then((r) => r.data),
+  board: (params: { assigneeId?: string } = {}) =>
+    api.get<Deal[]>('/deals/board', { params }).then((r) => r.data),
   listByClient: (clientId: string) =>
     api
       .get<Paginated<Deal>>('/deals', { params: { clientId, limit: 100 } })
