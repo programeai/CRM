@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from '../clients/clients.module';
+import { WorkspaceModule } from '../workspace/workspace.module';
 import { ProjectsController } from './api/projects.controller';
 import { TasksController } from './api/tasks.controller';
 import { ProjectsService } from './application/projects.service';
@@ -10,7 +11,7 @@ import { PrismaProjectRepository } from './infra/prisma-project.repository';
 import { PrismaTaskRepository } from './infra/prisma-task.repository';
 
 @Module({
-  imports: [ClientsModule],
+  imports: [ClientsModule, WorkspaceModule],
   controllers: [ProjectsController, TasksController],
   providers: [
     ProjectsService,

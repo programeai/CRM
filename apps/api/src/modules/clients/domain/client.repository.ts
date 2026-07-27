@@ -1,7 +1,16 @@
 import type { Client, Prisma } from '@prisma/client';
 import type { TagUsage } from '../../../shared/tags';
+import type { AssigneeScope } from '../../../shared/record-scope';
 
 export const CLIENT_REPOSITORY = Symbol('CLIENT_REPOSITORY');
+
+/** Responsável embutido na leitura — o card e o formulário exibem o nome. */
+export interface AssigneeRef {
+  id: string;
+  name: string;
+}
+
+export type ClientWithAssignee = Client & { assignee: AssigneeRef | null };
 
 export interface ClientListFilter {
   ownerId: string;
@@ -9,6 +18,10 @@ export interface ClientListFilter {
   status?: Client['status'];
   source?: NonNullable<Client['source']>;
   includeArchived?: boolean;
+  /** Filtro explícito da query (`?assigneeId=`). */
+  assigneeId?: string;
+  /** Recorte por permissão — independente do filtro acima; os dois se somam. */
+  scope: AssigneeScope;
   skip: number;
   take: number;
 }
@@ -20,17 +33,21 @@ export interface ClientTagRef {
 }
 
 export interface ClientRepository {
-  create(data: Prisma.ClientUncheckedCreateInput): Promise<Client>;
-  findById(id: string, ownerId: string): Promise<Client | null>;
+  create(data: Prisma.ClientUncheckedCreateInput): Promise<ClientWithAssignee>;
+  findById(
+    id: string,
+    ownerId: string,
+    scope?: AssigneeScope,
+  ): Promise<ClientWithAssignee | null>;
   findManyAndCount(
     filter: ClientListFilter,
-  ): Promise<{ data: Client[]; total: number }>;
+  ): Promise<{ data: ClientWithAssignee[]; total: number }>;
   update(
     id: string,
     ownerId: string,
     data: Prisma.ClientUpdateInput,
-  ): Promise<Client>;
-  archive(id: string, ownerId: string): Promise<Client>;
+  ): Promise<ClientWithAssignee>;
+  archive(id: string, ownerId: string): Promise<ClientWithAssignee>;
   /** Existe cliente com este documento (mesmo owner), excluindo opcionalmente um id? */
   existsByDocument(
     ownerId: string,

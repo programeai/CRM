@@ -5,15 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Client } from '@prisma/client';
 import {
   CLIENT_REPOSITORY,
   type ClientRepository,
   type ClientTagRef,
+  type ClientWithAssignee,
 } from '../domain/client.repository';
 import { isValidDocument, onlyDigits } from '../../../shared/document';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
+import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
+import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
 import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
@@ -22,9 +24,15 @@ import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
 export class ClientsService {
   constructor(
     @Inject(CLIENT_REPOSITORY) private readonly repo: ClientRepository,
+    private readonly members: WorkspaceMembersService,
   ) {}
 
-  async create(ownerId: string, dto: CreateClientDto): Promise<Client> {
+  async create(
+    ownerId: string,
+    dto: CreateClientDto,
+  ): Promise<ClientWithAssignee> {
+    // `assigneeId` entra pelo spread do DTO — sem esta linha, iria ao banco sem validação.
+    await this.members.assertMember(ownerId, dto.assigneeId);
     const document = await this.resolveDocument(
       ownerId,
       dto.document,
@@ -33,21 +41,31 @@ export class ClientsService {
     return this.repo.create({ ...dto, document, ownerId });
   }
 
-  async list(ownerId: string, query: ListClientsQueryDto) {
+  async list(
+    ownerId: string,
+    query: ListClientsQueryDto,
+    scope: AssigneeScope = ALL_RECORDS,
+  ) {
     const { page, limit, skip, take } = normalizePage(query.page, query.limit);
     const { data, total } = await this.repo.findManyAndCount({
       ownerId,
       search: query.search,
       status: query.status,
       source: query.source,
+      assigneeId: query.assigneeId,
+      scope,
       skip,
       take,
     });
     return paginated(data, total, page, limit);
   }
 
-  async findOne(ownerId: string, id: string): Promise<Client> {
-    const client = await this.repo.findById(id, ownerId);
+  async findOne(
+    ownerId: string,
+    id: string,
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<ClientWithAssignee> {
+    const client = await this.repo.findById(id, ownerId, scope);
     if (!client) throw new NotFoundException('Cliente não encontrado.');
     return client;
   }
@@ -56,7 +74,8 @@ export class ClientsService {
     ownerId: string,
     id: string,
     dto: UpdateClientDto,
-  ): Promise<Client> {
+  ): Promise<ClientWithAssignee> {
+    await this.members.assertMember(ownerId, dto.assigneeId);
     const existing = await this.findOne(ownerId, id);
     const personType = dto.personType ?? existing.personType;
     const data: Omit<UpdateClientDto, 'document'> & {
@@ -70,7 +89,7 @@ export class ClientsService {
     return this.repo.update(id, ownerId, data);
   }
 
-  async archive(ownerId: string, id: string): Promise<Client> {
+  async archive(ownerId: string, id: string): Promise<ClientWithAssignee> {
     await this.findOne(ownerId, id);
     return this.repo.archive(id, ownerId);
   }

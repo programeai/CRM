@@ -9,7 +9,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { DealsService } from '../application/deals.service';
-import { CurrentOwnerId } from '../../../shared/current-user.decorator';
+import {
+  CurrentAccess,
+  CurrentOwnerId,
+} from '../../../shared/current-user.decorator';
+import type { AccessContext } from '../../access/domain/access-context';
+import { resolveAssigneeScope } from '../../../shared/record-scope';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealDto } from './dto/update-deal.dto';
@@ -22,14 +27,28 @@ export class DealsController {
 
   @RequirePermission('oportunidade:ver', 'oportunidade:gerenciar')
   @Get()
-  list(@CurrentOwnerId() ownerId: string, @Query() query: ListDealsQueryDto) {
-    return this.deals.list(ownerId, query);
+  list(
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ListDealsQueryDto,
+  ) {
+    return this.deals.list(
+      access.ownerId,
+      query,
+      resolveAssigneeScope(access, 'oportunidade:ver_todas'),
+    );
   }
 
   @RequirePermission('oportunidade:ver', 'oportunidade:gerenciar')
   @Get('board')
-  board(@CurrentOwnerId() ownerId: string) {
-    return this.deals.board(ownerId);
+  board(
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ListDealsQueryDto,
+  ) {
+    return this.deals.board(
+      access.ownerId,
+      resolveAssigneeScope(access, 'oportunidade:ver_todas'),
+      query.assigneeId,
+    );
   }
 
   @RequirePermission('oportunidade:gerenciar')
@@ -40,8 +59,12 @@ export class DealsController {
 
   @RequirePermission('oportunidade:ver', 'oportunidade:gerenciar')
   @Get(':id')
-  findOne(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.deals.findOne(ownerId, id);
+  findOne(@CurrentAccess() access: AccessContext, @Param('id') id: string) {
+    return this.deals.findOne(
+      access.ownerId,
+      id,
+      resolveAssigneeScope(access, 'oportunidade:ver_todas'),
+    );
   }
 
   @RequirePermission('oportunidade:gerenciar')

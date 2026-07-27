@@ -6,8 +6,16 @@ import type {
   DealMovePatch,
   DealRepository,
 } from '../domain/deal.repository';
+import {
+  ALL_RECORDS,
+  assigneeScopeWhere,
+  type AssigneeScope,
+} from '../../../shared/record-scope';
 
-const withClient = { client: { select: { id: true, name: true } } } as const;
+const withClient = {
+  client: { select: { id: true, name: true } },
+  assignee: { select: { id: true, name: true } },
+} as const;
 
 @Injectable()
 export class PrismaDealRepository implements DealRepository {
@@ -17,21 +25,26 @@ export class PrismaDealRepository implements DealRepository {
     return this.prisma.db.deal.create({ data, include: withClient });
   }
 
-  findById(id: string) {
-    return this.prisma.db.deal.findUnique({
-      where: { id },
+  findById(id: string, scope: AssigneeScope = ALL_RECORDS) {
+    const scoped = assigneeScopeWhere(scope);
+    // findFirst (não findUnique): o recorte faz parte da busca.
+    return this.prisma.db.deal.findFirst({
+      where: { id, ...(scoped ? { AND: [scoped] } : {}) },
       include: withClient,
     });
   }
 
   async findManyAndCount(filter: DealListFilter) {
+    const scoped = assigneeScopeWhere(filter.scope);
     const where: Prisma.DealWhereInput = {
       client: { ownerId: filter.ownerId },
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
       ...(filter.stageId ? { stageId: filter.stageId } : {}),
+      ...(filter.assigneeId ? { assigneeId: filter.assigneeId } : {}),
       ...(filter.search
         ? { title: { contains: filter.search, mode: 'insensitive' } }
         : {}),
+      ...(scoped ? { AND: [scoped] } : {}),
     };
     const [data, total] = await Promise.all([
       this.prisma.db.deal.findMany({
@@ -46,15 +59,24 @@ export class PrismaDealRepository implements DealRepository {
     return { data, total };
   }
 
-  findAllForBoard(ownerId: string) {
+  findAllForBoard(
+    ownerId: string,
+    scope: AssigneeScope = ALL_RECORDS,
+    assigneeId?: string,
+  ) {
+    const scoped = assigneeScopeWhere(scope);
     return this.prisma.db.deal.findMany({
-      where: { client: { ownerId } },
+      where: {
+        client: { ownerId },
+        ...(assigneeId ? { assigneeId } : {}),
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
       include: withClient,
       orderBy: [{ stageId: 'asc' }, { position: 'asc' }],
     });
   }
 
-  update(id: string, data: Prisma.DealUpdateInput) {
+  update(id: string, data: Prisma.DealUncheckedUpdateInput) {
     return this.prisma.db.deal.update({
       where: { id },
       data,

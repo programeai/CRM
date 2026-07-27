@@ -6,4 +6,8 @@ export class ListActivitiesQueryDto extends PaginationQueryDto {
   @IsUUID('4', { message: 'Cliente inválido.' })
   clientId?: string;
   @IsOptional() @IsUUID('4', { message: 'Negócio inválido.' }) dealId?: string;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Responsável inválido.' })
+  assigneeId?: string;
 }
