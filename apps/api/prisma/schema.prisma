@@ -650,6 +650,7 @@ enum NotificationChannelKind {
   WEBHOOK
   SLACK
   DISCORD
+  TELEGRAM
 }
 
 /// O que aconteceu. Espelha os seis gatilhos do ROADMAP.
@@ -752,13 +753,16 @@ model UserNotificationTarget {
   kind       NotificationChannelKind
   /// Rótulo dado pelo usuário ("Meu e-mail", "n8n de casa").
   label      String
-  /// IN_APP: `{}`. EMAIL: `{ "email": "…" }`. WEBHOOK/SLACK: `{ "url": "https://…" }`.
+  /// IN_APP: `{}`. EMAIL: `{ "email": "…" }`. Os demais (WEBHOOK, SLACK, DISCORD,
+  /// TELEGRAM): `{ "url": "https://…" }` — no TELEGRAM a URL já carrega o token no
+  /// path e o `chat_id` na query, montada pelo front.
   config     Json
   /// Opt-in: quais tipos este destino recebe. Vazio = nenhum. Mesmo desenho de
   /// `Role.permissions` (String[] no próprio registro), e é o que faz a matriz
   /// de preferências ser tipo × DESTINO, não tipo × kind.
   types      NotificationType[]      @default([])
-  /// WEBHOOK/SLACK só entregam depois de verificados (D4). IN_APP/EMAIL nascem true.
+  /// Os destinos de integração só entregam depois de verificados (D4).
+  /// IN_APP/EMAIL nascem true.
   verified   Boolean                 @default(false)
   active     Boolean                 @default(true)
   createdAt  DateTime                @default(now())
