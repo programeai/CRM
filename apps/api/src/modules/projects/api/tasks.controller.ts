@@ -108,8 +108,25 @@ export class TasksController {
   }
 
   @RequirePermission('demanda:gerenciar')
+  @Post(':id/archive')
+  archive(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.tasks.archive(ownerId, id);
+  }
+
+  @RequirePermission('demanda:gerenciar')
+  @Post(':id/restore')
+  restore(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.tasks.restore(ownerId, id);
+  }
+
+  /**
+   * Expurgo — destrutivo e irreversível. A chave é `lixeira:expurgar`, não a do
+   * módulo: quem gerencia demandas pode arquivar, mas apagar de vez é uma
+   * decisão de governança.
+   */
+  @RequirePermission('lixeira:expurgar')
   @Delete(':id')
-  remove(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
-    return this.tasks.delete(ownerId, id);
+  purge(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.tasks.purge(ownerId, id);
   }
 }

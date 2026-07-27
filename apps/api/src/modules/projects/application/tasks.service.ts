@@ -8,6 +8,8 @@ import {
 } from '../domain/task.repository';
 import { ProjectsService } from './projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { AuditService } from '../../audit/audit.service';
+import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
@@ -22,6 +24,7 @@ export class TasksService {
     @Inject(TASK_REPOSITORY) private readonly repo: TaskRepository,
     private readonly projects: ProjectsService,
     private readonly members: WorkspaceMembersService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(
@@ -131,9 +134,43 @@ export class TasksService {
     return this.repo.move(id, dto.status, dto.position, patch);
   }
 
-  async delete(ownerId: string, id: string): Promise<void> {
-    await this.loadOwned(ownerId, id);
+  /** Manda a demanda para a lixeira. Substitui o antigo hard delete. */
+  async archive(ownerId: string, id: string): Promise<TaskWithProject> {
+    const task = await this.loadOwned(ownerId, id);
+    const arquivada = await this.repo.archive(id);
+    await this.audit.registrar({
+      entity: 'TASK',
+      entityId: id,
+      entityLabel: task.title,
+      action: 'ARQUIVAR',
+    });
+    return arquivada;
+  }
+
+  /** Devolve a demanda ao quadro, no status em que estava. */
+  async restore(ownerId: string, id: string): Promise<TaskWithProject> {
+    const task = await this.loadOwned(ownerId, id, ALL_RECORDS, true);
+    const restaurada = await this.repo.restore(id);
+    await this.audit.registrar({
+      entity: 'TASK',
+      entityId: id,
+      entityLabel: task.title,
+      action: 'RESTAURAR',
+    });
+    return restaurada;
+  }
+
+  /** Expurgo: apaga de vez. Task não tem filhos — sem trava adicional. */
+  async purge(ownerId: string, id: string): Promise<void> {
+    const task = await this.loadOwned(ownerId, id, ALL_RECORDS, true);
+    assertArquivado(task.archivedAt, 'uma demanda');
     await this.repo.delete(id);
+    await this.audit.registrar({
+      entity: 'TASK',
+      entityId: id,
+      entityLabel: task.title,
+      action: 'EXPURGAR',
+    });
   }
 
   /** Tags existentes do dono (agregadas das tarefas) com contagem de uso. */
@@ -163,8 +200,9 @@ export class TasksService {
     ownerId: string,
     id: string,
     scope: AssigneeScope = ALL_RECORDS,
+    includeArchived = false,
   ): Promise<TaskWithProject> {
-    const task = await this.repo.findById(id, scope);
+    const task = await this.repo.findById(id, scope, includeArchived);
     if (!task) throw new NotFoundException('Tarefa não encontrada.');
     await this.projects.findOne(ownerId, task.projectId); // posse via projeto→cliente (404 se não for do dono)
     return task;

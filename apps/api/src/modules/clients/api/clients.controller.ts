@@ -87,4 +87,21 @@ export class ClientsController {
   archive(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
     return this.clients.archive(ownerId, id);
   }
+
+  @RequirePermission('cliente:gerenciar')
+  @Post(':id/restore')
+  restore(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.clients.restore(ownerId, id);
+  }
+
+  /**
+   * Expurgo — destrutivo e irreversível. A chave é `lixeira:expurgar`, não a do
+   * módulo: quem gerencia clientes pode arquivar, mas apagar de vez é uma
+   * decisão de governança.
+   */
+  @RequirePermission('lixeira:expurgar')
+  @Delete(':id')
+  purge(@CurrentOwnerId() ownerId: string, @Param('id') id: string) {
+    return this.clients.purge(ownerId, id);
+  }
 }

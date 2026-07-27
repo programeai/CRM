@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
+  ClientChildrenCount,
   ClientListFilter,
   ClientRepository,
   ClientTagRef,
@@ -81,6 +82,55 @@ export class PrismaClientRepository implements ClientRepository {
 
   archive(id: string, ownerId: string) {
     return this.update(id, ownerId, { archivedAt: new Date() });
+  }
+
+  restore(id: string, ownerId: string) {
+    return this.update(id, ownerId, { archivedAt: null });
+  }
+
+  async delete(id: string) {
+    await this.prisma.db.client.delete({ where: { id } });
+  }
+
+  /**
+   * Conta os vínculos que bloqueiam o expurgo: TODAS as FKs de filho para
+   * `Client` são RESTRICT (ver specs/research/2026-07-21-fase-1-clientes.md:140).
+   * A contagem soma os seis e a descrição cita o que sobrou, senão o usuário
+   * tenta N vezes sem saber o motivo.
+   */
+  async countChildren(id: string): Promise<ClientChildrenCount> {
+    const [
+      contatos,
+      atividades,
+      oportunidades,
+      propostas,
+      projetos,
+      contratos,
+    ] = await Promise.all([
+      this.prisma.db.contact.count({ where: { clientId: id } }),
+      this.prisma.db.activity.count({ where: { clientId: id } }),
+      this.prisma.db.deal.count({ where: { clientId: id } }),
+      this.prisma.db.proposal.count({ where: { clientId: id } }),
+      this.prisma.db.project.count({ where: { clientId: id } }),
+      this.prisma.db.contract.count({ where: { clientId: id } }),
+    ]);
+    const partes: string[] = [];
+    if (contatos > 0) partes.push(`${contatos} contato(s)`);
+    if (atividades > 0) partes.push(`${atividades} atividade(s)`);
+    if (oportunidades > 0) partes.push(`${oportunidades} oportunidade(s)`);
+    if (propostas > 0) partes.push(`${propostas} proposta(s)`);
+    if (projetos > 0) partes.push(`${projetos} projeto(s)`);
+    if (contratos > 0) partes.push(`${contratos} contrato(s)`);
+    return {
+      total:
+        contatos +
+        atividades +
+        oportunidades +
+        propostas +
+        projetos +
+        contratos,
+      descricao: partes.join(', '),
+    };
   }
 
   async listOwnerTags(ownerId: string): Promise<TagUsage[]> {

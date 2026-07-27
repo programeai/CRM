@@ -13,6 +13,8 @@ import { ClientsService } from '../../clients/application/clients.service';
 import { PipelineStagesService } from './pipeline-stages.service';
 import { ProjectsService } from '../../projects/application/projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { AuditService } from '../../audit/audit.service';
+import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import type { CreateDealDto } from '../api/dto/create-deal.dto';
@@ -28,6 +30,7 @@ export class DealsService {
     private readonly stages: PipelineStagesService,
     private readonly projects: ProjectsService,
     private readonly members: WorkspaceMembersService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(
@@ -143,9 +146,47 @@ export class DealsService {
     return moved;
   }
 
-  async delete(ownerId: string, id: string): Promise<void> {
-    await this.loadOwned(ownerId, id);
+  /** Manda a oportunidade para a lixeira. Substitui o antigo hard delete. */
+  async archive(ownerId: string, id: string): Promise<DealWithClient> {
+    const deal = await this.loadOwned(ownerId, id);
+    const arquivado = await this.repo.archive(id);
+    await this.audit.registrar({
+      entity: 'DEAL',
+      entityId: id,
+      entityLabel: deal.title,
+      action: 'ARQUIVAR',
+    });
+    return arquivado;
+  }
+
+  /** Devolve a oportunidade ao funil, na posição em que estava. */
+  async restore(ownerId: string, id: string): Promise<DealWithClient> {
+    const deal = await this.loadOwned(ownerId, id, ALL_RECORDS, true);
+    const restaurado = await this.repo.restore(id);
+    await this.audit.registrar({
+      entity: 'DEAL',
+      entityId: id,
+      entityLabel: deal.title,
+      action: 'RESTAURAR',
+    });
+    return restaurado;
+  }
+
+  /**
+   * Expurgo: apaga de vez. `Proposal.dealId`, `Project.dealId` e
+   * `Activity.dealId` são FKs opcionais com SET NULL, então nenhum filho
+   * bloqueia — os registros vinculados sobrevivem sem a oportunidade.
+   */
+  async purge(ownerId: string, id: string): Promise<void> {
+    const deal = await this.loadOwned(ownerId, id, ALL_RECORDS, true);
+    assertArquivado(deal.archivedAt, 'uma oportunidade');
     await this.repo.delete(id);
+    await this.audit.registrar({
+      entity: 'DEAL',
+      entityId: id,
+      entityLabel: deal.title,
+      action: 'EXPURGAR',
+    });
   }
 
   /**
@@ -156,8 +197,9 @@ export class DealsService {
     ownerId: string,
     id: string,
     scope: AssigneeScope = ALL_RECORDS,
+    includeArchived = false,
   ): Promise<DealWithClient> {
-    const deal = await this.repo.findById(id, scope);
+    const deal = await this.repo.findById(id, scope, includeArchived);
     if (!deal) throw new NotFoundException('Oportunidade não encontrada.');
     await this.clients.findOne(ownerId, deal.clientId); // 404 se não for do dono
     return deal;
