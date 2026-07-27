@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -25,6 +26,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 import { Public } from './public.decorator';
+import type { DeviceInfo } from './sessions.service';
 import {
   REFRESH_COOKIE,
   REFRESH_COOKIE_PATH,
@@ -32,6 +34,7 @@ import {
 } from './refresh-cookie';
 import {
   CurrentAccess,
+  CurrentSessionId,
   CurrentUserId,
 } from '../../shared/current-user.decorator';
 import type { AccessContext } from '../access/domain/access-context';
@@ -52,6 +55,11 @@ export class AuthController {
     setRefreshCookie(res, token, this.config);
   }
 
+  /** Dispositivo da requisição — `req.ip` já é o IP real (trust proxy, ver main.ts). */
+  private device(req: Request): DeviceInfo {
+    return { ip: req.ip, userAgent: req.headers['user-agent'] };
+  }
+
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
@@ -65,6 +73,7 @@ export class AuthController {
       dto.name,
       dto.email,
       dto.password,
+      this.device(req),
     );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
@@ -75,11 +84,13 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { accessToken, refreshToken } = await this.auth.login(
       dto.email,
       dto.password,
+      this.device(req),
     );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
@@ -113,14 +124,24 @@ export class AuthController {
     ];
     if (!token) throw new UnauthorizedException();
     let sub: string;
+    let sid: string | undefined;
     try {
-      ({ sub } = await this.jwt.verifyAsync<{ sub: string }>(token, {
-        secret: this.config.get<string>('JWT_REFRESH_SECRET'),
-      }));
+      ({ sub, sid } = await this.jwt.verifyAsync<{ sub: string; sid?: string }>(
+        token,
+        { secret: this.config.get<string>('JWT_REFRESH_SECRET') },
+      ));
     } catch {
       throw new UnauthorizedException();
     }
-    const { accessToken, refreshToken } = await this.auth.refresh(sub, token);
+    // Refresh emitido antes da Fase 8A não tem `sid`: não há sessão a validar,
+    // e o usuário entra de novo. Some sozinho em 7 dias.
+    if (!sid) throw new UnauthorizedException();
+    const { accessToken, refreshToken } = await this.auth.refresh(
+      sid,
+      sub,
+      token,
+      this.device(req),
+    );
     this.setRefreshCookie(res, refreshToken);
     return { accessToken };
   }
@@ -138,11 +159,36 @@ export class AuthController {
   @Post('logout')
   async logout(
     @CurrentUserId() userId: string,
+    @CurrentSessionId() sid: string | undefined,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.auth.logout(userId);
+    await this.auth.logout(userId, sid);
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     return { ok: true };
+  }
+
+  /** Sessões ativas do próprio usuário (perfil → "Sessões ativas"). */
+  @Get('sessions')
+  sessions(
+    @CurrentUserId() userId: string,
+    @CurrentSessionId() sid: string | undefined,
+  ) {
+    return this.auth.listSessions(userId, sid);
+  }
+
+  /** Encerra as demais sessões, preservando a atual. */
+  @Delete('sessions')
+  revokeOtherSessions(
+    @CurrentUserId() userId: string,
+    @CurrentSessionId() sid: string | undefined,
+  ) {
+    return this.auth.revokeOtherSessions(userId, sid);
+  }
+
+  /** Encerra uma sessão específica do próprio usuário. */
+  @Delete('sessions/:id')
+  revokeSession(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.auth.revokeSession(userId, id);
   }
 
   /** Informa se o autocadastro está aberto, para a UI não oferecer o que a API recusa. */
@@ -209,6 +255,7 @@ export class AuthController {
       const { refreshToken } = await this.auth.oauthLogin(
         this.oauth.enumOf(provider),
         profile,
+        this.device(req),
       );
       this.setRefreshCookie(res, refreshToken);
       return res.redirect(this.config.get<string>('FRONTEND_URL') ?? '/');

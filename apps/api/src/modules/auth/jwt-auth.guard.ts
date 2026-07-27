@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
-type AuthedRequest = Request & { user: { sub: string } };
+type AuthedRequest = Request & { user: { sub: string; sid?: string } };
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -31,9 +31,12 @@ export class JwtAuthGuard implements CanActivate {
     const [type, token] = req.headers.authorization?.split(' ') ?? [];
     if (type !== 'Bearer' || !token) throw new UnauthorizedException();
     try {
-      req.user = await this.jwt.verifyAsync<{ sub: string }>(token, {
-        secret: this.config.get<string>('JWT_ACCESS_SECRET'),
-      });
+      req.user = await this.jwt.verifyAsync<{ sub: string; sid?: string }>(
+        token,
+        {
+          secret: this.config.get<string>('JWT_ACCESS_SECRET'),
+        },
+      );
     } catch {
       throw new UnauthorizedException();
     }

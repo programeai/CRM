@@ -4,15 +4,17 @@ import {
   GoneException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProvider } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
+import { SessionsService, type DeviceInfo } from './sessions.service';
 import type { AccessContext } from '../access/domain/access-context';
 import type { OAuthProfile } from './oauth/oauth.service';
 
@@ -25,12 +27,18 @@ export class AuthService {
 
   constructor(
     private users: UsersService,
+    private sessions: SessionsService,
     private jwt: JwtService,
     private config: ConfigService,
     private mail: MailService,
   ) {}
 
-  async register(name: string, email: string, password: string) {
+  async register(
+    name: string,
+    email: string,
+    password: string,
+    device: DeviceInfo = {},
+  ) {
     this.assertRegistrationEnabled();
     const existing = await this.users.findByEmail(email);
     if (existing) {
@@ -41,7 +49,7 @@ export class AuthService {
       email,
       passwordHash: await this.hashSecret(password),
     });
-    return this.issueTokens(user.id);
+    return this.issueTokens(user.id, device);
   }
 
   /**
@@ -49,14 +57,18 @@ export class AuthService {
    * loga direto. Caso contrário, vincula por e-mail **verificado** a uma conta
    * existente ou cria uma nova conta sem senha.
    */
-  async oauthLogin(provider: OAuthProvider, profile: OAuthProfile) {
+  async oauthLogin(
+    provider: OAuthProvider,
+    profile: OAuthProfile,
+    device: DeviceInfo = {},
+  ) {
     const linked = await this.users.findByProviderAccount(
       provider,
       profile.providerAccountId,
     );
     if (linked) {
       this.assertActive(linked.active);
-      return this.issueTokens(linked.id);
+      return this.issueTokens(linked.id, device);
     }
 
     if (!profile.email || !profile.emailVerified) {
@@ -73,7 +85,7 @@ export class AuthService {
         provider,
         profile.providerAccountId,
       );
-      return this.issueTokens(existing.id);
+      return this.issueTokens(existing.id, device);
     }
 
     this.assertRegistrationEnabled();
@@ -83,10 +95,10 @@ export class AuthService {
       provider,
       providerAccountId: profile.providerAccountId,
     });
-    return this.issueTokens(created.id);
+    return this.issueTokens(created.id, device);
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, device: DeviceInfo = {}) {
     const user = await this.users.findByEmail(email);
     // `passwordHash` nulo = conta só-OAuth ou convite de colaborador ainda não
     // aceito: nos dois casos não há o que verificar, e a resposta é genérica.
@@ -100,7 +112,7 @@ export class AuthService {
     // A checagem vem DEPOIS da senha de propósito: sem isso, o erro específico
     // revelaria a existência da conta a quem não sabe a senha.
     this.assertActive(user.active);
-    return this.issueTokens(user.id);
+    return this.issueTokens(user.id, device);
   }
 
   /**
@@ -157,8 +169,8 @@ export class AuthService {
   }
 
   /**
-   * Conclui a redefinição: valida o token, troca a senha e revoga a sessão
-   * ativa (refresh token) para forçar novo login.
+   * Conclui a redefinição: valida o token, troca a senha e revoga todas as
+   * sessões ativas para forçar novo login em todo dispositivo.
    */
   async resetPassword(rawToken: string, newPassword: string): Promise<void> {
     const record = await this.users.findResetTokenByHash(
@@ -186,8 +198,9 @@ export class AuthService {
     );
     await this.users.markResetTokenUsed(record.id, new Date());
     await this.users.deletePendingResetTokens(record.userId);
-    // Revoga a sessão vigente: qualquer refresh token existente deixa de valer.
-    await this.users.setRefreshTokenHash(record.userId, null);
+    // Trocar a senha derruba TODOS os dispositivos: é o caminho de quem suspeita
+    // que a conta foi acessada por outra pessoa.
+    await this.sessions.revokeAll(record.userId);
   }
 
   /** Hash determinístico (sha256) do token bruto — permite busca indexada. */
@@ -204,18 +217,49 @@ export class AuthService {
     return argon2.hash(plain) as Promise<string>;
   }
 
-  async refresh(userId: string, refreshToken: string) {
-    const user = await this.users.findById(userId);
+  /**
+   * Renova o par de tokens **na mesma sessão**: o `sid` é estável por
+   * dispositivo, então a linha de `Session` acompanha o aparelho ao longo do
+   * tempo (é o que dá sentido a "último uso" na lista do perfil).
+   */
+  async refresh(
+    sid: string,
+    userId: string,
+    refreshToken: string,
+    device: DeviceInfo = {},
+  ) {
+    const session = await this.sessions.findById(sid);
     if (
-      !user?.refreshTokenHash ||
-      !(await argon2.verify(user.refreshTokenHash, refreshToken))
+      !session ||
+      session.userId !== userId ||
+      session.revokedAt ||
+      session.expiresAt.getTime() <= Date.now() ||
+      !(await argon2.verify(session.tokenHash, refreshToken))
     ) {
       throw new UnauthorizedException();
     }
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
     // Desativar o colaborador derruba a sessão dele no próximo refresh, mesmo
     // que o cookie ainda esteja no navegador.
     this.assertActive(user.active);
-    return this.issueTokens(user.id);
+
+    const accessToken = await this.jwt.signAsync(
+      { sub: userId, sid },
+      {
+        secret: this.config.get('JWT_ACCESS_SECRET'),
+        expiresIn: this.config.get('JWT_ACCESS_TTL'),
+      },
+    );
+    const nextRefresh = await this.jwt.signAsync(
+      { sub: userId, sid },
+      {
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+        expiresIn: this.config.get('JWT_REFRESH_TTL'),
+      },
+    );
+    await this.sessions.rotate(sid, await this.hashSecret(nextRefresh), device);
+    return { accessToken, refreshToken: nextRefresh };
   }
 
   /**
@@ -229,7 +273,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
     // `ownerId`/`roleId` ficam de fora: são o mesmo dado que `isOwner`/`role`
     // expressam melhor — não vale expor duas formas do mesmo estado.
-    const { passwordHash, refreshTokenHash, ownerId, roleId, ...safe } = user;
+    const { passwordHash, ownerId, roleId, ...safe } = user;
     return {
       ...safe,
       isOwner: access.isOwner,
@@ -239,8 +283,8 @@ export class AuthService {
   }
 
   /** Emite sessão para um usuário já validado (usado no aceite do convite). */
-  issueSession(userId: string) {
-    return this.issueTokens(userId);
+  issueSession(userId: string, device: DeviceInfo = {}) {
+    return this.issueTokens(userId, device);
   }
 
   /**
@@ -253,33 +297,77 @@ export class AuthService {
       throw new ConflictException('Já existe uma conta com este e-mail.');
     }
     const user = await this.users.updateProfile(userId, data);
-    const { passwordHash, refreshTokenHash, ...safe } = user;
+    const { passwordHash, ...safe } = user;
     return safe;
   }
 
-  async logout(userId: string) {
-    await this.users.setRefreshTokenHash(userId, null);
+  /** Encerra apenas a sessão corrente — os outros dispositivos seguem logados. */
+  async logout(userId: string, sid?: string) {
+    if (sid) await this.sessions.revoke(sid, userId);
+    // Access token emitido antes do `sid` (deploy da Fase 8A) não traz sessão:
+    // nesse caso o logout derruba tudo, que é o comportamento antigo.
+    else await this.sessions.revokeAll(userId);
   }
 
-  private async issueTokens(sub: string) {
-    const accessToken = await this.jwt.signAsync(
-      { sub },
-      {
-        secret: this.config.get('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get('JWT_ACCESS_TTL'),
-      },
-    );
-    const refreshToken = await this.jwt.signAsync(
-      { sub },
-      {
-        secret: this.config.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.get('JWT_REFRESH_TTL'),
-      },
-    );
-    await this.users.setRefreshTokenHash(
-      sub,
-      await this.hashSecret(refreshToken),
-    );
+  /** Sessões ativas do próprio usuário, para a tela de perfil. */
+  listSessions(userId: string, currentSid?: string) {
+    return this.sessions.listForUser(userId, currentSid);
+  }
+
+  /** Revoga uma sessão do próprio usuário. 404 para id alheio ou já revogado. */
+  async revokeSession(userId: string, id: string) {
+    const revogada = await this.sessions.revoke(id, userId);
+    if (!revogada) throw new NotFoundException('Sessão não encontrada.');
+    this.logger.log({
+      evento: 'sessao.revogada',
+      msg: 'Sessão revogada pelo próprio usuário.',
+      sessaoId: id,
+    });
+    return { ok: true };
+  }
+
+  /** Encerra os demais dispositivos, preservando o que fez a requisição. */
+  async revokeOtherSessions(userId: string, currentSid?: string) {
+    const quantidade = await this.sessions.revokeAll(userId, currentSid);
+    this.logger.log({
+      evento: 'sessoes.revogadas',
+      msg: 'Demais sessões encerradas pelo próprio usuário.',
+      quantidade,
+    });
+    return { revoked: quantidade };
+  }
+
+  /**
+   * Emite o par de tokens e abre uma sessão nova. O `sid` (id da sessão) vai no
+   * payload dos DOIS tokens: no refresh porque é ele que torna a validação uma
+   * busca por chave primária (sem `sid`, validar N sessões custaria N
+   * `argon2.verify`); no access porque logout e "revogar esta sessão" precisam
+   * saber qual é a sessão corrente numa rota autenticada.
+   */
+  private async issueTokens(sub: string, device: DeviceInfo = {}) {
+    const sid = randomUUID();
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwt.signAsync(
+        { sub, sid },
+        {
+          secret: this.config.get('JWT_ACCESS_SECRET'),
+          expiresIn: this.config.get('JWT_ACCESS_TTL'),
+        },
+      ),
+      this.jwt.signAsync(
+        { sub, sid },
+        {
+          secret: this.config.get('JWT_REFRESH_SECRET'),
+          expiresIn: this.config.get('JWT_REFRESH_TTL'),
+        },
+      ),
+    ]);
+    await this.sessions.create({
+      id: sid,
+      userId: sub,
+      tokenHash: await this.hashSecret(refreshToken),
+      device,
+    });
     return { accessToken, refreshToken };
   }
 }
