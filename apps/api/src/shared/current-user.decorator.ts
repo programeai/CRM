@@ -39,6 +39,18 @@ export const CurrentAccess = createParamDecorator(
   },
 );
 
+/**
+ * Id da **sessão corrente** (`req.user.sid`), o mesmo `sid` do payload dos JWTs.
+ * Use no logout e na lista de sessões do perfil. `undefined` num access token
+ * emitido antes da Fase 8A — trate como "não sei qual é a sessão atual".
+ */
+export const CurrentSessionId = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): string | undefined => {
+    const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
+    return req.user?.sid;
+  },
+);
+
 function currentAccess(ctx: ExecutionContext): AccessContext {
   const req = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
   if (!req.access) {

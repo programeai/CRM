@@ -22,6 +22,7 @@ export interface AccessContext {
 
 /** Requisição autenticada: `user` vem do `JwtAuthGuard`, `access` do `AccessGuard`. */
 export type AuthenticatedRequest = Request & {
-  user?: { sub?: string };
+  /** `sid` é o id da sessão (ver modelo `Session`); ausente em token emitido antes da Fase 8A. */
+  user?: { sub?: string; sid?: string };
   access?: AccessContext;
 };

@@ -140,12 +140,6 @@ export class UsersService {
   findById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
-  setRefreshTokenHash(id: string, refreshTokenHash: string | null) {
-    return this.prisma.user.update({
-      where: { id },
-      data: { refreshTokenHash },
-    });
-  }
   updatePassword(id: string, passwordHash: string) {
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
