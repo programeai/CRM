@@ -228,6 +228,7 @@ model Client {
   tags        String[]
   notes       String?
   archivedAt  DateTime?                     // soft delete
+  assigneeId  String?                       // responsável pelo registro (FK User, SetNull)
   contacts    Contact[]
   activities  Activity[]
   deals       Deal[]
@@ -272,6 +273,7 @@ model Deal {
   lostReason    String?
   position      Int                       // ordenação na coluna
   stageMovedAt  DateTime    @default(now()) // p/ indicador "esfriando"
+  assigneeId    String?                   // responsável pelo registro (FK User, SetNull)
   proposals     Proposal[]
   activities    Activity[]
   createdAt     DateTime    @default(now())
@@ -335,6 +337,7 @@ model Task {
   tags        String[]
   checklist   Json?                        // [{ text, done }]
   completedAt DateTime?
+  assigneeId  String?                      // responsável pelo registro (FK User, SetNull)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -385,6 +388,7 @@ model Activity {
   content      String
   scheduledFor DateTime?    // follow-ups
   completedAt  DateTime?
+  assigneeId   String?      // responsável pelo registro (FK User, SetNull)
   createdAt    DateTime     @default(now())
 }
 ```
@@ -405,23 +409,28 @@ Base: `/api/v1`. Todas as rotas autenticadas exceto `/auth/login`.
 | Recurso | Endpoints |
 |---|---|
 | Auth | `POST /auth/login` · `GET /auth/me` · `POST /auth/refresh` |
-| Clients | `GET/POST /clients` · `GET/PATCH /clients/:id` · `POST /clients/:id/archive` |
+| Clients | `GET/POST /clients` (filtro `assigneeId`) · `GET/PATCH /clients/:id` · `POST /clients/:id/archive` |
 | Contacts | `GET/POST /clients/:id/contacts` · `PATCH/DELETE /contacts/:id` |
 | Stages | `GET/POST /pipeline-stages` · `PATCH /pipeline-stages/reorder` · `PATCH/DELETE /pipeline-stages/:id` (escopo: owner) |
-| Deals | `GET/POST /deals` · `GET/PATCH/DELETE /deals/:id` · `PATCH /deals/:id/move` (stage + position) |
+| Deals | `GET/POST /deals` (filtro `assigneeId`) · `GET/PATCH/DELETE /deals/:id` · `PATCH /deals/:id/move` (stage + position) |
 | Proposals | `GET/POST /proposals` · `GET/PATCH /proposals/:id` · `POST /proposals/:id/send` · `POST /proposals/:id/accept` · `POST /proposals/:id/reject` · `POST /proposals/:id/new-version` |
 | Projects | `GET/POST /projects` · `GET/PATCH /projects/:id` |
-| Tasks | `GET/POST /tasks` (filtros: project, status, priority, dueBefore) · `GET/PATCH/DELETE /tasks/:id` · `PATCH /tasks/:id/move` |
-| Activities | `GET/POST /activities` (filtro por client/deal) · `PATCH /activities/:id` · `POST /activities/:id/complete` |
+| Tasks | `GET/POST /tasks` (filtros: project, status, priority, dueBefore, assigneeId) · `GET/PATCH/DELETE /tasks/:id` · `PATCH /tasks/:id/move` |
+| Activities | `GET/POST /activities` (filtro por client/deal/assigneeId) · `PATCH /activities/:id` · `POST /activities/:id/complete` |
 | Contracts | `GET/POST /contracts` (filtros: client, billingType, status) · `GET/PATCH /contracts/:id` · `POST /contracts/:id/pause` · `POST /contracts/:id/resume` · `POST /contracts/:id/cancel` |
 | Payments | `GET /payments` (filtros: month, status, clientId, contractId) · `PATCH /payments/:id` (valor/vencimento, só pendentes) · `POST /payments/:id/pay` (baixa) · `POST /payments/:id/revert` (estorno) · `POST /payments/:id/cancel` |
-| Dashboard | `GET /dashboard/summary` · `GET /dashboard/finance` |
+| Dashboard | `GET /dashboard/summary` (query `onlyMine`) · `GET /dashboard/finance` |
+| Workspace | `GET /workspace/members` (owner + colaboradores ativos, p/ o seletor de responsável) |
 
 **Convenções:**
 - DTOs validados com `class-validator` + `ValidationPipe` global (`whitelist: true`).
 - Listagens paginadas: `?page=&limit=` → `{ data, meta: { total, page, limit } }`.
 - Erros no formato `{ statusCode, message, error }` (padrão Nest).
 - Transições de status (proposta, deal) validadas no service — transição inválida retorna `422`.
+- **Escopo por responsável nas leituras**: sem `cliente:ver_todos` / `oportunidade:ver_todas` /
+  `demanda:ver_todas`, as listagens, quadros e leituras por id do recurso devolvem apenas os
+  registros do usuário e os **sem responsável**. Escritas seguem governadas pelas chaves
+  `:gerenciar`. Atribuir alguém de outra workspace retorna `422`.
 - Jobs diários (cron do Nest `@nestjs/schedule`):
   1. Marca propostas vencidas como `EXPIRED`;
   2. Gera a próxima mensalidade de contratos `RECURRING` ativos (30 dias antes do vencimento, idempotente — nunca duplica a cobrança do mês);

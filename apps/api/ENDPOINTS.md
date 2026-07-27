@@ -142,9 +142,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ## Clients
 
 ### GET /clients
-- **Propósito:** Listar clientes do usuário autenticado (não arquivados), com busca e filtros, paginado.
+- **Propósito:** Listar clientes do usuário autenticado (não arquivados), com busca e filtros, paginado. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
-- **Body:** — (query: `page?`, `limit?`, `search?`, `status?`, `source?`)
+- **Body:** — (query: `page?`, `limit?`, `search?`, `status?`, `source?`, `assigneeId?: uuid`)
 - **Resposta:** `200 { data: Client[], meta: { total, page, limit } }`.
 - **Erros:** `400` (query inválida), `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.list`
@@ -152,9 +152,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /clients
 - **Propósito:** Criar um cliente para o usuário autenticado (`ownerId` derivado do token).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ name: string (mín. 2), personType: PersonType, tradeName?, document?, email?, phone?, website?, source?, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state? }`
-- **Resposta:** `201 Client`.
-- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `401`.
+- **Body:** `{ name: string (mín. 2), personType: PersonType, tradeName?, document?, email?, phone?, website?, source?, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state?, assigneeId?: uuid | null }`
+- **Resposta:** `201 Client` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `422 Responsável inválido: escolha alguém da sua equipe.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.create`
 
 ### GET /clients/tags
@@ -182,19 +182,19 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.deleteTag`
 
 ### GET /clients/:id
-- **Propósito:** Buscar um cliente do usuário autenticado pelo id.
+- **Propósito:** Buscar um cliente do usuário autenticado pelo id. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 Client`.
+- **Resposta:** `200 Client` (com `assignee: { id, name } | null`).
 - **Erros:** `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.findOne`
 
 ### PATCH /clients/:id
 - **Propósito:** Atualizar parcialmente um cliente do usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar.
-- **Resposta:** `200 Client`.
-- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Cliente não encontrado.`, `401`.
+- **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar; `assigneeId: null` limpa o responsável, o campo ausente preserva.
+- **Resposta:** `200 Client` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.update`
 
 ### POST /clients/:id/archive
@@ -246,27 +246,27 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ## Activities
 
 ### GET /activities
-- **Propósito:** Listar atividades (timeline), filtrando por `clientId` e/ou `dealId`, em ordem `createdAt desc`, paginado.
+- **Propósito:** Listar atividades (timeline), filtrando por `clientId` e/ou `dealId`, em ordem `createdAt desc`, paginado. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
-- **Body:** — (query: `page?`, `limit?`, `clientId?`, `dealId?`)
-- **Resposta:** `200 { data: Activity[], meta: { total, page, limit } }`.
+- **Body:** — (query: `page?`, `limit?`, `clientId?`, `dealId?`, `assigneeId?: uuid`)
+- **Resposta:** `200 { data: Activity[], meta: { total, page, limit } }` (cada item com `assignee: { id, name } | null`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.list`
 
 ### POST /activities
 - **Propósito:** Criar uma atividade/anotação na timeline de um cliente. Com `type: FOLLOW_UP` e `scheduledFor`, registra um follow-up.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ clientId: uuid, type: ActivityType, content: string, dealId?: uuid, scheduledFor?: ISO date }`
-- **Resposta:** `201 Activity`.
-- **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
+- **Body:** `{ clientId: uuid, type: ActivityType, content: string, dealId?: uuid, scheduledFor?: ISO date, assigneeId?: uuid | null }`
+- **Resposta:** `201 Activity` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.create`
 
 ### PATCH /activities/:id
 - **Propósito:** Atualizar parcialmente uma atividade (não permite mover de cliente — `clientId` omitido).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ type?, content?, dealId?, scheduledFor? }`
-- **Resposta:** `200 Activity`.
-- **Erros:** `400` (validação), `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
+- **Body:** `{ type?, content?, dealId?, scheduledFor?, assigneeId? }`. `assigneeId: null` limpa o responsável, o campo ausente preserva.
+- **Resposta:** `200 Activity` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Atividade não encontrada.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.update`
 
 ### POST /activities/:id/complete
@@ -329,43 +329,43 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ## Deals
 
 ### GET /deals
-- **Propósito:** Listar oportunidades do usuário autenticado (via cliente), com filtros e paginação.
+- **Propósito:** Listar oportunidades do usuário autenticado (via cliente), com filtros e paginação. Sem `oportunidade:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
-- **Body:** — (query: `page?`, `limit?`, `clientId?`, `stageId?`, `search?`)
-- **Resposta:** `200 { data: Deal[], meta: { total, page, limit } }` (`Deal` inclui `client: { id, name }`).
+- **Body:** — (query: `page?`, `limit?`, `clientId?`, `stageId?`, `search?`, `assigneeId?: uuid`)
+- **Resposta:** `200 { data: Deal[], meta: { total, page, limit } }` (`Deal` inclui `client: { id, name }` e `assignee: { id, name } | null`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.list`
 
 ### GET /deals/board
-- **Propósito:** Retornar todas as oportunidades do usuário autenticado, sem paginação, ordenadas por `stageId` e `position` — alimenta o Kanban.
+- **Propósito:** Retornar todas as oportunidades do usuário autenticado, sem paginação, ordenadas por `stageId` e `position` — alimenta o Kanban. Sem `oportunidade:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
-- **Body:** —
-- **Resposta:** `200 Deal[]` (com `client: { id, name }`).
+- **Body:** — (query: `assigneeId?: uuid` — filtro "Atribuídos a mim" do quadro)
+- **Resposta:** `200 Deal[]` (com `client: { id, name }` e `assignee: { id, name } | null`).
 - **Erros:** `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.board`
 
 ### POST /deals
 - **Propósito:** Criar uma oportunidade para um cliente do usuário autenticado. Sem `stageId`, entra no primeiro estágio **do owner**; `position` vai para o fim da coluna.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
-- **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date }`
-- **Resposta:** `201 Deal`.
-- **Erros:** `400` (validação), `404 Cliente não encontrado.` / `404 Estágio não encontrado.`, `401`.
+- **Body:** `{ title: string (mín. 2), clientId: uuid, serviceType: ServiceType, stageId?: uuid, amount?: number, probability?: number (0-100), expectedClose?: ISO date, assigneeId?: uuid | null }`
+- **Resposta:** `201 Deal` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.` / `404 Estágio não encontrado.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.create`
 
 ### GET /deals/:id
-- **Propósito:** Buscar uma oportunidade, validando que o cliente pertence ao usuário autenticado.
+- **Propósito:** Buscar uma oportunidade, validando que o cliente pertence ao usuário autenticado. Sem `oportunidade:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 Deal`.
+- **Resposta:** `200 Deal` (com `assignee: { id, name } | null`).
 - **Erros:** `404 Oportunidade não encontrada.` (ou cliente de outro dono), `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.findOne`
 
 ### PATCH /deals/:id
 - **Propósito:** Atualizar parcialmente uma oportunidade (não move de estágio — usar `/move`; `clientId`/`stageId` fora do body).
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
-- **Body:** Campos parciais de `POST /deals` exceto `clientId`/`stageId`.
-- **Resposta:** `200 Deal`.
-- **Erros:** `400` (validação), `404 Oportunidade não encontrada.`, `401`.
+- **Body:** Campos parciais de `POST /deals` exceto `clientId`/`stageId`. `assigneeId: null` limpa o responsável, o campo ausente preserva.
+- **Resposta:** `200 Deal` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Oportunidade não encontrada.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.update`
 
 ### PATCH /deals/:id/move
@@ -513,18 +513,18 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ## Tasks
 
 ### GET /tasks
-- **Propósito:** Listar tarefas do usuário autenticado, paginado, cruzando projetos ("Minhas demandas"), com filtros por projeto, cliente, status, prioridade e prazo.
+- **Propósito:** Listar tarefas do usuário autenticado, paginado, cruzando projetos ("Minhas demandas"), com filtros por projeto, cliente, status, prioridade, prazo e responsável. Sem `demanda:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
-- **Body:** — (query: `page`, `limit`, `projectId?`, `clientId?`, `status?`, `priority?`, `dueBefore?`).
-- **Resposta:** `200 Paginated<Task>` (com `project` e `project.client`), ordenado por prazo (`dueDate asc`, nulls por último), prioridade e criação.
+- **Body:** — (query: `page`, `limit`, `projectId?`, `clientId?`, `status?`, `priority?`, `dueBefore?`, `assigneeId?: uuid`).
+- **Resposta:** `200 Paginated<Task>` (com `project`, `project.client` e `assignee: { id, name } | null`), ordenado por prazo (`dueDate asc`, nulls por último), prioridade e criação.
 - **Erros:** `400` (validação), `404 Projeto não encontrado.` (se `projectId` não for do dono), `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.list`
 
 ### GET /tasks/board
-- **Propósito:** Alimentar o Kanban de tarefas. Com `projectId`, lista as tarefas do projeto ordenadas por `(status, position)`. Sem `projectId`, lista todas as tarefas do usuário autenticado (board cross-projeto de "Minhas demandas"), ordenadas por `(status, prazo asc, prioridade desc, position)`.
+- **Propósito:** Alimentar o Kanban de tarefas. Com `projectId`, lista as tarefas do projeto ordenadas por `(status, position)`. Sem `projectId`, lista todas as tarefas do usuário autenticado (board cross-projeto de "Minhas demandas"), ordenadas por `(status, prazo asc, prioridade desc, position)`. Sem `demanda:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
-- **Body:** — (query: `projectId` opcional).
-- **Resposta:** `200 Task[]`.
+- **Body:** — (query: `projectId?`, `assigneeId?: uuid` — filtro "Atribuídos a mim" do quadro).
+- **Resposta:** `200 Task[]` (com `assignee: { id, name } | null`).
 - **Erros:** `404 Projeto não encontrado.` (quando `projectId` é informado e não pertence ao usuário), `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.board`
 
@@ -555,25 +555,25 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /tasks
 - **Propósito:** Criar uma tarefa em um projeto do usuário autenticado, no fim da coluna de status (`position` sequencial).
 - **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
-- **Body:** `{ projectId, title, description?, status?, priority?, dueDate?, tags?, checklist? }`.
-- **Resposta:** `201 Task`.
-- **Erros:** `400` (validação), `404 Projeto não encontrado.`, `401`.
+- **Body:** `{ projectId, title, description?, status?, priority?, dueDate?, tags?, checklist?, assigneeId?: uuid | null }`.
+- **Resposta:** `201 Task` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Projeto não encontrado.`, `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.create`
 
 ### GET /tasks/:id
-- **Propósito:** Buscar uma tarefa, validando posse via projeto→cliente do usuário autenticado.
+- **Propósito:** Buscar uma tarefa, validando posse via projeto→cliente do usuário autenticado. Sem `demanda:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `projeto:ver` ou `projeto:gerenciar` ou `demanda:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 Task`.
+- **Resposta:** `200 Task` (com `assignee: { id, name } | null`).
 - **Erros:** `404 Tarefa não encontrada.`, `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.findOne`
 
 ### PATCH /tasks/:id
 - **Propósito:** Atualizar parcialmente uma tarefa (título, descrição, prioridade, prazo, tags, checklist). `projectId` é imutável; `status` só muda via `/move`.
 - **Auth:** Bearer (access token). Permissão: `demanda:gerenciar`.
-- **Body:** Campos parciais de `POST /tasks` exceto `projectId`/`status`.
-- **Resposta:** `200 Task`.
-- **Erros:** `400` (validação), `404 Tarefa não encontrada.`, `401`.
+- **Body:** Campos parciais de `POST /tasks` exceto `projectId`/`status`. `assigneeId: null` limpa o responsável, o campo ausente preserva.
+- **Resposta:** `200 Task` (com `assignee: { id, name } | null`).
+- **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Tarefa não encontrada.`, `401`.
 - **Handler:** `modules/projects/api/tasks.controller.ts` → `TasksController.update`
 
 ### PATCH /tasks/:id/move
@@ -711,9 +711,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente leitura. Valores monetários são `number`; a soma ocorre no banco (sem float). Janelas de tempo em UTC: "no mês" = vencimento/decisão no mês corrente; "próximos" = 7 dias; conversão = 90 dias.
 
 ### GET /dashboard/summary
-- **Propósito:** Resumo comercial e operacional: funil de oportunidades, propostas, demandas e próximas ações (follow-ups).
+- **Propósito:** Resumo comercial e operacional: funil de oportunidades, propostas, demandas e próximas ações (follow-ups). Os blocos com responsável (funil, demandas e próximas ações) também são recortados: sem `oportunidade:ver_todas` / `demanda:ver_todas` / `cliente:ver_todos`, cada um devolve apenas os registros do usuário e os sem responsável. Propostas não têm responsável e não são recortadas.
 - **Auth:** Bearer (access token).
-- **Body:** —
+- **Body:** — (query: `onlyMine?: boolean` — alternador "Somente meus": recorta funil, demandas e próximas ações estritamente ao usuário logado, removendo também os sem responsável)
 - **Resposta:** `200 { funnel, proposals, demands, upcomingActions }`, onde:
   - `funnel: { stages: Array<{ stageId, name, isWon, isLost, count, amount }> (ordem do pipeline), totalOpen: number, amountInNegotiation: number }` — `totalOpen`/`amountInNegotiation` somam apenas estágios não terminais (nem `isWon` nem `isLost`).
   - `proposals: { openCount, openAmount, acceptedThisMonth, conversionRate }` — em aberto = `DRAFT|SENT|NEGOTIATING`; `conversionRate` (0..1) = aceitas ÷ (aceitas + recusadas) decididas nos últimos 90 dias (0 se não houver decididas).
@@ -772,6 +772,18 @@ Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo
 - **Resposta:** `201 { received: true }`.
 - **Erros:** `400 Assinatura do webhook inválida.` (assinatura ausente/adulterada ou secret incorreto).
 - **Handler:** `modules/billing/api/stripe-webhook.controller.ts` → `StripeWebhookController.handle`
+
+---
+
+## Workspace
+
+### GET /workspace/members
+- **Propósito:** Listar as pessoas da workspace (owner + colaboradores ativos) para o seletor de responsável.
+- **Auth:** Bearer (access token). Sem permissão específica — qualquer sessão válida.
+- **Body:** —
+- **Resposta:** `200 { id, name, isOwner }[]`, ordenado por nome. Convite pendente e colaborador desativado ficam de fora.
+- **Erros:** `401`.
+- **Handler:** `modules/workspace/api/workspace-members.controller.ts` → `WorkspaceMembersController.list`
 
 ---
 
