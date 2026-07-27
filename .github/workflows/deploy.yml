@@ -187,6 +187,33 @@ jobs:
             *) echo "::error::Certificado inesperado ($issuer). Confira ACME_RESOLVER."; exit 1 ;;
           esac
 
+      # Certificado válido não prova que a aplicação atende. O deploy de
+      # 27/07/2026 01:53 saiu verde com a API fora: o container morria no
+      # entrypoint (migration falha), o Traefik ficava sem router para /api e o
+      # nginx do front respondia o index.html com 200 — front no ar, CRM
+      # inutilizável. Este passo é o que distingue as duas coisas.
+      - name: Conferir se a API responde
+        env:
+          CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
+        run: |
+          set -e
+          # O healthcheck do container tem start_period de 60s; damos 2 minutos.
+          for tentativa in $(seq 1 12); do
+            corpo=$(curl -fsS --max-time 10 "https://${CRM_DOMAIN}/api/v1/health" || true)
+            case "$corpo" in
+              *'"status":"ok"'*)
+                echo "API respondendo: $corpo"
+                exit 0
+                ;;
+            esac
+            echo "tentativa ${tentativa}/12 — resposta inesperada: $(printf '%.80s' "$corpo")"
+            sleep 10
+          done
+          echo "::error::/api/v1/health não respondeu como a API em 2 minutos. \
+          Provável container crm-api fora do ar — na VPS: \
+          docker compose -f docker-compose.prod.yml logs api"
+          exit 1
+
       - name: Resumo
         run: |
           {
