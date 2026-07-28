@@ -38,7 +38,7 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 16 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
 | 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ✅ **17-A concluída** · 17-B/17-C não iniciadas | [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) · [plan 17-A](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md) |
 | 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
-| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | 🔜 **19-A é a próxima** · 19-B P3 | a definir |
+| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ✅ **19-A concluída** · 19-B P3 | [research](specs/research/2026-07-28-fase-19a-lgpd-minimo.md) · [plan 19-A](specs/plans/2026-07-28-fase-19a-lgpd-minimo.md) |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
 
@@ -64,7 +64,7 @@ para depois. Os números das fases não mudaram — as specs e os links continua
 |---|---|---|---|
 | ~~1~~ ✅ | Catálogo de serviços, fontes de lead e motivos de perda por owner | **13-A** | único bloqueio absoluto: `ServiceType` era enum fechado no nosso mix de serviço |
 | ~~2~~ ✅ | Importação CSV/XLSX de clientes e contatos + exportação das listagens | **14-A** | onboarding de base existente e fechamento de mês fora da tela |
-| **1** | LGPD mínimo: excluir a própria conta, exportar meus dados | **19-A** | risco legal com dado de terceiro, não feature |
+| ~~1~~ ✅ | LGPD mínimo: excluir a própria conta, exportar meus dados | **19-A** | risco legal com dado de terceiro, não feature |
 | 2 | Anexos e documentos | **12** | primeira infra externa (S3/MinIO); desbloqueia o logo da Fase 11 |
 | 3 | Busca global + detecção de duplicidade | **14-B** | conveniência: cada listagem já tem `?search=` |
 
@@ -95,8 +95,9 @@ lixeira.
 
 > **O gargalo original caiu.** "O domínio ser fechado no nosso mix de serviço" era o gargalo desta
 > revisão, e a 13-A o resolveu: as quatro listas do domínio são configuráveis por owner. Com a 14-A a
-> base entra e sai por planilha, e com a 17-A o lead entra por integração em qualquer workspace. O que
-> resta de bloqueio de produção é **jurídico, não funcional** — a 19-A.
+> base entra e sai por planilha, com a 17-A o lead entra por integração em qualquer workspace, e com a
+> 19-A o titular exporta os próprios dados e encerra a própria conta. O bloqueio **jurídico** também
+> caiu — o que resta na trilha (Anexos, Busca global) é conveniência, não risco legal.
 
 ---
 
@@ -631,23 +632,31 @@ Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
 
 ---
 
-## Fase 19 — Plataforma: API pública, 2FA e LGPD 🔜 **19-A é a próxima** · **P3** · recortada
+## Fase 19 — Plataforma: API pública, 2FA e LGPD ✅ **19-A concluída** · **P3** · recortada
 
-**Frente A — LGPD mínimo** 🔜 **1º na trilha de produção** (promovida de P3 para bloqueio de produção)
+**Frente A — LGPD mínimo** ✅ **concluída** (promovida de P3 para bloqueio de produção)
 
-- [ ] Excluir a própria conta (owner), com o efeito em cascata explícito e irreversível
-- [ ] Exportar meus dados — dump da workspace num formato legível pelo titular
+- [x] Excluir a própria conta (owner), com o efeito em cascata explícito e irreversível — encerramento
+      agendado com 30 dias de carência, cancelável, e expurgo diário pelo `AccountPurgeJob`
+- [x] Exportar meus dados — dump da workspace num JSON tipado, sem teto de linhas
 
-> **Por que sobe de P3 para o 1º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
-> governança futura. Com autocadastro aberto, estranhos passam a guardar **dado de terceiros** (clientes
-> deles, CPF/CNPJ, telefone) na nossa instância — e não existe **nenhum** endpoint de exclusão de conta
-> ou de exportação de dados em todo o `ENDPOINTS.md`. A
-> [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) promete o que o sistema não
-> cumpre. Isso é exposição legal, não feature — e é o recorte mais barato dos três primeiros.
+> **Por que subiu de P3 para o 1º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
+> governança futura. Com autocadastro aberto, estranhos passaram a guardar **dado de terceiros**
+> (clientes deles, CPF/CNPJ, telefone) na nossa instância — e não existia **nenhum** endpoint de
+> exclusão de conta ou de exportação de dados em todo o `ENDPOINTS.md`. A
+> [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) prometia o que o sistema não
+> cumpria. Era exposição legal, não feature — e foi o recorte mais barato dos três primeiros.
+>
+> A fase também fechou, no caminho, dois desvios de conformidade encontrados ao ler o contrato
+> publicado: o registro de acesso (Marco Civil art. 15) passou a ser persistido por **6 meses** —
+> antes só existia como linha de log, com 30 dias no Loki — e o backup do banco ganhou **rotação e
+> expiração implementadas** por `scripts/backup-postgres.sh`, com ledger de expurgos para reaplicar
+> exclusão num restore. As duas páginas legais foram reescritas para descrever exatamente isso.
 
 > **Escopo mínimo de propósito:** só as duas operações do titular. Consentimento, política de retenção
-> e opt-out ficam na Frente B. A exportação **pode reaproveitar a egressão de 14-A**, que já está de
-> pé: `ExportService` é genérico (a listagem passa as colunas) e serve a um dump da workspace inteira.
+> e opt-out ficam na Frente B. A premissa de reaproveitar o `ExportService` da 14-A **não se confirmou**:
+> ele serializa planilha (CSV/XLSX de aba única, teto de 5.000 linhas) e o dump é um grafo relacional em
+> JSON — o que se reaproveitou foi o padrão de trilha agregada do `ImportService`.
 
 **Frente B — Plataforma aberta** ⬜ **P3**
 
