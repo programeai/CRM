@@ -85,7 +85,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Retornar o usuário autenticado (sem campos sensíveis) junto com o contexto de acesso — é o que o frontend usa para esconder navegação e ações (ver `useCan`).
 - **Auth:** Bearer (access token).
 - **Body:** —
-- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[] }`. Sem `passwordHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro.
+- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[], hasPassword: boolean, deletion: { requestedAt, scheduledFor } | null }`. Sem `passwordHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro. `hasPassword` é `false` na conta criada só por login social. `deletion` é o agendamento de encerramento da **workspace** (Fase 19-A) — vem preenchido também para o colaborador (para o banner global), mas só o owner pode cancelá-lo.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.me`
 
@@ -1041,6 +1041,40 @@ Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente le
   - `upcoming: Array<{ id, description, dueDate, amount, contractId, clientId, clientName }>` — cobranças `PENDING` a vencer nos próximos 7 dias (máx. 5).
 - **Erros:** `401`; `400` (`month` fora do formato `AAAA-MM`).
 - **Handler:** `modules/dashboard/api/dashboard.controller.ts` → `DashboardController.finance`
+
+---
+
+## Conta (LGPD)
+
+Os direitos do titular sobre a própria conta. **Todas as rotas desta seção exigem
+ser o dono da workspace** (`@OwnerOnly()` — não existe permissão que conceda isto
+a um colaborador) e são **isentas do gate de assinatura**: a Política de
+Privacidade promete os direitos "a qualquer momento e sem custo", e um 402 aqui
+negaria o direito a quem mais precisa dele.
+
+### GET /account/export
+- **Propósito:** Portabilidade (LGPD art. 18, V e art. 19, § 3º): baixar a workspace inteira do titular num JSON único. Traz manifest (versão do esquema, data, contagem por coleção e a lista do que **não** está incluído) e uma coleção por entidade. **Sem teto de linhas** — ao contrário das exportações de listagem, um pedido de portabilidade é "tudo".
+- **Auth:** Bearer (access token). Exclusiva do dono da conta. Isenta do gate de assinatura. Limite de 3 chamadas por minuto.
+- **Body:** —
+- **Resposta:** `200` arquivo (`Content-Disposition: attachment; filename="meus-dados-AAAA-MM-DD.json"`, `application/json; charset=utf-8`).
+- **Erros:** `403 Esta ação é exclusiva do dono da conta.`, `429`, `401`.
+- **Handler:** `modules/account/api/account.controller.ts` → `AccountController.export`
+
+### POST /account/deletion
+- **Propósito:** Pedir o encerramento da conta e de toda a workspace. **Não apaga nada agora:** agenda o expurgo para 30 dias à frente (carência cancelável) e devolve a data. Durante a janela o CRM segue funcionando normalmente, com aviso permanente na interface. Exige reautenticação: a senha da conta, ou — quando a conta foi criada só por login social e não tem senha — o e-mail exato da conta.
+- **Auth:** Bearer (access token). Exclusiva do dono da conta. Isenta do gate de assinatura. Limite de 3 chamadas por minuto.
+- **Body:** `{ password?: string, email?: string }` — qual dos dois é exigido depende de `hasPassword` em `GET /auth/me`. Enviar o outro não substitui.
+- **Resposta:** `200 { requestedAt: string, scheduledFor: string }`.
+- **Erros:** `403 Senha incorreta.` / `403 O e-mail informado não confere com o da conta.` / `403 Esta ação é exclusiva do dono da conta.`, `409 O encerramento desta conta já está agendado. Cancele antes de pedir de novo.`, `429`, `401`.
+- **Handler:** `modules/account/api/account.controller.ts` → `AccountController.solicitarEncerramento`
+
+### DELETE /account/deletion
+- **Propósito:** Cancelar o encerramento agendado, dentro da janela de carência. Depois do expurgo não há conta nem sessão, então esta rota só existe para a janela.
+- **Auth:** Bearer (access token). Exclusiva do dono da conta. Isenta do gate de assinatura.
+- **Body:** —
+- **Resposta:** `200 { ok: true }`.
+- **Erros:** `409 Esta conta não tem encerramento agendado.`, `403 Esta ação é exclusiva do dono da conta.`, `401`.
+- **Handler:** `modules/account/api/account.controller.ts` → `AccountController.cancelarEncerramento`
 
 ---
 

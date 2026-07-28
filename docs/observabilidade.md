@@ -111,6 +111,12 @@ longo do tempo. Os que existem hoje:
 | `lead.canal_criado` / `lead.canal_atualizado` / `lead.canal_excluido` | manutenção dos canais de captação | `info` |
 | `integracao.chave_emitida` / `integracao.chave_rotacionada` / `integracao.chave_revogada` | ciclo de vida da chave de integração — nunca carregam o valor, só `chaveId` e `prefixo` | `info` / `warn` / `warn` |
 | `integracao.chave_recusada` / `integracao.escopo_insuficiente` | chave inexistente/revogada (401) ou sem o escopo da rota (403) | `warn` |
+| `conta.dados_exportados` | dump de portabilidade gerado (`GET /account/export`) | `info` |
+| `conta.encerramento_solicitado` / `conta.encerramento_cancelado` | pedido/cancelamento de encerramento pelo titular | `warn` / `info` |
+| `conta.assinatura_marcada_para_nao_renovar` | rotina diária das 5h — `cancel_at_period_end` marcado no Stripe | `info` |
+| `conta.cancelamento_de_assinatura_falhou` | rotina diária das 5h — falha ao marcar `cancel_at_period_end`; tenta de novo amanhã | `error` |
+| `conta.expurgo_adiado` | rotina diária das 5h — falha ao cancelar a assinatura no Stripe; o owner é pulado sem apagar nada | `error` |
+| `conta.expurgada` | rotina diária das 5h — conta e workspace apagadas em definitivo; **`warn`** de propósito, é irreversível | `warn` |
 
 > **Aposentado:** `lead.ingestao_desconfigurada` existia quando a ausência de
 > `LEAD_INTAKE_TOKEN` fechava a rota com 503. Desde a Fase 17-A a ingestão
@@ -203,6 +209,19 @@ Em código transversal (middleware, filtro, bootstrap), onde não há DI, use
 As ações de arquivar/restaurar/expurgar da lixeira (`modules/trash/`) não
 ganham `evento` estruturado novo: são só `audit.registrar(…)` — a trilha já
 responde "quem arquivou o quê e quando" sem duplicar a informação no Loki.
+
+### O log **não** é o registro de acesso do Marco Civil
+
+Um terceiro caso, distinto dos dois acima. O `http.requisicao` vive **30 dias**
+no Loki e é ferramenta de **diagnóstico**: uma linha por requisição, útil para
+depurar um incidente recente. A tabela `AccessRecord` (`modules/auth/`) vive
+**6 meses** e é obrigação de **conformidade** (Marco Civil da Internet, art. 5º,
+VIII e art. 15): uma linha por evento de *autenticação* — login, login social,
+aceite de convite e logout —, não por requisição. Ela sobrevive ao
+encerramento da conta (LGPD art. 16, I) e nunca é exposta na interface; quem
+responde a uma requisição judicial é o `userId`. Os dois prazos não são
+intercambiáveis: reduzir o do `AccessRecord` para 30 dias descumpriria a lei
+mesmo que o Loki continuasse guardando `http.requisicao` por igual período.
 
 ## Peças no código
 
