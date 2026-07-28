@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type {
   ClientChildrenCount,
+  ClientImportRef,
   ClientListFilter,
   ClientRepository,
   ClientTagRef,
@@ -196,5 +197,16 @@ export class PrismaClientRepository implements ClientRepository {
       select: { id: true },
     });
     return found !== null;
+  }
+
+  findAllRefs(ownerId: string): Promise<ClientImportRef[]> {
+    // Sem `scope`: a importação de contatos precisa reconhecer o cliente mesmo
+    // que ele esteja com outro responsável, senão o contato viraria erro de
+    // linha por um recorte de leitura. A posse continua garantida pelo ownerId
+    // (e pelo RLS).
+    return this.prisma.db.client.findMany({
+      where: { ownerId, archivedAt: null },
+      select: { id: true, name: true, document: true },
+    });
   }
 }
