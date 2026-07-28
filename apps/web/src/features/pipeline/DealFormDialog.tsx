@@ -27,8 +27,7 @@ import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useArchiveDeal, useCreateDeal, useUpdateDeal } from './api/hooks';
 import type { Deal } from './api/types';
-import { useCatalogo } from '@/features/catalogos/api/hooks';
-import { comItemAtual } from '@/features/catalogos/lib/options';
+import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 
 const schema = z.object({
   title: z.string().min(2, 'O título deve ter no mínimo 2 caracteres.'),
@@ -55,8 +54,6 @@ interface Props {
 
 export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Props) {
   const isEdit = !!deal;
-  const { data: servicos } = useCatalogo('servicos');
-  const servicosOptions = comItemAtual(servicos, deal?.serviceType);
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal(deal?.id ?? '');
   const archiveDeal = useArchiveDeal();
@@ -244,19 +241,14 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultClientId }: Pr
                 control={control}
                 name="serviceTypeId"
                 render={({ field }) => (
-                  <Select<string>
+                  <CatalogSelect
+                    kind="servicos"
                     value={field.value}
-                    onValueChange={(v) => field.onChange(v ?? '')}
-                  >
-                    <SelectTrigger placeholder="Selecione o tipo de serviço" />
-                    <SelectContent>
-                      {servicosOptions.map((sv) => (
-                        <SelectItem key={sv.id} value={sv.id}>
-                          {sv.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(id) => field.onChange(id ?? '')}
+                    currentItem={deal?.serviceType}
+                    placeholder="Selecione o tipo de serviço"
+                    aria-invalid={!!errors.serviceTypeId}
+                  />
                 )}
               />
               {errors.serviceTypeId && (

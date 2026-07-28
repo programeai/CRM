@@ -8,10 +8,10 @@ import type {
 } from './types';
 
 /**
- * Invalidação: renomear ou desativar um item muda o rótulo **embutido** em todo
- * registro que o usa, então a mutação precisa derrubar também as listas de
- * negócio daquele catálogo. Sem isso a tela de clientes continuaria exibindo o
- * nome antigo até um refetch por outro motivo.
+ * Invalidação: excluir um item mexe no rótulo **embutido** em todo registro que
+ * o usa, então a mutação precisa derrubar também as listas de negócio daquele
+ * catálogo. Sem isso a tela de clientes continuaria exibindo o item numa
+ * listagem de onde ele já saiu, até um refetch por outro motivo.
  */
 const DEPENDENTES: Record<CatalogKind, readonly unknown[][]> = {
   servicos: [['deals', 'board'], ['proposals'], ['projects']],
@@ -20,16 +20,14 @@ const DEPENDENTES: Record<CatalogKind, readonly unknown[][]> = {
   'motivos-de-perda': [['deals', 'board']],
 };
 
-export function useCatalogo(kind: CatalogKind, opts: { incluirInativos?: boolean } = {}) {
-  const incluirInativos = opts.incluirInativos ?? false;
+export function useCatalogo(kind: CatalogKind) {
   return useQuery({
-    queryKey: queryKeys.catalogos.list(kind, incluirInativos),
-    queryFn: () => catalogosApi.list(kind, incluirInativos),
+    queryKey: queryKeys.catalogos.list(kind),
+    queryFn: () => catalogosApi.list(kind),
   });
 }
 
 function invalidateCatalogo(qc: ReturnType<typeof useQueryClient>, kind: CatalogKind) {
-  // Prefixo: derruba as duas variações (incluirInativos true/false) de uma vez.
   void qc.invalidateQueries({ queryKey: ['catalogos', kind] });
   for (const key of DEPENDENTES[kind]) {
     void qc.invalidateQueries({ queryKey: key });

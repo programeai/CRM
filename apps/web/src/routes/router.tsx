@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import ProtectedRoute from '@/app/ProtectedRoute';
 import PermissionRoute from '@/app/PermissionRoute';
 import AppLayout from '@/app/AppLayout';
@@ -37,8 +37,12 @@ import ColaboradoresPage from '@/features/organizacao/ColaboradoresPage';
 import PapeisPage from '@/features/organizacao/PapeisPage';
 import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
-import CatalogosLayout from '@/features/catalogos/CatalogosLayout';
-import { CatalogTab } from '@/features/catalogos/CatalogTab';
+import TiposDeAtividadePage from '@/features/catalogos/TiposDeAtividadePage';
+import AdministracaoLayout, {
+  AdministracaoIndex,
+} from '@/features/administracao/AdministracaoLayout';
+import { ADMIN_PERMISSIONS } from '@/features/administracao/tabs';
+import CatalogosRedirect from '@/features/administracao/CatalogosRedirect';
 
 // Chaves de permissão por área — as mesmas do `app/nav.ts` e do
 // `@RequirePermission` da API. Basta uma delas para a rota abrir.
@@ -62,6 +66,24 @@ export const router = createBrowserRouter([
   // ProtectedRoute.
   { path: '/termos', element: <TermosPage /> },
   { path: '/privacidade', element: <PrivacidadePage /> },
+  // Endereços de antes de Administração virar uma seção só. Ficam fora do
+  // `ProtectedRoute` de propósito: sem sessão, o destino é que manda para o
+  // login, e a pessoa volta já na aba certa.
+  {
+    path: '/colaboradores',
+    element: <Navigate to="/administracao/colaboradores" replace />,
+  },
+  { path: '/papeis', element: <Navigate to="/administracao/papeis" replace /> },
+  {
+    path: '/auditoria',
+    element: <Navigate to="/administracao/auditoria" replace />,
+  },
+  {
+    path: '/lixeira',
+    element: <Navigate to="/administracao/lixeira" replace />,
+  },
+  { path: '/catalogos/*', element: <CatalogosRedirect /> },
+  { path: '/administracao/catalogos/*', element: <CatalogosRedirect /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -136,43 +158,49 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          // Administração: configuração da workspace em abas. A guarda de fora
+          // é a união das chaves (basta uma para a seção existir); cada aba
+          // mantém a sua, para quem entra por link direto.
           {
-            element: <PermissionRoute permission={['colaborador:gerenciar']} />,
-            children: [
-              { path: '/colaboradores', element: <ColaboradoresPage /> },
-            ],
-          },
-          {
-            element: <PermissionRoute permission={['papel:gerenciar']} />,
-            children: [{ path: '/papeis', element: <PapeisPage /> }],
-          },
-          {
-            element: <PermissionRoute permission={['auditoria:ver']} />,
-            children: [{ path: '/auditoria', element: <AuditoriaPage /> }],
-          },
-          {
-            element: <PermissionRoute permission={['lixeira:ver']} />,
-            children: [{ path: '/lixeira', element: <LixeiraPage /> }],
-          },
-          {
-            element: <PermissionRoute permission={['catalogo:gerenciar']} />,
+            element: <PermissionRoute permission={ADMIN_PERMISSIONS} />,
             children: [
               {
-                path: '/catalogos',
-                element: <CatalogosLayout />,
+                path: '/administracao',
+                element: <AdministracaoLayout />,
                 children: [
-                  { index: true, element: <CatalogTab kind="servicos" /> },
+                  { index: true, element: <AdministracaoIndex /> },
                   {
-                    path: 'fontes-de-lead',
-                    element: <CatalogTab kind="fontes-de-lead" />,
+                    element: (
+                      <PermissionRoute permission={['colaborador:gerenciar']} />
+                    ),
+                    children: [
+                      { path: 'colaboradores', element: <ColaboradoresPage /> },
+                    ],
                   },
                   {
-                    path: 'tipos-de-atividade',
-                    element: <CatalogTab kind="tipos-de-atividade" />,
+                    element: <PermissionRoute permission={['papel:gerenciar']} />,
+                    children: [{ path: 'papeis', element: <PapeisPage /> }],
                   },
                   {
-                    path: 'motivos-de-perda',
-                    element: <CatalogTab kind="motivos-de-perda" />,
+                    element: (
+                      <PermissionRoute permission={['catalogo:gerenciar']} />
+                    ),
+                    children: [
+                      {
+                        path: 'tipos-de-atividade',
+                        element: <TiposDeAtividadePage />,
+                      },
+                    ],
+                  },
+                  {
+                    element: <PermissionRoute permission={['auditoria:ver']} />,
+                    children: [
+                      { path: 'auditoria', element: <AuditoriaPage /> },
+                    ],
+                  },
+                  {
+                    element: <PermissionRoute permission={['lixeira:ver']} />,
+                    children: [{ path: 'lixeira', element: <LixeiraPage /> }],
                   },
                 ],
               },

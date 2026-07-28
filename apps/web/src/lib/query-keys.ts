@@ -19,8 +19,7 @@ export const queryKeys = {
     all: ['stages'] as const,
   },
   catalogos: {
-    list: (kind: string, incluirInativos = false) =>
-      ['catalogos', kind, incluirInativos] as const,
+    list: (kind: string) => ['catalogos', kind] as const,
   },
   proposals: {
     all: ['proposals'] as const,
