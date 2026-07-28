@@ -27,7 +27,11 @@ export const DEFAULT_LEAD_SOURCE_CATALOG = [
 
 /**
  * `isFollowUp` é REGRA, não rótulo: o cron de lembretes e o dashboard filtram por
- * ela. Exatamente um item nasce marcado.
+ * ela. Exatamente um item nasce marcado — e **este arquivo é a única via de
+ * escrita que sobrou**: 'Follow-up' é tipo primitivo, que ninguém move nem
+ * exclui (o `delete` do `CatalogosService` responde 422 nele). Owner que ficasse
+ * sem nenhum marcado perderia os lembretes sem via de conserto; ver a migration
+ * 20260816100000_activity_type_followup_primitivo.
  */
 export const DEFAULT_ACTIVITY_TYPE_CATALOG = [
   { name: 'Anotação', isFollowUp: false },

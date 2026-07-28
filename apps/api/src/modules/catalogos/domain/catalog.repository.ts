@@ -4,7 +4,9 @@ export const CATALOG_REPOSITORY = Symbol('CATALOG_REPOSITORY');
 
 /**
  * Forma comum das quatro tabelas de catálogo. `isFollowUp` só existe em
- * `ActivityTypeCatalog` — o service garante que ele não vaze para os outros.
+ * `ActivityTypeCatalog` e é **somente leitura** para a aplicação: marca o tipo
+ * primitivo 'Follow-up', semeado na criação da conta, que ninguém move nem
+ * exclui. Nenhum método deste repositório escreve nessa coluna.
  */
 export interface CatalogItem {
   id: string;
@@ -43,13 +45,17 @@ export interface CatalogRepository {
   ): Promise<CatalogItem | null>;
   create(
     kind: CatalogKind,
-    data: { ownerId: string; name: string; isFollowUp?: boolean },
+    data: { ownerId: string; name: string },
   ): Promise<CatalogItem>;
+  /**
+   * `active` é o único campo editável, e não é decisão de ninguém: é o efeito do
+   * DELETE num item em uso e da ressurreição por novo cadastro com o mesmo nome.
+   */
   update(
     kind: CatalogKind,
     id: string,
     ownerId: string,
-    data: { active?: boolean; isFollowUp?: boolean },
+    data: { active?: boolean },
   ): Promise<CatalogItem>;
   delete(kind: CatalogKind, id: string, ownerId: string): Promise<void>;
   /**
@@ -58,6 +64,4 @@ export interface CatalogRepository {
    * DELETE responder 500. `servicos` soma três tabelas.
    */
   contarUsos(kind: CatalogKind, id: string, ownerId: string): Promise<number>;
-  /** Desmarca `isFollowUp` dos outros itens do owner (só `tipos-de-atividade`). */
-  desmarcarOutrosFollowUp(ownerId: string, exceto: string): Promise<void>;
 }

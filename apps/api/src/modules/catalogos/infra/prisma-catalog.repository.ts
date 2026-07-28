@@ -70,10 +70,7 @@ export class PrismaCatalogRepository implements CatalogRepository {
     }) as Promise<CatalogItem | null>;
   }
 
-  create(
-    kind: CatalogKind,
-    data: { ownerId: string; name: string; isFollowUp?: boolean },
-  ) {
+  create(kind: CatalogKind, data: { ownerId: string; name: string }) {
     return this.delegate(kind).create({ data }) as Promise<CatalogItem>;
   }
 
@@ -81,7 +78,7 @@ export class PrismaCatalogRepository implements CatalogRepository {
     kind: CatalogKind,
     id: string,
     ownerId: string,
-    data: { name?: string; active?: boolean; isFollowUp?: boolean },
+    data: { active?: boolean },
   ) {
     // updateMany garante o filtro por ownerId; devolve o registro atualizado.
     const delegate = this.delegate(kind);
@@ -120,18 +117,5 @@ export class PrismaCatalogRepository implements CatalogRepository {
       case 'tipos-de-atividade':
         return db.activity.count({ where: { typeId: id, ownerId } });
     }
-  }
-
-  /**
-   * Desmarca `isFollowUp` dos outros itens do owner — a marca é de UM item só
-   * (o cron de lembretes e o dashboard filtram por ela). A exclusividade é
-   * garantida aqui, não no banco: um unique parcial impediria
-   * desmarcar-e-remarcar dentro da mesma transação.
-   */
-  async desmarcarOutrosFollowUp(ownerId: string, exceto: string) {
-    await this.prisma.db.activityTypeCatalog.updateMany({
-      where: { ownerId, isFollowUp: true, id: { not: exceto } },
-      data: { isFollowUp: false },
-    });
   }
 }

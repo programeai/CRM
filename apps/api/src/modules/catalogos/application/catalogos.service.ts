@@ -6,18 +6,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  CATALOG_LABELS,
-  KIND_COM_FOLLOW_UP,
-  type CatalogKind,
-} from '../domain/catalog-kind';
+import { CATALOG_LABELS, type CatalogKind } from '../domain/catalog-kind';
 import {
   CATALOG_REPOSITORY,
   type CatalogItem,
   type CatalogRepository,
 } from '../domain/catalog.repository';
 import type { CreateCatalogItemDto } from '../api/dto/create-catalog-item.dto';
-import type { UpdateCatalogItemDto } from '../api/dto/update-catalog-item.dto';
 
 @Injectable()
 export class CatalogosService {
@@ -100,16 +95,11 @@ export class CatalogosService {
         `Já existe um ${CATALOG_LABELS[kind]} com este nome.`,
       );
     }
-    this.assertFollowUpPermitido(kind, dto.isFollowUp);
 
     if (existente) {
       const revivido = await this.repo.update(kind, existente.id, ownerId, {
         active: true,
-        ...(dto.isFollowUp !== undefined ? { isFollowUp: dto.isFollowUp } : {}),
       });
-      if (dto.isFollowUp) {
-        await this.repo.desmarcarOutrosFollowUp(ownerId, existente.id);
-      }
       this.logger.log({
         evento: 'catalogo.item_restaurado',
         msg: 'Item de catálogo restaurado por novo cadastro com o mesmo nome.',
@@ -119,14 +109,7 @@ export class CatalogosService {
       return revivido;
     }
 
-    const criado = await this.repo.create(kind, {
-      ownerId,
-      name,
-      ...(dto.isFollowUp !== undefined ? { isFollowUp: dto.isFollowUp } : {}),
-    });
-    if (dto.isFollowUp) {
-      await this.repo.desmarcarOutrosFollowUp(ownerId, criado.id);
-    }
+    const criado = await this.repo.create(kind, { ownerId, name });
     this.logger.log({
       evento: 'catalogo.item_criado',
       msg: 'Item de catálogo criado.',
@@ -137,36 +120,8 @@ export class CatalogosService {
   }
 
   /**
-   * A única edição que existe é mover a marca de follow-up. **Renomear não é
-   * uma operação do produto**: para trocar um nome, exclui-se o item e
-   * cadastra-se outro — e o histórico continua exibindo o nome que valia quando
-   * cada registro foi classificado, como no log de auditoria.
-   */
-  async update(
-    ownerId: string,
-    kind: CatalogKind,
-    id: string,
-    dto: UpdateCatalogItemDto,
-  ): Promise<CatalogItem> {
-    await this.findOne(ownerId, kind, id);
-    this.assertFollowUpPermitido(kind, dto.isFollowUp);
-    const atualizado = await this.repo.update(kind, id, ownerId, {
-      ...(dto.isFollowUp !== undefined ? { isFollowUp: dto.isFollowUp } : {}),
-    });
-    if (dto.isFollowUp) {
-      await this.repo.desmarcarOutrosFollowUp(ownerId, id);
-    }
-    this.logger.log({
-      evento: 'catalogo.item_atualizado',
-      msg: 'Item de catálogo atualizado.',
-      catalogo: kind,
-      itemId: id,
-    });
-    return atualizado;
-  }
-
-  /**
-   * Excluir sempre funciona — o que muda é o quanto sobra no banco.
+   * Excluir funciona para todo item, **menos o tipo primitivo de follow-up** — o
+   * que muda é o quanto sobra no banco.
    *
    * Sem nenhum registro apontando, some de verdade. Em uso, as FKs `RESTRICT`
    * (e três delas NOT NULL: `Deal`, `Proposal`, `Project`) tornam o DELETE
@@ -177,13 +132,25 @@ export class CatalogosService {
    * Para quem usa o CRM os dois casos são "excluí" — não existe estado
    * intermediário na interface. `usos` volta para a mensagem poder ser honesta
    * sobre o que aconteceu com o histórico.
+   *
+   * A exceção é o tipo de atividade com `isFollowUp`: ele é primitivo, não
+   * rótulo. Nenhuma via de escrita move a marca (o `PATCH` deixou de existir),
+   * então excluí-lo — apagando a linha OU ocultando-a — deixaria o owner sem
+   * lembretes de follow-up para sempre, sem erro nenhum aparecendo. Este 422 é a
+   * única trava que existe: as duas queries de lembrete filtram só por
+   * `isFollowUp`, e zero linha marcada não é falha, é silêncio.
    */
   async delete(
     ownerId: string,
     kind: CatalogKind,
     id: string,
   ): Promise<{ ocultado: boolean; usos: number }> {
-    await this.findOne(ownerId, kind, id);
+    const item = await this.findOne(ownerId, kind, id);
+    if (item.isFollowUp) {
+      throw new UnprocessableEntityException(
+        'Follow-up é um tipo fixo do sistema e não pode ser excluído: é por ele que os lembretes encontram as atividades agendadas.',
+      );
+    }
     const usos = await this.repo.contarUsos(kind, id, ownerId);
 
     if (usos > 0) {
@@ -206,18 +173,6 @@ export class CatalogosService {
       itemId: id,
     });
     return { ocultado: false, usos: 0 };
-  }
-
-  /**
-   * `isFollowUp` é regra de um catálogo só. Aceitar o campo nos outros gravaria
-   * uma coluna que não existe (500 do Prisma) — 422 é a resposta honesta.
-   */
-  private assertFollowUpPermitido(kind: CatalogKind, valor?: boolean): void {
-    if (valor !== undefined && kind !== KIND_COM_FOLLOW_UP) {
-      throw new UnprocessableEntityException(
-        'Marcar follow-up só vale para tipos de atividade.',
-      );
-    }
   }
 }
 

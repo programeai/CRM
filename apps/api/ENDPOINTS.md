@@ -449,6 +449,11 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 > exigiria apagar o histórico junto. Nesse caso a linha vira `active: false`: some do `GET` e de
 > todos os Select, e sobrevive apenas embutida nos registros que já a carregavam. Cadastrar de novo
 > o mesmo nome **ressuscita** a mesma linha, e os registros antigos a reencontram.
+>
+> `isFollowUp` (só em `tipos-de-atividade`) é **somente leitura**: marca o tipo primitivo 'Follow-up',
+> semeado na criação da conta, que é o único que os lembretes diários e o bloco "Próximas ações" do
+> painel usam. Nenhuma rota escreve nessa coluna — não há como movê-la para outro tipo — e o `DELETE`
+> do item marcado responde `422`.
 
 ### GET /catalogos/:kind
 - **Propósito:** Listar os itens vivos do catálogo do owner, ordenados por `name`. Não existe listar
@@ -464,25 +469,15 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Cadastrar um item no catálogo do owner — ou ressuscitar o item oculto de mesmo nome,
   devolvendo o `id` original para que os registros antigos o reencontrem.
 - **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
-- **Body:** `{ name: string (2-60), isFollowUp?: boolean }` (`isFollowUp` só aceito em
-  `tipos-de-atividade`).
+- **Body:** `{ name: string (2-60) }`. O nome é o único dado de um item — não existe `isFollowUp`
+  (tipo primitivo, semeado com a conta) nem `active` (consequência do DELETE).
 - **Resposta:** `201 CatalogItem`.
 - **Erros:** `400` (validação), `404 Catálogo não encontrado.`, `409 Já existe um <item> com este
-  nome.` (só quando o item de mesmo nome está **vivo**), `422 Marcar follow-up só vale para tipos de
-  atividade.`, `403`, `401`.
+  nome.` (só quando o item de mesmo nome está **vivo**), `403`, `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.create`
 
-### PATCH /catalogos/:kind/:id
-- **Propósito:** Mover a marca `isFollowUp` — a única edição que existe. Vale só para
-  `tipos-de-atividade`; marcar um item desmarca o anterior.
-- **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
-- **Body:** `{ isFollowUp?: boolean }`. Não aceita `name` (renomear não existe) nem `active`
-  (consequência do DELETE, não escolha).
-- **Resposta:** `200 CatalogItem`.
-- **Erros:** `400` (validação), `404 Catálogo não encontrado.` / `404 <Item> não encontrado no
-  catálogo.` (inexistente ou de outro owner), `422 Marcar follow-up só vale para tipos de
-  atividade.`, `403`, `401`.
-- **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.update`
+> Não existe `PATCH /catalogos/:kind/:id`. Renomear nunca foi operação do produto, e a marca de
+> follow-up deixou de ser móvel — o catálogo é só cadastrar, escolher e excluir.
 
 ### DELETE /catalogos/:kind/:id
 - **Propósito:** Excluir o item. Sem nenhum registro apontando, apaga a linha; em uso (a contagem
@@ -493,7 +488,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Resposta:** `200 { ocultado: boolean, usos: number }`. `ocultado: true` → a linha continua no
   banco rotulando `usos` registros; `false` → apagada de vez.
 - **Erros:** `404 Catálogo não encontrado.` / `404 <Item> não encontrado no catálogo.` (inexistente ou
-  de outro owner), `403`, `401`.
+  de outro owner), `422 Follow-up é um tipo fixo do sistema e não pode ser excluído: …` (o item com
+  `isFollowUp` — nem apaga nem oculta, senão os lembretes do owner emudeceriam em silêncio), `403`,
+  `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.remove`
 
 ---

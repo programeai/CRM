@@ -1,19 +1,10 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { CatalogosService } from '../application/catalogos.service';
 import { CurrentOwnerId } from '../../../shared/current-user.decorator';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { CatalogKindPipe } from './catalog-kind.pipe';
 import type { CatalogKind } from '../domain/catalog-kind';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
-import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
 
 /**
  * Os catálogos são **do owner**: cada workspace tem os seus (`ownerId` + RLS),
@@ -47,17 +38,12 @@ export class CatalogosController {
     return this.catalogos.create(ownerId, kind, dto);
   }
 
-  @RequirePermission('catalogo:gerenciar')
-  @Patch(':kind/:id')
-  update(
-    @CurrentOwnerId() ownerId: string,
-    @Param('kind', CatalogKindPipe) kind: CatalogKind,
-    @Param('id') id: string,
-    @Body() dto: UpdateCatalogItemDto,
-  ) {
-    return this.catalogos.update(ownerId, kind, id, dto);
-  }
-
+  /**
+   * Não existe `PATCH`: o catálogo é só cadastrar, escolher e excluir. Renomear
+   * nunca foi operação do produto (troca-se o item por outro, e o histórico
+   * segue com o nome que valia), e a marca de follow-up deixou de ser móvel —
+   * 'Follow-up' é tipo primitivo, semeado com a conta.
+   */
   @RequirePermission('catalogo:gerenciar')
   @Delete(':kind/:id')
   remove(

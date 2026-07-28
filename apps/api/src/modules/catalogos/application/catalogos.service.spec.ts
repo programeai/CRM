@@ -19,7 +19,6 @@ describe('CatalogosService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       contarUsos: jest.fn(),
-      desmarcarOutrosFollowUp: jest.fn(),
     };
     service = new CatalogosService(repo);
   });
@@ -183,63 +182,50 @@ describe('CatalogosService', () => {
     expect(resultado).toEqual({ ocultado: false, usos: 0 });
   });
 
-  it('rejeita isFollowUp em kind diferente de tipos-de-atividade com 422', async () => {
-    await expect(
-      service.create('owner-1', 'fontes-de-lead', {
-        name: 'Indicação',
-        isFollowUp: true,
-      }),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    expect(repo.create).not.toHaveBeenCalled();
-
-    repo.findById.mockResolvedValue({
-      id: 'f1',
-      ownerId: 'owner-1',
-      name: 'Indicação',
-      active: true,
-    });
-    await expect(
-      service.update('owner-1', 'fontes-de-lead', 'f1', { isFollowUp: false }),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
-  });
-
-  it('create com isFollowUp em tipos-de-atividade chama desmarcarOutrosFollowUp', async () => {
-    repo.findByName.mockResolvedValue(null);
-    repo.create.mockResolvedValue({
-      id: 'novo',
-      ownerId: 'owner-1',
-      name: 'Follow-up',
-      active: true,
-      isFollowUp: true,
-    });
-    await service.create('owner-1', 'tipos-de-atividade', {
-      name: 'Follow-up',
-      isFollowUp: true,
-    });
-    expect(repo.desmarcarOutrosFollowUp).toHaveBeenCalledWith(
-      'owner-1',
-      'novo',
-    );
-  });
-
-  it('update com isFollowUp em tipos-de-atividade chama desmarcarOutrosFollowUp', async () => {
+  // O tipo primitivo de follow-up: excluí-lo silenciaria os lembretes do owner
+  // sem erro nenhum, e nenhuma via de escrita sobrou para remarcar outro.
+  it('rejeita a exclusão do tipo de follow-up com 422, mesmo sem uso', async () => {
     repo.findById.mockResolvedValue({
       id: 'a1',
+      ownerId: 'owner-1',
+      name: 'Follow-up',
+      active: true,
+      isFollowUp: true,
+    });
+
+    await expect(
+      service.delete('owner-1', 'tipos-de-atividade', 'a1'),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+    // Nem apagar nem OCULTAR: o cron filtra só por isFollowUp, então um item
+    // marcado e invisível continuaria disparando lembrete de um tipo que a
+    // interface não oferece mais.
+    expect(repo.contarUsos).not.toHaveBeenCalled();
+    expect(repo.delete).not.toHaveBeenCalled();
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('exclui normalmente um tipo de atividade que não é o de follow-up', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'a2',
       ownerId: 'owner-1',
       name: 'Ligação',
       active: true,
       isFollowUp: false,
     });
-    repo.update.mockResolvedValue({
-      id: 'a1',
-      ownerId: 'owner-1',
-      name: 'Ligação',
-      active: true,
-      isFollowUp: true,
-    });
-    await service.update('owner-1', 'tipos-de-atividade', 'a1', {
-      isFollowUp: true,
-    });
-    expect(repo.desmarcarOutrosFollowUp).toHaveBeenCalledWith('owner-1', 'a1');
+    repo.contarUsos.mockResolvedValue(0);
+
+    const resultado = await service.delete(
+      'owner-1',
+      'tipos-de-atividade',
+      'a2',
+    );
+
+    expect(repo.delete).toHaveBeenCalledWith(
+      'tipos-de-atividade',
+      'a2',
+      'owner-1',
+    );
+    expect(resultado).toEqual({ ocultado: false, usos: 0 });
   });
 });

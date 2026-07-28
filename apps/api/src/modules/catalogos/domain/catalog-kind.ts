@@ -25,6 +25,3 @@ export const CATALOG_LABELS: Record<CatalogKind, string> = {
   'tipos-de-atividade': 'tipo de atividade',
   'motivos-de-perda': 'motivo de perda',
 };
-
-/** Só este catálogo aceita `isFollowUp` (ver `ActivityTypeCatalog.isFollowUp`). */
-export const KIND_COM_FOLLOW_UP: CatalogKind = 'tipos-de-atividade';
