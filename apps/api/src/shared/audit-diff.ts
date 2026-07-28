@@ -10,6 +10,8 @@
 const CAMPOS_OMITIDOS = new Set([
   'passwordHash',
   'tokenHash',
+  'keyHash', // sha256 da chave de integração (Fase 17-A)
+  'prefix', // pedaço em claro da chave: não é segredo, mas é ruído na trilha
   'refreshTokenHash',
   'stripeCustomerId',
   'stripeSubscriptionId',

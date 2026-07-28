@@ -192,6 +192,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
       'Subir planilha de clientes ou de contatos e gravar os registros em massa na base da workspace',
     category: 'Organização',
   },
+  {
+    key: 'integracao:gerenciar',
+    label: 'Gerenciar integrações',
+    description:
+      'Criar canais de captação e emitir, rotacionar e revogar as chaves que permitem a sistemas de fora gravar na workspace',
+    category: 'Organização',
+  },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];
