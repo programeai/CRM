@@ -6,11 +6,13 @@ import { PaymentsService } from './payments.service';
 import type { PaymentRepository } from '../domain/payment.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
 import type { AuditService } from '../../audit/audit.service';
+import type { ExportService } from '../../data/application/export.service';
 
 describe('PaymentsService', () => {
   let repo: jest.Mocked<PaymentRepository>;
   let clients: { findOne: jest.Mock };
   let audit: { registrar: jest.Mock };
+  let exporter: { gerar: jest.Mock };
   let service: PaymentsService;
 
   beforeEach(() => {
@@ -25,11 +27,21 @@ describe('PaymentsService', () => {
     };
     clients = { findOne: jest.fn() };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
+    exporter = { gerar: jest.fn().mockResolvedValue('arquivo') };
     service = new PaymentsService(
       repo,
       clients as unknown as ClientsService,
       audit as unknown as AuditService,
+      exporter as unknown as ExportService,
     );
+  });
+
+  it('lança UnprocessableEntityException quando o filtro excede o teto de exportação', async () => {
+    repo.findManyAndCount.mockResolvedValue({ data: [], total: 5001 });
+    await expect(
+      service.export('owner-1', { formato: 'csv' } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(exporter.gerar).not.toHaveBeenCalled();
   });
 
   it('lança NotFoundException para cobrança inexistente', async () => {
