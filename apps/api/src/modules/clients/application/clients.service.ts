@@ -4,10 +4,12 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import type { PersonType } from '@prisma/client';
 import {
   CLIENT_REPOSITORY,
+  type ClientImportRef,
   type ClientRepository,
   type ClientTagRef,
   type ClientWithAssignee,
@@ -21,14 +23,21 @@ import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
+import {
+  assertCabeNaExportacao,
+  MAX_EXPORT_ROWS,
+} from '../../../shared/export';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { CatalogosService } from '../../catalogos/application/catalogos.service';
+import { ExportService } from '../../data/application/export.service';
 import { assigneeMudou } from '../../../shared/assignee-changed';
 import type { CreateClientDto } from '../api/dto/create-client.dto';
 import type { UpdateClientDto } from '../api/dto/update-client.dto';
 import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
+import type { ExportClientsQueryDto } from '../api/dto/export-clients-query.dto';
+import { COLUNAS_DE_CLIENTE } from './client-export-columns';
 
 @Injectable()
 export class ClientsService {
@@ -38,6 +47,7 @@ export class ClientsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly catalogos: CatalogosService,
+    private readonly exporter: ExportService,
   ) {}
 
   async create(
@@ -122,6 +132,11 @@ export class ClientsService {
     digitos: string,
   ): Promise<ClientWithAssignee | null> {
     return this.repo.findByPhoneDigits(ownerId, digitos);
+  }
+
+  /** Fronteira pública para a importação de contatos casar o cliente. */
+  listImportRefs(ownerId: string): Promise<ClientImportRef[]> {
+    return this.repo.findAllRefs(ownerId);
   }
 
   async update(
@@ -229,6 +244,36 @@ export class ClientsService {
       normalizeTag(tag),
     );
     return { removed };
+  }
+
+  /**
+   * Exportação da listagem. Reusa o MESMO `filter` + `scope` de `list()` — é o
+   * que garante que a planilha respeite o recorte por responsável, que o banco
+   * não protege. O `take` alto substitui a paginação; o `total` do próprio
+   * `findManyAndCount` diz se o filtro cabe no teto.
+   */
+  async export(
+    ownerId: string,
+    query: ExportClientsQueryDto,
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<StreamableFile> {
+    const { data, total } = await this.repo.findManyAndCount({
+      ownerId,
+      search: query.search,
+      status: query.status,
+      sourceId: query.sourceId,
+      assigneeId: query.assigneeId,
+      scope,
+      skip: 0,
+      take: MAX_EXPORT_ROWS,
+    });
+    assertCabeNaExportacao(total);
+    return this.exporter.gerar(
+      data,
+      COLUNAS_DE_CLIENTE,
+      query.formato,
+      'clientes',
+    );
   }
 
   /**

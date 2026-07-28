@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { ClientsService } from '../application/clients.service';
 import {
@@ -19,6 +20,7 @@ import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients-query.dto';
+import { ExportClientsQueryDto } from './dto/export-clients-query.dto';
 
 @Controller('clients')
 export class ClientsController {
@@ -60,6 +62,20 @@ export class ClientsController {
   @Delete('tags')
   deleteTag(@CurrentOwnerId() ownerId: string, @Query('tag') tag: string) {
     return this.clients.deleteTag(ownerId, tag);
+  }
+
+  // Rota literal declarada antes de `:id` para não ser capturada por ele.
+  @RequirePermission('cliente:ver', 'cliente:gerenciar')
+  @Get('export')
+  export(
+    @CurrentAccess() access: AccessContext,
+    @Query() query: ExportClientsQueryDto,
+  ): Promise<StreamableFile> {
+    return this.clients.export(
+      access.ownerId,
+      query,
+      resolveAssigneeScope(access, 'cliente:ver_todos'),
+    );
   }
 
   @RequirePermission('cliente:ver', 'cliente:gerenciar')

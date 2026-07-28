@@ -10,6 +10,7 @@ import type { WorkspaceMembersService } from '../../workspace/application/worksp
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { CatalogosService } from '../../catalogos/application/catalogos.service';
+import type { ExportService } from '../../data/application/export.service';
 
 describe('ClientsService', () => {
   let repo: jest.Mocked<ClientRepository>;
@@ -17,6 +18,7 @@ describe('ClientsService', () => {
   let audit: { registrar: jest.Mock };
   let notifications: { notificar: jest.Mock };
   let catalogos: { assertUtilizavel: jest.Mock };
+  let exporter: { gerar: jest.Mock };
   let service: ClientsService;
 
   beforeEach(() => {
@@ -34,6 +36,7 @@ describe('ClientsService', () => {
       listOwnerTags: jest.fn(),
       findByTag: jest.fn(),
       removeTagFromAll: jest.fn(),
+      findAllRefs: jest.fn(),
     };
     members = {
       list: jest.fn(),
@@ -44,12 +47,14 @@ describe('ClientsService', () => {
     catalogos = {
       assertUtilizavel: jest.fn().mockResolvedValue({ id: 'fonte-1' }),
     };
+    exporter = { gerar: jest.fn().mockResolvedValue('arquivo') };
     service = new ClientsService(
       repo,
       members,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
       catalogos as unknown as CatalogosService,
+      exporter as unknown as ExportService,
     );
   });
 
@@ -343,6 +348,23 @@ describe('ClientsService', () => {
           entityLabel: 'Acme',
         }),
       }),
+    );
+  });
+
+  it('lança UnprocessableEntityException quando o filtro excede o teto de exportação', async () => {
+    repo.findManyAndCount.mockResolvedValue({ data: [], total: 5001 });
+    await expect(
+      service.export('owner-1', { formato: 'csv' } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(exporter.gerar).not.toHaveBeenCalled();
+  });
+
+  it('repassa o scope recebido ao repositório na exportação', async () => {
+    repo.findManyAndCount.mockResolvedValue({ data: [], total: 0 });
+    const scope = { kind: 'mine', userId: 'u1' } as const;
+    await service.export('owner-1', { formato: 'xlsx' } as never, scope);
+    expect(repo.findManyAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: 'owner-1', scope }),
     );
   });
 

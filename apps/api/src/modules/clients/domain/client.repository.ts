@@ -10,7 +10,17 @@ export interface AssigneeRef {
   name: string;
 }
 
-export type ClientWithAssignee = Client & { assignee: AssigneeRef | null };
+/** Fonte de lead embutida na leitura — o exportador lê `name`, nunca o `sourceId` cru. */
+export interface SourceRef {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export type ClientWithAssignee = Client & {
+  assignee: AssigneeRef | null;
+  source: SourceRef | null;
+};
 
 export interface ClientListFilter {
   ownerId: string;
@@ -36,6 +46,13 @@ export interface ClientTagRef {
 export interface ClientChildrenCount {
   total: number;
   descricao: string;
+}
+
+/** Cliente reduzido ao que a importação precisa para casar uma planilha. */
+export interface ClientImportRef {
+  id: string;
+  name: string;
+  document: string | null;
 }
 
 export interface ClientRepository {
@@ -82,4 +99,10 @@ export interface ClientRepository {
   findByTag(ownerId: string, tag: string): Promise<ClientTagRef[]>;
   /** Remove a tag de todos os clientes do dono; retorna quantos foram afetados. */
   removeTagFromAll(ownerId: string, tag: string): Promise<number>;
+  /**
+   * Todos os clientes ativos do owner, reduzidos. Existe para a importação de
+   * contatos casar o cliente em memória: uma consulta por linha seriam N
+   * round-trips dentro do orçamento de 5s do request.
+   */
+  findAllRefs(ownerId: string): Promise<ClientImportRef[]>;
 }
