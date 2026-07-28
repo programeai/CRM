@@ -3,6 +3,7 @@ import { Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
 import { SearchInput } from '@/components/ui/search-input';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from '@/components/ui/calendar';
@@ -245,6 +246,16 @@ export default function RecebimentosPage() {
           placeholder="Buscar por cliente ou contrato…"
           value={search}
           onValueChange={setSearch}
+        />
+        <ExportButton
+          caminho="/payments/export"
+          params={{
+            ...sharedFilters,
+            status: statusFilter.length ? statusFilter : undefined,
+            sortBy: sortBy ?? undefined,
+            sortDir: sortBy ? sortDir : undefined,
+          }}
+          nomeBase="recebimentos"
         />
         <DateRangePicker
           className="ml-auto"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -91,12 +92,11 @@ export default function ContratosListPage() {
   const { status, billingType, page } = values;
   const [formOpen, setFormOpen] = useState(false);
 
-  const { data, isLoading, isError } = useContracts({
-    page,
-    limit: LIMIT,
+  const params = {
     status: status === 'ALL' ? undefined : status,
     billingType: billingType === 'ALL' ? undefined : billingType,
-  });
+  };
+  const { data, isLoading, isError } = useContracts({ page, limit: LIMIT, ...params });
 
   const total = data?.meta.total ?? 0;
 
@@ -104,10 +104,13 @@ export default function ContratosListPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-heading text-2xl font-semibold">Contratos</h1>
-        <Button onClick={() => setFormOpen(true)}>
-          <Plus data-icon="inline-start" />
-          Novo contrato
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton caminho="/contracts/export" params={params} nomeBase="contratos" />
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus data-icon="inline-start" />
+            Novo contrato
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border">
