@@ -2,7 +2,7 @@ import { NOTIFICATION_TYPE_LABELS } from '@/lib/labels';
 import type { NotificationType } from './api/types';
 
 /**
- * Os seis tipos, na ordem do catálogo — o map de rótulos é a fonte da ordem. A
+ * Os tipos, na ordem do catálogo — o map de rótulos é a fonte da ordem. A
  * tupla (em vez de `NotificationType[]`) é o que deixa `z.enum(TIPOS)` valer no
  * schema do diálogo de integração.
  */
@@ -38,4 +38,5 @@ export const DESCRICAO_DO_TIPO: Record<NotificationType, string> = {
   PAYMENT_OVERDUE: 'Cobrança que passou do vencimento sem baixa.',
   TASK_OVERDUE: 'Demanda com prazo vencido e ainda não concluída.',
   RECORD_ASSIGNED: 'Alguém define você como responsável por um registro.',
+  LEAD_RECEIVED: 'Um lead entra por integração (site, landing page).',
 };
