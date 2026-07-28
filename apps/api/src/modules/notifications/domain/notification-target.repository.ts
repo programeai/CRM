@@ -10,9 +10,14 @@ export const NOTIFICATION_TARGET_REPOSITORY = Symbol(
 );
 
 /**
- * Todos os seis tipos do catálogo — o que um destino provisionado por padrão
- * (conta nova, aceite de convite) recebe. Fonte única para não desatualizar
- * quando um tipo novo entrar no enum.
+ * Todo o catálogo de tipos — o que um destino provisionado por padrão (conta
+ * nova, aceite de convite) recebe. Fonte única para não desatualizar quando um
+ * tipo novo entrar no enum.
+ *
+ * Vale só para destino NOVO. Tipo acrescentado aqui não entra sozinho nos
+ * destinos que já existem (`types` é opt-in por destino, e nenhuma migration
+ * escreve preferência de usuário): quem já tinha destino configurado marca o
+ * tipo novo na tela de preferências.
  */
 export const TIPOS_PADRAO: NotificationType[] = [
   'FOLLOW_UP_DUE',
@@ -21,6 +26,7 @@ export const TIPOS_PADRAO: NotificationType[] = [
   'PAYMENT_OVERDUE',
   'TASK_OVERDUE',
   'RECORD_ASSIGNED',
+  'LEAD_RECEIVED',
 ];
 
 /** Um destino de e-mail elegível ao digest, com o endereço já resolvido. */

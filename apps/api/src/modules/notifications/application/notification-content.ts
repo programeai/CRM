@@ -46,6 +46,19 @@ export type EventoDeNotificacao =
       titulo: string;
       clienteNome: string;
       dataAlvo: Date;
+    }
+  | {
+      tipo: 'LEAD_RECEIVED';
+      /** O cliente criado (ou reencontrado) pela ingestão — o registro a abrir. */
+      entityId: string;
+      /** Nome de quem preencheu, que nem sempre é o nome do cliente (pode ser a empresa). */
+      leadNome: string;
+      /** Rótulo da origem como a integração o enviou ("site-institucional"). */
+      origem: string;
+      /** Cenário que a qualificação apontou, quando a origem faz qualificação. */
+      cenario?: string;
+      /** Ingestão de contato que já existia: o corpo avisa, senão parece lead novo. */
+      reincidente?: boolean;
     };
 
 /**
@@ -204,6 +217,29 @@ export function montarConteudo(
         body: `A demanda ${evento.titulo} (${evento.clienteNome}) passou do prazo em ${data(evento.dataAlvo)}.`,
         link: linkDoRegistro('TASK', evento.entityId),
         data: { titulo: evento.titulo, clienteNome: evento.clienteNome },
+      };
+
+    /*
+      O corpo carrega o cenário porque este aviso costuma ser lido no celular, e
+      o que decide se a pessoa para o que está fazendo para responder é o cenário,
+      não o nome. Telefone e e-mail NÃO entram: o corpo viaja para Telegram,
+      Slack e webhook, e dado de contato de lead não deve morar nesses históricos
+      — quem for atender abre o registro pelo link.
+    */
+    case 'LEAD_RECEIVED':
+      return {
+        tipo: 'LEAD_RECEIVED',
+        entity: 'CLIENT',
+        entityId: evento.entityId,
+        title: evento.reincidente ? 'Lead voltou a procurar' : 'Lead novo',
+        body: [
+          `${evento.leadNome} chegou por ${evento.origem}`,
+          evento.cenario ? `. Cenário: ${evento.cenario}` : '',
+          '.',
+          evento.reincidente ? ' Já havia um cadastro com este contato.' : '',
+        ].join(''),
+        link: linkDoRegistro('CLIENT', evento.entityId),
+        data: { leadNome: evento.leadNome, origem: evento.origem },
       };
   }
 }
