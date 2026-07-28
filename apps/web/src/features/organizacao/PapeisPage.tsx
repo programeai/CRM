@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { SectionHeading } from '@/components/ui/section-heading';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -161,14 +162,10 @@ export default function PapeisPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold">Papéis</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Conjuntos de permissões atribuídos aos colaboradores. Você, como
-            dono da conta, sempre tem acesso total.
-          </p>
-        </div>
+      <SectionHeading
+        title="Papéis"
+        description="Conjuntos de permissões atribuídos aos colaboradores. Você, como dono da conta, sempre tem acesso total."
+      >
         <Button
           onClick={() => {
             setEditing(null);
@@ -178,7 +175,7 @@ export default function PapeisPage() {
           <Plus data-icon="inline-start" />
           Novo papel
         </Button>
-      </div>
+      </SectionHeading>
 
       <div className="rounded-lg border">
         <Table>

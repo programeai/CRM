@@ -7,13 +7,10 @@ import {
   FolderKanban,
   Wallet,
   FileSignature,
-  UserCog,
   ShieldCheck,
-  ScrollText,
-  Trash2,
-  BookMarked,
   type LucideIcon,
 } from "lucide-react"
+import { ADMIN_PERMISSIONS } from "@/features/administracao/tabs"
 
 export interface NavItem {
   to: string
@@ -28,7 +25,9 @@ export interface NavItem {
   permission?: string[]
 }
 export interface NavGroup {
-  label: string
+  /** Sem `label` o grupo vira só um bloco separado, sem cabeçalho — é o caso
+   *  de Administração, item único cujo nome já diz tudo. */
+  label?: string
   items: NavItem[]
 }
 
@@ -56,14 +55,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/financeiro/contratos", label: "Contratos", icon: FileSignature, permission: ["financeiro:ver", "financeiro:gerenciar"] },
     ],
   },
+  // Configuração da workspace (colaboradores, papéis, catálogos, auditoria e
+  // lixeira) vive atrás de uma entrada só — ver `features/administracao/tabs`.
   {
-    label: "Organização",
     items: [
-      { to: "/colaboradores", label: "Colaboradores", icon: UserCog, permission: ["colaborador:gerenciar"] },
-      { to: "/papeis", label: "Papéis", icon: ShieldCheck, permission: ["papel:gerenciar"] },
-      { to: "/catalogos", label: "Catálogos", icon: BookMarked, permission: ["catalogo:gerenciar"] },
-      { to: "/auditoria", label: "Auditoria", icon: ScrollText, permission: ["auditoria:ver"] },
-      { to: "/lixeira", label: "Lixeira", icon: Trash2, permission: ["lixeira:ver"] },
+      { to: "/administracao", label: "Administração", icon: ShieldCheck, permission: ADMIN_PERMISSIONS },
     ],
   },
 ]

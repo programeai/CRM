@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SectionHeading } from '@/components/ui/section-heading';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -83,14 +84,10 @@ export default function LixeiraPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="font-heading text-2xl font-semibold">Lixeira</h1>
-      </div>
-
-      <p className="text-sm text-muted-foreground">
-        Registros arquivados. Restaure para devolvê-los às listagens ou exclua
-        em definitivo — o que não tem volta.
-      </p>
+      <SectionHeading
+        title="Lixeira"
+        description="Registros arquivados. Restaure para devolvê-los às listagens ou exclua em definitivo — o que não tem volta."
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Select<TrashType | 'ALL'>
