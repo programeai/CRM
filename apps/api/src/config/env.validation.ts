@@ -47,6 +47,20 @@ export const envValidationSchema = Joi.object({
   SMTP_USER: Joi.string().allow('').default(''),
   SMTP_PASSWORD: Joi.string().allow('').default(''),
   MAIL_FROM: Joi.string().allow('').default(''),
+  // Ingestão externa de lead (POST /leads/intake) — opcional, e as DUAS são
+  // necessárias juntas: faltando qualquer uma a rota responde 503 em vez de
+  // aceitar lead sem saber onde gravar. O token é o segredo compartilhado com
+  // quem captura (o site); o e-mail é o do OWNER cuja workspace recebe.
+  // Gerar o token com `openssl rand -base64 48`. Mínimo de 32 caracteres: é a
+  // única credencial de uma rota pública de escrita.
+  LEAD_INTAKE_TOKEN: Joi.string().allow('').min(32).default(''),
+  // `tlds: false` porque a validação de TLD do Joi usa uma lista própria: com ela
+  // ligada, o boot morre em domínio interno (`@empresa.local`) e em qualquer TLD
+  // novo que a lista ainda não conheça. Aqui só interessa o formato.
+  LEAD_INTAKE_OWNER_EMAIL: Joi.string()
+    .email({ tlds: { allow: false } })
+    .allow('')
+    .default(''),
   // Billing (Stripe) — opcional: só é usado na instância SaaS hospedada pelo
   // owner. Na autohospedagem, BILLING_ENABLED fica false e o Stripe nunca
   // é inicializado (ver StripeService).
