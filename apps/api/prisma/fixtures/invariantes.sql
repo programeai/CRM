@@ -300,3 +300,59 @@ BEGIN
     RAISE EXCEPTION 'Há % canal(is) de captação apontando para fonte de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Encerramento de conta (20260814100000_account_deletion)
+-- ---------------------------------------------------------------------------
+-- As colunas nascem nulas e a migration é aditiva, então não há backfill a
+-- conferir. O que se afirma aqui é a REGRA do par, que nenhuma constraint do
+-- banco expressa: os dois campos andam juntos, o agendamento é posterior ao
+-- pedido, e só owner pode tê-los. Um par meio-preenchido faria o cron expurgar
+-- uma conta que ninguém pediu para encerrar — o pior erro possível nesta fase.
+DO $$
+DECLARE
+  meio_par     INT;
+  fora_de_ordem INT;
+  colaborador  INT;
+BEGIN
+  SELECT count(*) INTO meio_par FROM "User"
+   WHERE ("deletionRequestedAt" IS NULL) <> ("deletionScheduledFor" IS NULL);
+  IF meio_par > 0 THEN
+    RAISE EXCEPTION 'Há % usuário(s) com encerramento meio-preenchido (um campo nulo e o outro não).', meio_par;
+  END IF;
+
+  SELECT count(*) INTO fora_de_ordem FROM "User"
+   WHERE "deletionScheduledFor" IS NOT NULL
+     AND "deletionScheduledFor" <= "deletionRequestedAt";
+  IF fora_de_ordem > 0 THEN
+    RAISE EXCEPTION 'Há % usuário(s) com encerramento agendado para antes do próprio pedido.', fora_de_ordem;
+  END IF;
+
+  SELECT count(*) INTO colaborador FROM "User"
+   WHERE "deletionScheduledFor" IS NOT NULL AND "ownerId" IS NOT NULL;
+  IF colaborador > 0 THEN
+    RAISE EXCEPTION 'Há % COLABORADOR(es) com encerramento agendado — só owner encerra workspace.', colaborador;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Registro de acesso (20260815100000_access_record)
+-- ---------------------------------------------------------------------------
+-- Invariante ao contrário das outras: aqui o que se afirma é a AUSÊNCIA de RLS.
+-- A linha nasce no login, rota @Public() que roda sem `app.owner_id`; uma policy
+-- nesta tabela não daria erro — ela gravaria zero linha e o login responderia
+-- sucesso, e o CRM ficaria em descumprimento do Marco Civil em silêncio. Uma
+-- migration futura que ligue RLS em bloco reprova aqui, que é o objetivo.
+DO $$
+DECLARE com_rls BOOL;
+BEGIN
+  SELECT c.relrowsecurity INTO com_rls
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname = 'AccessRecord';
+  IF com_rls IS NULL THEN
+    RAISE EXCEPTION 'Tabela "AccessRecord" não existe — a migration de registro de acesso não aplicou.';
+  END IF;
+  IF com_rls THEN
+    RAISE EXCEPTION 'Tabela "AccessRecord" está com RLS habilitado — o login roda sem app.owner_id e passaria a gravar zero linha em silêncio.';
+  END IF;
+END $$;

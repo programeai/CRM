@@ -30,6 +30,21 @@ model User {
   active           Boolean        @default(true)
   // Quando o convite foi aceito (senha definida). NULL = convite pendente.
   acceptedAt       DateTime?
+  /// Encerramento agendado (Fase 19-A). Os dois campos andam juntos: nulos
+  /// (conta normal) ou ambos preenchidos. Só um OWNER pode tê-los — colaborador
+  /// não encerra workspace, ele é apagado junto no expurgo.
+  ///
+  /// A carência de 30 dias existe por duas razões que se somam: protege contra
+  /// exclusão por sequestro de conta (é o padrão Atlassian/GitLab) e tira o
+  /// trabalho pesado da transação de 5s do request, porque quem expurga é o
+  /// `AccountPurgeJob`. O "irreversível" prometido continua verdadeiro: é
+  /// irreversível DEPOIS da janela.
+  ///
+  /// Também são o tombstone que sobrevive a um restore de backup: um `User`
+  /// restaurado com `deletionScheduledFor` no passado é expurgado de novo pelo
+  /// cron seguinte, sem intervenção.
+  deletionRequestedAt  DateTime?
+  deletionScheduledFor DateTime?
   createdAt        DateTime       @default(now())
   oauthAccounts    OAuthAccount[]
   passwordResetTokens PasswordResetToken[]
@@ -53,6 +68,7 @@ model User {
   assignedLeadIntakeChannels LeadIntakeChannel[] @relation("AssignedLeadIntakeChannels")
 
   @@index([ownerId])
+  @@index([deletionScheduledFor])
 }
 
 // Papel de colaborador: um conjunto de chaves do catálogo em
@@ -768,6 +784,7 @@ enum AuditEntity {
   ACTIVITY   // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
   IMPORT     // ← Fase 14-A: a importação em massa, não o cliente/contato individual
   INTEGRATION // ← Fase 17-A: emissão e rotação de chave de integração
+  ACCOUNT     // ← Fase 19-A: a conta/workspace como um todo, não o colaborador (USER)
 }
 
 /// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
@@ -795,6 +812,60 @@ enum AuditAction {
   VENCER
   IMPORTAR   // ← Fase 14-A: importação de clientes/contatos em massa
   ROTACIONAR // ← Fase 17-A: rotação de chave de integração
+  EXPORTAR   // ← Fase 19-A: portabilidade dos dados do titular
+  ENCERRAR   // ← Fase 19-A: pedido de encerramento da conta (o expurgo usa EXPURGAR)
+}
+
+// --- registro de acesso (Fase 19-A) ---
+
+/// Natureza do acesso registrado. Só eventos BEM-SUCEDIDOS: art. 15 fala de
+/// registro de *acesso*, e guardar o IP de uma tentativa frustrada seria dado
+/// pessoal a mais sem obrigação que o exija.
+enum AccessRecordKind {
+  LOGIN
+  LOGIN_OAUTH
+  /// Aceite de convite de colaborador — o primeiro acesso daquela pessoa.
+  ACEITE_DE_CONVITE
+  LOGOUT
+}
+
+/// Registro de acesso à aplicação, na definição do Marco Civil (art. 5º, VIII):
+/// data/hora de uso da aplicação a partir de um endereço IP. Guardado por
+/// **6 meses**, por OBRIGAÇÃO legal (art. 15) — não é faculdade e não é
+/// configurável.
+///
+/// Uma linha por evento de AUTENTICAÇÃO, não por requisição HTTP. A lei pede
+/// data/hora + IP do uso, e uma linha por rota faria dezenas de milhares por dia
+/// sem acrescentar nada ao que ela pede. O log `http.requisicao` (→ Loki, 30
+/// dias) continua sendo a ferramenta de diagnóstico; esta tabela é a de
+/// conformidade, e as duas respondem perguntas diferentes.
+///
+/// **Sobrevive ao encerramento da conta.** É o único dado que sobrevive, por
+/// LGPD art. 16, I (cumprimento de obrigação legal), e a Política declara isso.
+/// Por isso `userId` NÃO tem FK — apagar a conta não pode apagar o registro que a
+/// lei manda guardar (mesma decisão de `AuditLog.actorId`).
+///
+/// FORA do RLS, no grupo de `User`/`Session`/`OAuthAccount`: a linha nasce no
+/// login, que é rota `@Public()` e roda sem `app.owner_id` — uma policy aqui
+/// fecharia a escrita (fail-closed grava zero linha e a rota responde sucesso).
+///
+/// Sem `ownerId`: quem responde a uma requisição judicial é o `userId`, e a
+/// tabela nunca é exposta na interface. Uma denormalização que não serve a
+/// nenhuma consulta é só mais um dado pessoal a guardar.
+model AccessRecord {
+  id        String           @id @default(uuid())
+  /// Sem FK, de propósito (ver o docblock).
+  userId    String
+  kind      AccessRecordKind
+  /// `req.ip`, já resolvido por trust proxy (ver main.ts) — o mesmo valor que o
+  /// rate limit e a `Session` usam.
+  ip        String?
+  userAgent String?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  /// Serve à faxina por data de corte.
+  @@index([createdAt])
 }
 
 // --- notificações (Fase 9) ---
