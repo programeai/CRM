@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { clientsApi } from './clients.api';
-import type { Activity, Client, Contact, ListClientsParams } from './types';
+import type { Client, Contact, ListClientsParams } from './types';
 
 export function useClients(params: ListClientsParams) {
   return useQuery({
@@ -102,31 +102,5 @@ export function useArchiveContact(clientId: string) {
   });
 }
 
-// --- Atividades ---
-
-export function useActivities(clientId: string) {
-  return useQuery({
-    queryKey: queryKeys.activities.byClient(clientId),
-    queryFn: () => clientsApi.listActivities(clientId),
-  });
-}
-export function useCreateActivity(clientId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: Partial<Activity>) => clientsApi.createActivity(body),
-    onSuccess: () =>
-      qc.invalidateQueries({
-        queryKey: queryKeys.activities.byClient(clientId),
-      }),
-  });
-}
-export function useCompleteActivity(clientId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => clientsApi.completeActivity(id),
-    onSuccess: () =>
-      qc.invalidateQueries({
-        queryKey: queryKeys.activities.byClient(clientId),
-      }),
-  });
-}
+// Atividades não vivem aqui: são um registro transversal (cliente e
+// oportunidade) e têm feature própria — ver `features/atividades`.

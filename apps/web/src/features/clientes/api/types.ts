@@ -45,19 +45,8 @@ export interface Contact {
   phone?: string | null;
   isPrimary: boolean;
 }
-export interface Activity {
-  id: string;
-  clientId: string;
-  dealId?: string | null;
-  typeId: string;
-  type: CatalogItem;
-  content: string;
-  scheduledFor?: string | null;
-  completedAt?: string | null;
-  assigneeId?: string | null;
-  assignee?: Assignee | null;
-  createdAt: string;
-}
+// `Activity` mora em `features/atividades/api/types` — a timeline é
+// compartilhada entre cliente e oportunidade.
 export interface PageMeta {
   total: number;
   page: number;

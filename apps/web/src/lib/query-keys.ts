@@ -8,7 +8,13 @@ export const queryKeys = {
     tagUsage: (tag: string) => ['clients', 'tags', 'usage', tag] as const,
   },
   activities: {
-    byClient: (clientId: string) => ['activities', 'client', clientId] as const,
+    all: ['activities'] as const,
+    /**
+     * Uma chave por recorte de timeline (cliente, ou cliente + oportunidade):
+     * sem o escopo na chave, a timeline de uma oportunidade sobrescreveria a do
+     * cliente no cache — mesmo desenho de `deals.board`.
+     */
+    byScope: (scope: object) => ['activities', 'scope', scope] as const,
   },
   deals: {
     all: ['deals'] as const,
@@ -27,6 +33,7 @@ export const queryKeys = {
     detail: (id: string) => ['proposals', 'detail', id] as const,
     versions: (id: string) => ['proposals', 'versions', id] as const,
     byClient: (clientId: string) => ['proposals', 'client', clientId] as const,
+    byDeal: (dealId: string) => ['proposals', 'deal', dealId] as const,
   },
   projects: {
     all: ['projects'] as const,

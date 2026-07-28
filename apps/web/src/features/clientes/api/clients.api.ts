@@ -3,7 +3,6 @@ import type {
   Client,
   ClientTagRef,
   Contact,
-  Activity,
   Paginated,
   ListClientsParams,
   TagUsage,
@@ -46,15 +45,6 @@ export const clientsApi = {
     api.post<Contact>(`/contacts/${id}/restore`).then((r) => r.data),
   /** Expurgo — exige `lixeira:expurgar` e registro já arquivado. */
   purgeContact: (id: string) => api.delete(`/contacts/${id}`).then((r) => r.data),
-  // activities
-  listActivities: (clientId: string) =>
-    api
-      .get<Paginated<Activity>>('/activities', {
-        params: { clientId, limit: 100 },
-      })
-      .then((r) => r.data),
-  createActivity: (body: Partial<Activity>) =>
-    api.post<Activity>('/activities', body).then((r) => r.data),
-  completeActivity: (id: string) =>
-    api.post<Activity>(`/activities/${id}/complete`).then((r) => r.data),
+  // As rotas de `/activities` ficam em `features/atividades/api` — a timeline é
+  // compartilhada com o funil, não é um detalhe do cliente.
 };
