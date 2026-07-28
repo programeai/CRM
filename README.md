@@ -186,6 +186,10 @@ Pontos que valem atenção antes do primeiro boot:
 - **Feche o autocadastro depois de criar sua conta**: `REGISTRATION_ENABLED=false`
   fecha `/registrar` e a criação de conta por OAuth, deixando o acesso só por
   convite. O default é `true` para que a primeira conta seja possível.
+- **Agende o backup**: [`scripts/backup-postgres.sh`](./scripts/backup-postgres.sh)
+  faz o dump, mantém o ledger de encerramentos e aplica a retenção — coloque-o
+  no cron do host. Detalhes e o passo de restauração em
+  [docs/deploy.md](./docs/deploy.md#backup-do-banco).
 
 As migrations são aplicadas automaticamente a cada start da API.
 

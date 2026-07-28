@@ -205,6 +205,9 @@ docker compose -f docker-compose.prod.yml exec postgres \
 
 ### Backup do banco
 
+**Dump pontual** (fora da rotina, para levar uma cópia antes de uma operação
+arriscada):
+
 ```bash
 cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
 docker compose -f docker-compose.prod.yml exec -T postgres \
@@ -212,9 +215,51 @@ docker compose -f docker-compose.prod.yml exec -T postgres \
   > "crm-$(date +%F).dump"
 ```
 
+**Rotina.** `scripts/backup-postgres.sh` roda pelo cron do **host** (fora dos
+containers), gera um dump, mantém o ledger de encerramentos e apaga o que
+passou da retenção:
+
+```cron
+0 2 * * * DEPLOY_DIR=<dir-de-deploy> BACKUP_DIR=/var/backups/crm /caminho/do/repo/scripts/backup-postgres.sh >> /var/log/crm-backup.log 2>&1
+```
+
+`RETENCAO_DIAS` (default 30) é **o número que a Política de Privacidade
+publica** — mudá-lo exige mudar a página em `apps/web/src/features/legal/PrivacidadePage.tsx`.
+
 Restauração: `pg_restore --clean --if-exists -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
 via `exec -T`. O volume `crm_pgdata` sobrevive a `down`/`up`; **não** rode
 `down -v` em produção.
+
+#### Restauração e contas encerradas
+
+Restaurar um backup pode ressuscitar dados de uma conta já encerrada. Duas
+coisas cobrem isso, e as duas precisam ser conferidas:
+
+1. **Automático.** Um `User` restaurado com `deletionScheduledFor` no passado é
+   expurgado pelo `AccountPurgeJob` na varredura seguinte (até 24h). Vale para
+   todo backup tirado **depois** do pedido de encerramento — o caso comum.
+2. **Manual, obrigatório.** Para backup tirado **antes** do pedido, o
+   agendamento não existe no dump. Confira `encerramentos.csv` no diretório de
+   backup: cada `ownerId` listado com data posterior à do dump restaurado
+   precisa ser reagendado à mão —
+
+   ```sql
+   UPDATE "User" SET "deletionRequestedAt" = now(), "deletionScheduledFor" = now() - interval '1 day'
+    WHERE id = '<ownerId>';
+   ```
+
+   — e o job cuida do resto na próxima varredura.
+
+Sem este passo, a promessa de exclusão quebra no primeiro disaster recovery.
+
+**Interruptor de emergência.** Se o cron de expurgo (`AccountPurgeJob`, 5h)
+precisar ser parado sem deploy, empurre todos os agendamentos vigentes para a
+frente sem perder o pedido:
+
+```sql
+UPDATE "User" SET "deletionScheduledFor" = now() + interval '30 days'
+ WHERE "deletionScheduledFor" IS NOT NULL;
+```
 
 ### Rollback
 
