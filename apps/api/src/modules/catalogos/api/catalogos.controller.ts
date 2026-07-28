@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import { CatalogosService } from '../application/catalogos.service';
 import { CurrentOwnerId } from '../../../shared/current-user.decorator';
@@ -34,9 +33,8 @@ export class CatalogosController {
   list(
     @CurrentOwnerId() ownerId: string,
     @Param('kind', CatalogKindPipe) kind: CatalogKind,
-    @Query('incluirInativos') incluirInativos?: string,
   ) {
-    return this.catalogos.list(ownerId, kind, incluirInativos === 'true');
+    return this.catalogos.list(ownerId, kind);
   }
 
   @RequirePermission('catalogo:gerenciar')

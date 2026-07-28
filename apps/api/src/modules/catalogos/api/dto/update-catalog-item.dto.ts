@@ -1,8 +1,10 @@
-import { PartialType } from '@nestjs/mapped-types';
 import { IsBoolean, IsOptional } from 'class-validator';
-import { CreateCatalogItemDto } from './create-catalog-item.dto';
 
-export class UpdateCatalogItemDto extends PartialType(CreateCatalogItemDto) {
-  /** Desativa/reativa o item. Só o PATCH mexe nisso — o POST nasce ativo. */
-  @IsOptional() @IsBoolean() active?: boolean;
+/**
+ * Só a marca de follow-up. Renomear não é operação do produto — troca-se o item
+ * por outro —, e `active` não é decisão de quem usa: é o efeito colateral do
+ * DELETE num item que ainda rotula registros (ver `CatalogosService.delete`).
+ */
+export class UpdateCatalogItemDto {
+  @IsOptional() @IsBoolean() isFollowUp?: boolean;
 }

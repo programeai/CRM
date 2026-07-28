@@ -95,7 +95,7 @@ describe('DealsService', () => {
     expect(repo.move).not.toHaveBeenCalled();
   });
 
-  it('rejeita motivo de perda desativado (ou de outro owner) ao mover para isLost', async () => {
+  it('rejeita motivo de perda excluído (ou de outro owner) ao mover para isLost', async () => {
     repo.findById.mockResolvedValue({
       id: 'd1',
       clientId: 'cli',
@@ -105,7 +105,7 @@ describe('DealsService', () => {
     stages.findOne.mockResolvedValue({ id: 'perdeu', isLost: true });
     catalogos.assertUtilizavel.mockRejectedValue(
       new UnprocessableEntityException(
-        'Este motivo de perda está desativado. Reative-o no catálogo ou escolha outro.',
+        'Este motivo de perda foi excluído. Escolha outro ou cadastre-o novamente.',
       ),
     );
     await expect(
