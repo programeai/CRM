@@ -1,6 +1,7 @@
 import { Flame } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDealAmount, isCooling } from '../lib/deal-format';
+import { NextActivityBadge } from './NextActivityBadge';
 import type { Deal } from '../api/types';
 
 interface Props {
@@ -38,6 +39,13 @@ export function DealCard({ deal, cooling, onClick }: Props) {
         <Badge variant="destructive" className="self-start">
           {deal.lostReason.name}
         </Badge>
+      )}
+      {/* O próximo passo. Só o quadro devolve o campo — nas listas paginadas ele
+          vem ausente e a linha não é renderizada. */}
+      {deal.nextActivityAt !== undefined && (
+        <div className="border-t pt-2">
+          <NextActivityBadge nextActivityAt={deal.nextActivityAt} />
+        </div>
       )}
     </button>
   );

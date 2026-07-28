@@ -32,6 +32,12 @@ export interface Deal {
   lostReason?: CatalogItem | null;
   position: number;
   stageMovedAt: string;
+  /**
+   * Próximo follow-up pendente da oportunidade, `null` quando não há nenhum
+   * agendado. Só `GET /deals/board` devolve o campo (é um agregado do quadro),
+   * por isso opcional: nas listas paginadas ele vem ausente.
+   */
+  nextActivityAt?: string | null;
   assigneeId?: string | null;
   assignee?: Assignee | null;
   createdAt: string;
