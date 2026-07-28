@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { ContractsService } from '../application/contracts.service';
 import { CurrentOwnerId } from '../../../shared/current-user.decorator';
@@ -13,6 +14,7 @@ import { RequirePermission } from '../../access/require-permission.decorator';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { ListContractsQueryDto } from './dto/list-contracts-query.dto';
+import { ExportContractsQueryDto } from './dto/export-contracts-query.dto';
 
 @Controller('contracts')
 export class ContractsController {
@@ -31,6 +33,16 @@ export class ContractsController {
   @Post()
   create(@CurrentOwnerId() ownerId: string, @Body() dto: CreateContractDto) {
     return this.contracts.create(ownerId, dto);
+  }
+
+  // Rota literal declarada antes de `:id` para não ser capturada por ele.
+  @RequirePermission('financeiro:ver', 'financeiro:gerenciar')
+  @Get('export')
+  export(
+    @CurrentOwnerId() ownerId: string,
+    @Query() query: ExportContractsQueryDto,
+  ): Promise<StreamableFile> {
+    return this.contracts.export(ownerId, query);
   }
 
   @RequirePermission('financeiro:ver', 'financeiro:gerenciar')

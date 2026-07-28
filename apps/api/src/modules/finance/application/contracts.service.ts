@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  StreamableFile,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { ContractStatus } from '@prisma/client';
@@ -12,11 +13,18 @@ import {
 } from '../domain/contract.repository';
 import { ClientsService } from '../../clients/application/clients.service';
 import { AuditService } from '../../audit/audit.service';
+import { ExportService } from '../../data/application/export.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import {
+  assertCabeNaExportacao,
+  MAX_EXPORT_ROWS,
+} from '../../../shared/export';
 import { buildInstallmentSchedule, buildOneTimeSchedule } from './schedule';
+import { COLUNAS_DE_CONTRATO } from './contract-export-columns';
 import type { CreateContractDto } from '../api/dto/create-contract.dto';
 import type { UpdateContractDto } from '../api/dto/update-contract.dto';
 import type { ListContractsQueryDto } from '../api/dto/list-contracts-query.dto';
+import type { ExportContractsQueryDto } from '../api/dto/export-contracts-query.dto';
 
 // Transições manuais permitidas (FINISHED reservado para o futuro — sem ação `finish`).
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
@@ -32,6 +40,7 @@ export class ContractsService {
     @Inject(CONTRACT_REPOSITORY) private readonly repo: ContractRepository,
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
+    private readonly exporter: ExportService,
   ) {}
 
   async list(ownerId: string, query: ListContractsQueryDto) {
@@ -46,6 +55,32 @@ export class ContractsService {
       take,
     });
     return paginated(data, total, page, limit);
+  }
+
+  /**
+   * Exportação da listagem. `Contract` não tem `assigneeId` (recorte por
+   * responsável não se aplica) — o filtro é `ownerId` puro, igual ao de `list`.
+   */
+  async export(
+    ownerId: string,
+    query: ExportContractsQueryDto,
+  ): Promise<StreamableFile> {
+    if (query.clientId) await this.clients.findOne(ownerId, query.clientId); // posse
+    const { data, total } = await this.repo.findManyAndCount({
+      ownerId,
+      clientId: query.clientId,
+      status: query.status,
+      billingType: query.billingType,
+      skip: 0,
+      take: MAX_EXPORT_ROWS,
+    });
+    assertCabeNaExportacao(total);
+    return this.exporter.gerar(
+      data,
+      COLUNAS_DE_CONTRATO,
+      query.formato,
+      'contratos',
+    );
   }
 
   async listByClient(

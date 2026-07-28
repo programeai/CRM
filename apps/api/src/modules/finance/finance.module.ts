@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule } from '../clients/clients.module';
+import { DataModule } from '../data/data.module';
 import { ContractsController } from './api/contracts.controller';
 import { PaymentsController } from './api/payments.controller';
 import { ContractsService } from './application/contracts.service';
@@ -11,7 +12,7 @@ import { PrismaContractRepository } from './infra/prisma-contract.repository';
 import { PrismaPaymentRepository } from './infra/prisma-payment.repository';
 
 @Module({
-  imports: [ClientsModule],
+  imports: [ClientsModule, DataModule],
   controllers: [ContractsController, PaymentsController],
   providers: [
     ContractsService,

@@ -6,6 +6,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { PaymentsService } from '../application/payments.service';
 import { CurrentOwnerId } from '../../../shared/current-user.decorator';
@@ -14,6 +15,7 @@ import { ListPaymentsQueryDto } from './dto/list-payments-query.dto';
 import { PaymentSummaryQueryDto } from './dto/payment-summary-query.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { PayPaymentDto } from './dto/pay-payment.dto';
+import { ExportPaymentsQueryDto } from './dto/export-payments-query.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -35,6 +37,16 @@ export class PaymentsController {
     @Query() query: PaymentSummaryQueryDto,
   ) {
     return this.payments.summary(ownerId, query);
+  }
+
+  // Rota literal — não há `:id` capturando aqui, mas mantém o padrão do módulo.
+  @RequirePermission('financeiro:ver', 'financeiro:gerenciar')
+  @Get('export')
+  export(
+    @CurrentOwnerId() ownerId: string,
+    @Query() query: ExportPaymentsQueryDto,
+  ): Promise<StreamableFile> {
+    return this.payments.export(ownerId, query);
   }
 
   @RequirePermission('financeiro:gerenciar')

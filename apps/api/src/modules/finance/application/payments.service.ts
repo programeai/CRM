@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  StreamableFile,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import type { PaymentStatus } from '@prisma/client';
@@ -12,11 +13,18 @@ import {
 } from '../domain/payment.repository';
 import { ClientsService } from '../../clients/application/clients.service';
 import { AuditService } from '../../audit/audit.service';
+import { ExportService } from '../../data/application/export.service';
 import { normalizePage, paginated } from '../../../shared/pagination';
+import {
+  assertCabeNaExportacao,
+  MAX_EXPORT_ROWS,
+} from '../../../shared/export';
+import { COLUNAS_DE_COBRANCA } from './payment-export-columns';
 import type { ListPaymentsQueryDto } from '../api/dto/list-payments-query.dto';
 import type { PaymentSummaryQueryDto } from '../api/dto/payment-summary-query.dto';
 import type { UpdatePaymentDto } from '../api/dto/update-payment.dto';
 import type { PayPaymentDto } from '../api/dto/pay-payment.dto';
+import type { ExportPaymentsQueryDto } from '../api/dto/export-payments-query.dto';
 
 const ALLOWED_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   PENDING: ['PAID', 'CANCELED'],
@@ -31,6 +39,7 @@ export class PaymentsService {
     @Inject(PAYMENT_REPOSITORY) private readonly repo: PaymentRepository,
     private readonly clients: ClientsService,
     private readonly audit: AuditService,
+    private readonly exporter: ExportService,
   ) {}
 
   async list(ownerId: string, query: ListPaymentsQueryDto) {
@@ -76,6 +85,40 @@ export class PaymentsService {
     const emAtraso = overdue?.amount ?? 0;
     const aReceber = (pending?.amount ?? 0) + emAtraso;
     return { recebido, aReceber, emAtraso };
+  }
+
+  /**
+   * Exportação da listagem. `Payment` não tem `assigneeId` (recorte por
+   * responsável não se aplica) — o filtro é `ownerId` puro, igual ao de `list`.
+   * Com `take: MAX_EXPORT_ROWS` o caminho de ordenação por status faz um `IN`
+   * de até 5.000 ids para hidratar — dentro do limite de parâmetros do Postgres.
+   */
+  async export(
+    ownerId: string,
+    query: ExportPaymentsQueryDto,
+  ): Promise<StreamableFile> {
+    if (query.clientId) await this.clients.findOne(ownerId, query.clientId); // posse
+    const { data, total } = await this.repo.findManyAndCount({
+      ownerId,
+      search: query.search,
+      clientId: query.clientId,
+      contractId: query.contractId,
+      status: query.status,
+      billingType: query.billingType,
+      dueFrom: query.dueFrom ? new Date(query.dueFrom) : undefined,
+      dueTo: query.dueTo ? new Date(query.dueTo) : undefined,
+      sortBy: query.sortBy,
+      sortDir: query.sortDir,
+      skip: 0,
+      take: MAX_EXPORT_ROWS,
+    });
+    assertCabeNaExportacao(total);
+    return this.exporter.gerar(
+      data,
+      COLUNAS_DE_COBRANCA,
+      query.formato,
+      'recebimentos',
+    );
   }
 
   /** Editar cobrança APENAS enquanto PENDING (valor/vencimento/descrição). */
