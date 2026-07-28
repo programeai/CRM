@@ -102,6 +102,9 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
+      # Ingestão externa de lead: as duas juntas ou a rota /leads/intake fica 503.
+      LEAD_INTAKE_TOKEN: ${LEAD_INTAKE_TOKEN}
+      LEAD_INTAKE_OWNER_EMAIL: ${LEAD_INTAKE_OWNER_EMAIL}
       BILLING_ENABLED: ${BILLING_ENABLED:-false}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
