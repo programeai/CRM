@@ -35,4 +35,14 @@ export class WorkspaceMembersService {
       );
     }
   }
+
+  /**
+   * O mesmo teste de `assertMember`, sem exceção. Existe para a ingestão
+   * externa de lead: um responsável que saiu da workspace (ou foi desativado)
+   * não pode fazer a captação responder erro — o lead entra sem responsável, e
+   * o log diz que isso aconteceu.
+   */
+  ehMembro(ownerId: string, userId: string): Promise<boolean> {
+    return this.repo.isMember(ownerId, userId);
+  }
 }
