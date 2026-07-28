@@ -1,0 +1,13 @@
+-- Sétimo tipo de notificação: lead que entrou por ingestão externa (site, landing).
+--
+-- ADD VALUE sozinho nesta migration DE PROPÓSITO: o Postgres proíbe usar um valor
+-- de enum na mesma transação que o criou, e cada migration do Prisma roda numa
+-- transação. Qualquer UPDATE que cite 'LEAD_RECEIVED' (backfill de
+-- "UserNotificationTarget"."types", por exemplo) precisa de uma migration própria,
+-- depois desta.
+--
+-- Não há backfill de propósito: `types` é opt-in por destino (ver o schema), e
+-- escrever preferência na conta de alguém sem ele pedir é decisão do usuário, não
+-- da migration. Quem já tem destino configurado marca "Lead recebido" na tela de
+-- preferências; destino novo já nasce com o tipo (TIPOS_PADRAO).
+ALTER TYPE "NotificationType" ADD VALUE 'LEAD_RECEIVED';

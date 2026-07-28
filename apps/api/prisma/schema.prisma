@@ -730,7 +730,10 @@ enum NotificationChannelKind {
   TELEGRAM
 }
 
-/// O que aconteceu. Espelha os seis gatilhos do ROADMAP.
+/// O que aconteceu. Os seis primeiros espelham os gatilhos do ROADMAP.
+/// `LEAD_RECEIVED` é o sétimo e vem da ingestão externa (`POST /leads/intake`):
+/// é o único emitido por quem não tem sessão, e o único cuja utilidade depende de
+/// chegar em MINUTOS — lead que espera o dono abrir o CRM já falou com outro.
 enum NotificationType {
   FOLLOW_UP_DUE
   PROPOSAL_EXPIRING
@@ -738,6 +741,7 @@ enum NotificationType {
   PAYMENT_OVERDUE
   TASK_OVERDUE
   RECORD_ASSIGNED
+  LEAD_RECEIVED
 }
 
 /// Estado de UMA entrega, num destino. `SKIPPED` = o canal existe mas está
