@@ -17,6 +17,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
+import { LeadsModule } from './modules/leads/leads.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
@@ -63,6 +64,7 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     CatalogosModule,
     ClientsModule,
     ContactsModule,
+    LeadsModule,
     ActivitiesModule,
     PipelineModule,
     ProposalsModule,
