@@ -49,6 +49,7 @@ export class ProposalsService {
       ownerId,
       search: query.search,
       clientId: query.clientId,
+      dealId: query.dealId,
       status: query.status,
       skip,
       take,

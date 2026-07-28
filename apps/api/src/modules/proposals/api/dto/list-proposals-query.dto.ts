@@ -9,6 +9,10 @@ export class ListProposalsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID('4', { message: 'Cliente inválido.' })
   clientId?: string;
+  /** Propostas de uma oportunidade — alimenta o detalhe dela no funil. */
+  @IsOptional()
+  @IsUUID('4', { message: 'Oportunidade inválida.' })
+  dealId?: string;
   @IsOptional()
   @IsEnum(ProposalStatus, { message: 'Status inválido.' })
   status?: ProposalStatus;

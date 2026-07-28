@@ -15,6 +15,7 @@ export interface ProposalListFilter {
   ownerId: string; // filtra por client.ownerId
   search?: string; // nº da proposta ou nome/email do cliente (contains, case-insensitive)
   clientId?: string;
+  dealId?: string;
   status?: import('@prisma/client').ProposalStatus;
   skip: number;
   take: number;

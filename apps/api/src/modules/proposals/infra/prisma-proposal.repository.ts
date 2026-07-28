@@ -38,6 +38,7 @@ export class PrismaProposalRepository implements ProposalRepository {
     const where: Prisma.ProposalWhereInput = {
       client: { ownerId: filter.ownerId },
       ...(filter.clientId ? { clientId: filter.clientId } : {}),
+      ...(filter.dealId ? { dealId: filter.dealId } : {}),
       ...(filter.status ? { status: filter.status } : {}),
       ...(filter.search
         ? {
