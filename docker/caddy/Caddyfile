@@ -1,0 +1,45 @@
+# Reverse proxy do stack de autohospedagem (docker-compose.selfhost.yml).
+#
+# O Caddy emite e renova o certificado TLS sozinho, via Let's Encrypt, sem
+# nenhuma configuração de ACME: basta o DNS de CRM_DOMAIN apontar para esta VPS
+# e as portas 80 e 443 estarem abertas. É a diferença em relação ao
+# docker-compose.prod.yml, que espera um Traefik já configurado no host.
+#
+# Os certificados ficam no volume `caddy_data` — não apague esse volume, ou o
+# Caddy pede tudo de novo e você pode bater no rate limit da Let's Encrypt.
+{
+	# E-mail da conta ACME: recebe aviso de expiração se a renovação falhar.
+	# Obrigatório — sem ele o Caddy não sobe (o container reinicia em loop
+	# reclamando de "Wrong argument count").
+	email {$ACME_EMAIL}
+}
+
+# CRM_DOMAIN sozinho (sem esquema) liga o HTTPS automático e o redirect de
+# 80 → 443. Com `localhost`, o Caddy usa a CA interna dele: funciona, mas o
+# navegador mostra aviso de certificado — serve para experimentar, não para uso
+# real. Ver docs/autohospedagem.md.
+{$CRM_DOMAIN} {
+	# Front e API na MESMA origem: sem CORS e sem cookie cross-site. O bundle
+	# do Vite é buildado com VITE_API_URL=/api/v1, um caminho relativo.
+	#
+	# A ordem aqui não importa (o Caddy casa o matcher mais específico
+	# primeiro), mas /api/* precisa vir antes na leitura humana: é a rota que
+	# não pode cair no nginx do front.
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+
+	# O nginx do front já comprime o que serve (ver apps/web/nginx.conf) e a API
+	# devolve JSON pequeno; comprimir de novo aqui só gastaria CPU.
+
+	# Uma linha JSON por acesso no stdout, no mesmo formato que o resto do
+	# stack — `docker compose logs caddy` fica legível junto com api e web.
+	log {
+		output stdout
+		format json
+	}
+}

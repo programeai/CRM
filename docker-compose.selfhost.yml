@@ -1,0 +1,197 @@
+# Autohospedagem — stack completo e autossuficiente.
+#
+#   git clone https://github.com/programeai/CRM.git && cd CRM
+#   ./scripts/gerar-env-autohospedagem.sh     # cria o .env com segredos fortes
+#   nano .env                                 # preencha CRM_DOMAIN e ACME_EMAIL
+#   docker compose -f docker-compose.selfhost.yml up -d --build
+#
+# O guia completo está em docs/autohospedagem.md.
+#
+# Diferença em relação ao docker-compose.prod.yml: aquele é o deploy do
+# mantenedor — puxa imagens já publicadas num Docker Hub e espera um Traefik
+# configurado no host. Este COMPILA as imagens a partir do repositório e traz o
+# próprio reverse proxy (Caddy) com TLS automático, então não depende de nada
+# pré-existente na VPS além do Docker.
+#
+# Quatro serviços: caddy (TLS + roteamento) → web (nginx com o bundle do Vite) e
+# api (NestJS) → postgres (não exposto ao host).
+name: crm
+
+# Rotação do log local de todo container. Sem limite, o json-file cresce até
+# encher o disco da VPS.
+x-log-rotacionado: &log-rotacionado
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  # Reverse proxy público. Único serviço com porta no host; emite e renova o
+  # certificado TLS sozinho (ver docker/caddy/Caddyfile).
+  caddy:
+    image: caddy:2-alpine
+    container_name: crm-caddy
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+    ports:
+      # A 80 não é opcional: é por ela que a Let's Encrypt valida o domínio e
+      # por ela que o Caddy redireciona http → https.
+      - "80:80"
+      - "443:443"
+      # QUIC/HTTP3.
+      - "443:443/udp"
+    environment:
+      CRM_DOMAIN: "${CRM_DOMAIN:?defina CRM_DOMAIN no .env, ex. crm.suaempresa.com.br}"
+      ACME_EMAIL: "${ACME_EMAIL:?defina ACME_EMAIL no .env, o e-mail da conta Let-s Encrypt}"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados emitidos. Perder este volume significa pedir tudo de novo
+      # à Let's Encrypt, que tem rate limit por domínio.
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *log-rotacionado
+    networks:
+      - publica
+
+  # Front: bundle do Vite servido por nginx. Recebe tudo que não é /api.
+  web:
+    build:
+      # Contexto na raiz do monorepo — é o que os Dockerfiles esperam.
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # As VITE_* são embutidas no bundle em BUILD-TIME: trocar qualquer uma
+        # delas exige `up -d --build`, reiniciar o container não muda nada.
+        # Caminho relativo = mesma origem da API, roteada pelo Caddy.
+        VITE_API_URL: /api/v1
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+    image: crm-web:selfhost
+    container_name: crm-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    logging: *log-rotacionado
+    networks:
+      - publica
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # API (NestJS). Mesmo host do front, sob o prefixo /api.
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: crm-api:selfhost
+    container_name: crm-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Único ponto de verdade das credenciais: as duas URLs são montadas a
+      # partir das variáveis do Postgres, apontando para o serviço interno.
+      # DATABASE_URL = crm_user (dono do schema; roda migrations, bypassa RLS).
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      # APP_DATABASE_URL = crm_app (NOSUPERUSER/NOBYPASSRLS; conexão da app,
+      # sujeita ao Row Level Security por ownerId).
+      APP_DATABASE_URL: postgresql://crm_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      # Lida pelo entrypoint para alinhar a senha da role crm_app no banco (a
+      # migration a cria com uma senha de desenvolvimento, pública no repo).
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env com openssl rand -hex 32}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no .env com openssl rand -hex 32}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env com openssl rand -hex 32}"
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      # Front e API compartilham a origem: FRONTEND_URL (CORS + link de
+      # redefinição de senha) e API_URL (redirect_uri do OAuth) são o mesmo host.
+      FRONTEND_URL: https://${CRM_DOMAIN}
+      API_URL: https://${CRM_DOMAIN}
+      COOKIE_DOMAIN: ${CRM_DOMAIN}
+      # 1 salto = só o Caddy deste compose. Use 2 se houver CDN (Cloudflare
+      # proxied, por exemplo) na frente. Valor maior que a realidade deixa o
+      # cliente forjar o próprio IP e furar o rate limit de /auth/*.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      # --- Tudo abaixo é opcional: em branco, o recurso se desativa sozinho ---
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      # false fecha o autocadastro (register + criação de conta nova por OAuth).
+      # Deixe true no primeiro boot: é assim que a sua conta é criada.
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # Ingestão externa de lead: as duas juntas, ou /leads/intake fica 503.
+      LEAD_INTAKE_TOKEN: ${LEAD_INTAKE_TOKEN:-}
+      LEAD_INTAKE_OWNER_EMAIL: ${LEAD_INTAKE_OWNER_EMAIL:-}
+      # Billing por Stripe: só faz sentido em instância que cobra assinatura.
+      # Na autohospedagem, false desliga o gate e o Stripe nunca é inicializado.
+      BILLING_ENABLED: ${BILLING_ENABLED:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
+    logging: *log-rotacionado
+    networks:
+      - publica
+      - interna
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Cobre migrations + ALTER ROLE do entrypoint antes do primeiro check.
+      start_period: 60s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-crm_user}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env com openssl rand -hex 32}"
+      POSTGRES_DB: ${POSTGRES_DB:-crm_db}
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+    logging: *log-rotacionado
+    # Sem `ports`: o banco só é alcançável pela rede interna. Para abrir o psql,
+    # use `docker compose ... exec postgres psql -U crm_user -d crm_db`.
+    networks:
+      - interna
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  # Dados do banco. Sobrevive a `down`/`up`; `down -v` APAGA tudo.
+  crm_pgdata:
+  # Certificados TLS e chave da conta ACME.
+  caddy_data:
+  caddy_config:
+
+networks:
+  # caddy <-> web/api. Não tem nada a ver com a internet: o que expõe o stack
+  # são as portas publicadas pelo caddy.
+  publica:
+    driver: bridge
+  # api <-> postgres, isolada do proxy.
+  interna:
+    driver: bridge
