@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { mensagemDoBlobDeErro } from '@/lib/api-error';
 
 /**
  * Baixa uma exportação da API. O interceptor de resposta não toca o body, então
@@ -33,26 +34,11 @@ export function useExport() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (erro) {
-      toast.error(await mensagemDoBlob(erro));
+      toast.error(await mensagemDoBlobDeErro(erro));
     } finally {
       setBaixando(false);
     }
   }
 
   return { exportar, baixando };
-}
-
-/** Extrai a mensagem pt-BR de uma resposta de erro que veio como Blob. */
-async function mensagemDoBlob(erro: unknown): Promise<string> {
-  const corpo = (erro as { response?: { data?: unknown } })?.response?.data;
-  if (corpo instanceof Blob) {
-    try {
-      const { message } = JSON.parse(await corpo.text());
-      if (typeof message === 'string') return message;
-      if (Array.isArray(message)) return message.join(' ');
-    } catch {
-      /* corpo não-JSON cai no genérico */
-    }
-  }
-  return 'Falha ao exportar. Tente de novo.';
 }

@@ -12,3 +12,22 @@ export function extractApiMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/**
+ * Extrai a mensagem pt-BR de uma resposta de erro que veio como `Blob` — o
+ * corpo de erro de um download (`responseType: 'blob'`) não passa pelo
+ * interceptor de JSON comum. Usado por `useExport` e `useDownload`.
+ */
+export async function mensagemDoBlobDeErro(erro: unknown): Promise<string> {
+  const corpo = (erro as { response?: { data?: unknown } })?.response?.data;
+  if (corpo instanceof Blob) {
+    try {
+      const { message } = JSON.parse(await corpo.text());
+      if (typeof message === 'string') return message;
+      if (Array.isArray(message)) return message.join(' ');
+    } catch {
+      /* corpo não-JSON cai no genérico */
+    }
+  }
+  return 'Falha ao baixar o arquivo. Tente de novo.';
+}
