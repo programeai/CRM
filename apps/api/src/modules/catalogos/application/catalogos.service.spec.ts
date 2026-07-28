@@ -100,9 +100,14 @@ describe('CatalogosService', () => {
     });
 
     expect(repo.create).not.toHaveBeenCalled();
-    expect(repo.update).toHaveBeenCalledWith('fontes-de-lead', 'f1', 'owner-1', {
-      active: true,
-    });
+    expect(repo.update).toHaveBeenCalledWith(
+      'fontes-de-lead',
+      'f1',
+      'owner-1',
+      {
+        active: true,
+      },
+    );
     // Mesmo id de antes: os registros que já apontavam para ele reencontram.
     expect(item.id).toBe('f1');
   });
@@ -151,9 +156,14 @@ describe('CatalogosService', () => {
     const resultado = await service.delete('owner-1', 'fontes-de-lead', 'f1');
 
     expect(repo.delete).not.toHaveBeenCalled();
-    expect(repo.update).toHaveBeenCalledWith('fontes-de-lead', 'f1', 'owner-1', {
-      active: false,
-    });
+    expect(repo.update).toHaveBeenCalledWith(
+      'fontes-de-lead',
+      'f1',
+      'owner-1',
+      {
+        active: false,
+      },
+    );
     expect(resultado).toEqual({ ocultado: true, usos: 3 });
   });
 
