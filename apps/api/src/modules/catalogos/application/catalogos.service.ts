@@ -29,12 +29,18 @@ export class CatalogosService {
   ) {}
 
   /**
-   * Só os itens vivos. Não existe "listar excluídos": para quem usa o CRM, item
-   * oculto foi excluído — o nome dele sobrevive apenas embutido nos registros
-   * que já o carregavam.
+   * Só os itens vivos por padrão. Não existe "listar excluídos" na UI: para
+   * quem usa o CRM, item oculto foi excluído — o nome dele sobrevive apenas
+   * embutido nos registros que já o carregavam. `incluirInativos` existe só
+   * para o resolvedor de catálogo da importação (Fase 14-A): casar a planilha
+   * com um item desativado é legítimo, diferente de exibi-lo num Select.
    */
-  list(ownerId: string, kind: CatalogKind): Promise<CatalogItem[]> {
-    return this.repo.findAll(kind, ownerId);
+  list(
+    ownerId: string,
+    kind: CatalogKind,
+    incluirInativos = false,
+  ): Promise<CatalogItem[]> {
+    return this.repo.findAll(kind, ownerId, incluirInativos);
   }
 
   /**

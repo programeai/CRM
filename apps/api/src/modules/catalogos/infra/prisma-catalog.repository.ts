@@ -50,9 +50,9 @@ export class PrismaCatalogRepository implements CatalogRepository {
     }
   }
 
-  findAll(kind: CatalogKind, ownerId: string) {
+  findAll(kind: CatalogKind, ownerId: string, incluirInativos = false) {
     return this.delegate(kind).findMany({
-      where: { ownerId, active: true },
+      where: { ownerId, ...(incluirInativos ? {} : { active: true }) },
       orderBy: { name: 'asc' },
     }) as Promise<CatalogItem[]>;
   }

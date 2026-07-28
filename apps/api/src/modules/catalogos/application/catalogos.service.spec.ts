@@ -27,7 +27,21 @@ describe('CatalogosService', () => {
   it('list devolve só os vivos — não existe listar excluídos', async () => {
     repo.findAll.mockResolvedValue([]);
     await service.list('owner-1', 'fontes-de-lead');
-    expect(repo.findAll).toHaveBeenCalledWith('fontes-de-lead', 'owner-1');
+    expect(repo.findAll).toHaveBeenCalledWith(
+      'fontes-de-lead',
+      'owner-1',
+      false,
+    );
+  });
+
+  it('list repassa incluirInativos para o resolvedor de catálogo da importação', async () => {
+    repo.findAll.mockResolvedValue([]);
+    await service.list('owner-1', 'fontes-de-lead', true);
+    expect(repo.findAll).toHaveBeenCalledWith(
+      'fontes-de-lead',
+      'owner-1',
+      true,
+    );
   });
 
   it('rejeita nome duplicado no create com ConflictException', async () => {
