@@ -312,11 +312,88 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 
 ### POST /leads/intake
 - **Propósito:** Receber um lead capturado FORA do CRM (site institucional, landing page) e materializá-lo como `Client` de status `LEAD` + `Contact` principal, notificando o owner na hora (`LEAD_RECEIVED`). Não cria oportunidade: o tipo de serviço só se conhece na conversa de diagnóstico. Telefone que já existe na workspace **não** abre segundo cadastro — a nota nova é empilhada no cliente existente e a resposta vem com `status: 'atualizado'`.
-- **Auth:** Pública (`@Public()`) fechada pelo `LeadIntakeTokenGuard`: header `Authorization: Bearer <LEAD_INTAKE_TOKEN>`. A workspace de destino **não** vem no corpo, vem de `LEAD_INTAKE_OWNER_EMAIL`. Rate limit: 30 req/min por IP.
+- **Auth:** Pública (`@Public()`) fechada pelo `LeadIntakeKeyGuard`: header `Authorization: Bearer crm_…` com a **chave de integração** do owner (escopo `lead:receber`), emitida junto de um canal de captação em `POST /leads/canais`. A workspace de destino, o responsável do lead e a fonte de lead **vêm da chave apresentada** (via o canal que ela autentica) e nunca do corpo. Rate limit: 30 req/min por IP.
+  - **Caminho legado, em transição:** o guard também aceita o `LEAD_INTAKE_TOKEN` do ambiente, e nesse caso a conta de destino vem de `LEAD_INTAKE_OWNER_EMAIL`, sem canal, sem responsável e sem fonte de lead — exatamente o comportamento anterior à Fase 17-A. Ele existe porque o emissor (`site-v2`) vive em outro repositório; sai num PR próprio junto das duas variáveis. Uso do legado é observável no log por `lead.token_legado_aceito` (`warn`).
 - **Body:** `{ nome: string (2–120), whatsapp: string (10–11 dígitos, DDD + número, sem o 55), telefone?: string (E.164), email?: string, empresa?: string, cidade?: string, mensagem?: string (≤2000), origem: string (≤60), pagina?: string, recebidoEm?: string (ISO 8601), qualificacao?: object, resumo?: string (≤4000), cenario?: string (≤160) }` — campo não declarado responde `400` (o `ValidationPipe` global roda com `forbidNonWhitelisted`); `null` é aceito em qualquer opcional.
 - **Resposta:** `200 { status: 'criado' | 'atualizado', clientId: string }`.
-- **Erros:** `400` (validação), `401 Token de ingestão inválido.`, `503 A ingestão de leads não está configurada nesta instância.` (falta `LEAD_INTAKE_TOKEN` ou `LEAD_INTAKE_OWNER_EMAIL`), `503 A conta que recebe os leads não existe nesta instância.` (e-mail configurado sem owner correspondente), `429` (rate limit).
+- **Erros:** `400` (validação), `401 Chave de integração inválida.` (ausente, desconhecida ou revogada), `403 Esta chave de integração não tem permissão para esta operação.` (chave sem o escopo `lead:receber`), `503 A ingestão de leads não está configurada nesta instância.` (**só no caminho legado**: token do ambiente presente e `LEAD_INTAKE_OWNER_EMAIL` ausente), `503 A conta que recebe os leads não existe nesta instância.` (**só no caminho legado**: e-mail configurado sem owner correspondente), `429` (rate limit).
 - **Handler:** `modules/leads/api/leads-intake.controller.ts` → `LeadsIntakeController.receber`
+
+---
+
+## Canais de captação de lead
+
+> Um canal é uma origem externa que entrega lead ao CRM ("Site institucional", "n8n"): guarda **quem atende** (responsável) e **como o lead é classificado** (fonte de lead do catálogo), e é dono da chave de integração que autentica a entrega. Canal e chave nascem e morrem juntos.
+
+### GET /leads/canais
+- **Propósito:** Listar os canais de captação do owner, cada um com o responsável, a fonte de lead e a chave **mascarada** (`crm_a1b2c3d4••••••••`), incluindo o último uso bem-sucedido dela.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar` — a listagem exibe o prefixo da chave, então quem não pode emitir credencial também não vê quais existem.
+- **Body:** —
+- **Resposta:** `200 Canal[]`, onde `Canal = { id, name, assignee: { id, name } | null, source: { id, name, active } | null, chave: { id, nome, mascarada, escopos, criadaEm, ultimoUsoEm, revogadaEm } | null, createdAt }`. **Nunca** carrega o valor bruto da chave nem o `keyHash`.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/leads/api/lead-intake-channels.controller.ts` → `LeadIntakeChannelsController.list`
+
+### POST /leads/canais
+- **Propósito:** Criar um canal e **emitir a chave** que o autentica. É a **única** resposta da API que carrega o valor bruto da chave — ela não é relida de lugar nenhum depois disto; quem a perde rotaciona.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** `{ name: string (2–60), assigneeId?: uuid | null, sourceId?: uuid | null }` — `assigneeId` nulo faz o lead nascer sem responsável (visível para a workspace inteira); `sourceId` nulo não classifica.
+- **Resposta:** `201 { canal: Canal, chave: string }` — `chave` é o valor bruto (`crm_` + 64 hex), exibido uma única vez.
+- **Erros:** `400` (validação), `409 Já existe um canal de captação com este nome.`, `422 Responsável inválido: escolha alguém da sua equipe.` (responsável de outra workspace), `404 Fonte de lead não encontrado no catálogo.` (fonte de outro owner), `422 Este fonte de lead foi excluído. Escolha outro ou cadastre-o novamente.`, `403`, `401`.
+- **Handler:** `modules/leads/api/lead-intake-channels.controller.ts` → `LeadIntakeChannelsController.create`
+
+### PATCH /leads/canais/:id
+- **Propósito:** Trocar o nome, o responsável ou a fonte de lead do canal. **Não** emite chave nova: editar canal não rotaciona credencial (para isso, `POST /integracoes/chaves/:id/rotacionar`).
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** `{ name?: string (2–60), assigneeId?: uuid | null, sourceId?: uuid | null }`.
+- **Resposta:** `200 Canal`.
+- **Erros:** `400` (validação), `404 Canal de captação não encontrado.` (ou de outro owner), `409 Já existe um canal de captação com este nome.`, `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Fonte de lead não encontrado no catálogo.`, `403`, `401`.
+- **Handler:** `modules/leads/api/lead-intake-channels.controller.ts` → `LeadIntakeChannelsController.update`
+
+### DELETE /leads/canais/:id
+- **Propósito:** Excluir o canal **e a chave dele**: credencial órfã continuaria autenticando ingestão. Quem estiver enviando lead com essa chave passa a receber `401`.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** —
+- **Resposta:** `204` (sem corpo).
+- **Erros:** `404 Canal de captação não encontrado.` (ou de outro owner), `403`, `401`.
+- **Handler:** `modules/leads/api/lead-intake-channels.controller.ts` → `LeadIntakeChannelsController.remove`
+
+---
+
+## Integrações
+
+> Credencial de **máquina** por owner (servidor a servidor). O banco guarda apenas o sha256 do valor bruto, que só existe na resposta que o emitiu; `prefix` (`crm_` + 8 hex) fica em claro só para a pessoa reconhecer qual chave é qual na tela. **Recuperar chave perdida não existe** e não é omissão: quem perde rotaciona. Não há criação avulsa — chave nasce junto do registro que ela credencia (hoje, o canal de captação).
+
+### GET /integracoes/escopos
+- **Propósito:** Catálogo de escopos de chave de integração — o que uma chave PODE fazer. O front consome os rótulos em pt-BR daqui e não os duplica. Escopo **não** é permissão de pessoa: permissão limita quem usa o CRM pela interface, escopo limita o que uma credencial de máquina alcança.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ key: 'lead:receber', label: 'Receber lead', description: string }]`.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.escopos`
+
+### GET /integracoes/chaves
+- **Propósito:** Listar as chaves de integração do owner, mascaradas, com escopos, último uso bem-sucedido e data de revogação. Chave revogada continua na lista: a tela precisa dizer que ela existiu e morreu.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ id, nome, mascarada, escopos: string[], criadaEm, ultimoUsoEm, revogadaEm }]`. O `keyHash` fica fora de todo `select` do repositório — o que não sai do banco não vaza.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.list`
+
+### POST /integracoes/chaves/:id/rotacionar
+- **Propósito:** Trocar o segredo da **mesma** linha e devolver o valor novo, uma única vez. A chave anterior deixa de autenticar **imediatamente** — não há janela de convivência. Rotacionar uma chave revogada a reativa. O canal continua apontando para a mesma linha, sem religar FK.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** —
+- **Resposta:** `201 { chave: { id, nome, mascarada, escopos, criadaEm, ultimoUsoEm, revogadaEm }, valor: string }` — `valor` é o bruto (`crm_` + 64 hex), e esta é a última vez que ele existe.
+- **Erros:** `400` (id não-uuid), `404 Chave de integração não encontrada.` (ou de outro owner), `403`, `401`.
+- **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.rotacionar`
+
+### DELETE /integracoes/chaves/:id
+- **Propósito:** **Revogar** a chave (preenche `revokedAt`) sem apagar a linha — a tela e a trilha de auditoria precisam continuar explicando o que aconteceu. A partir daí ela responde `401` na ingestão.
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 { id, nome, mascarada, escopos, criadaEm, ultimoUsoEm, revogadaEm }`.
+- **Erros:** `400` (id não-uuid), `404 Chave de integração não encontrada.` (ou de outro owner), `403`, `401`.
+- **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.revogar`
 
 ---
 

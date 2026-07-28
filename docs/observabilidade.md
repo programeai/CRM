@@ -103,6 +103,19 @@ longo do tempo. Os que existem hoje:
 | `notificacoes.lembretes_emitidos` | rotina diária das 6h BRT — gatilhos de prazo (só quando há alvo) | `info` |
 | `digest.enviado` | rotina diária das 7h BRT — resumo por e-mail (agregado do lote) | `info` |
 | `digest.envio_falhou` | falha ao enviar o resumo para um usuário; o lote continua | `error` |
+| `lead.ingerido` / `lead.reingerido` | ingestão externa de lead: cadastro novo / telefone já conhecido (nota empilhada) | `info` |
+| `lead.token_recusado` | ingestão recusada por credencial ausente | `warn` |
+| `lead.token_legado_aceito` | ingestão aceita pelo `LEAD_INTAKE_TOKEN` do ambiente — caminho de transição, sem canal nem roteamento | `warn` |
+| `lead.owner_nao_configurado` / `lead.owner_nao_encontrado` | caminho legado sem `LEAD_INTAKE_OWNER_EMAIL` ou sem owner correspondente (a rota responde 503) | `error` |
+| `lead.responsavel_ignorado` | o responsável do canal não é mais membro da workspace: o lead entrou sem responsável | `warn` |
+| `lead.canal_criado` / `lead.canal_atualizado` / `lead.canal_excluido` | manutenção dos canais de captação | `info` |
+| `integracao.chave_emitida` / `integracao.chave_rotacionada` / `integracao.chave_revogada` | ciclo de vida da chave de integração — nunca carregam o valor, só `chaveId` e `prefixo` | `info` / `warn` / `warn` |
+| `integracao.chave_recusada` / `integracao.escopo_insuficiente` | chave inexistente/revogada (401) ou sem o escopo da rota (403) | `warn` |
+
+> **Aposentado:** `lead.ingestao_desconfigurada` existia quando a ausência de
+> `LEAD_INTAKE_TOKEN` fechava a rota com 503. Desde a Fase 17-A a ingestão
+> autentica por chave de integração, e o token ausente é o estado normal — o
+> evento não é renomeado, apenas deixa de ser emitido.
 
 ### Os campos do `http.requisicao`
 
@@ -163,6 +176,11 @@ Regras:
   nomes são redigidas automaticamente ([`log.ts`](../apps/api/src/shared/logging/log.ts)),
   mas o texto livre de `msg` **não é** — o Grafana é publicado na internet e a
   linha vive 30 dias.
+- **Segredo em nome pt-BR escapa da rede automática.** `CHAVE_SENSIVEL`
+  ([`log.ts`](../apps/api/src/shared/logging/log.ts)) casa `token`, `secret`,
+  `api_key` — mas **não** `chave`. Log de credencial carrega `chaveId` e
+  `prefixo`, nunca o valor: a garantia aqui é o campo escolhido, e ela é
+  afirmada em `integration-keys.service.spec.ts`.
 - `debug` não é emitido em produção.
 - Nada de `console.log`.
 
