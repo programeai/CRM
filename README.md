@@ -158,46 +158,57 @@ pnpm db:down                          # derruba o Postgres
 
 ## Autohospedagem
 
-Rodar sua própria instância é **gratuito e não exige licença nenhuma**. O
-[`docker-compose.prod.yml`](./docker-compose.prod.yml) sobe front, API e Postgres
-como um projeto Compose isolado, atrás de um **reverse proxy que você já tenha no
-host** (os exemplos usam Traefik) — ele cuida do TLS e do roteamento.
+Rodar sua própria instância é **gratuito e não exige licença nenhuma**.
 
-O guia completo, com pré-requisitos, secrets, pipeline de build/deploy, backup e
-rollback, está em **[docs/deploy.md](./docs/deploy.md)**.
+O [`docker-compose.selfhost.yml`](./docker-compose.selfhost.yml) sobe o CRM
+inteiro numa VPS onde só exista Docker: front, API, Postgres e um **reverse proxy
+com HTTPS automático** (Caddy). Ele compila as imagens a partir deste
+repositório, então não depende de registry nem de proxy pré-existente.
 
-Em resumo:
+**Precisa de:** uma VPS com 2 GB de RAM, Docker, e um domínio com registro **A**
+apontado para ela (as portas 80 e 443 abertas).
 
 ```bash
-cp .env.example .env    # preencha e TROQUE todos os secrets
-docker compose -f docker-compose.prod.yml up -d
+git clone https://github.com/programeai/CRM.git && cd CRM
+
+./scripts/gerar-env-autohospedagem.sh   # cria o .env já com segredos fortes
+nano .env                               # preencha CRM_DOMAIN e ACME_EMAIL
+
+docker compose -f docker-compose.selfhost.yml up -d --build
 ```
 
-Pontos que valem atenção antes do primeiro boot:
+O primeiro `--build` leva de 5 a 15 minutos. Quando os quatro containers
+estiverem saudáveis, abra `https://<seu-dominio>/registrar` e crie sua conta — a
+primeira conta é a **owner** da instância, e não existe usuário padrão em
+produção. **Depois feche o autocadastro** (`REGISTRATION_ENABLED=false` + `up -d`),
+ou qualquer pessoa com o endereço cria conta na sua instância.
 
-- **As imagens vêm do Docker Hub**, publicadas pelo workflow de build — este
-  compose não compila nada. Aponte `DOCKERHUB_USERNAME`/`IMAGE_TAG` para as suas.
-- **`CRM_DOMAIN` e `ACME_RESOLVER` são obrigatórios.** O resolver ACME é o nome
-  do que você configurou no seu proxy; sem ele o certificado não é emitido.
-- **Gere segredos fortes** para `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` e
-  `APP_DB_PASSWORD` (`openssl rand -hex 32`). Sem `APP_DB_PASSWORD` a API aborta
-  no boot de propósito — seguir em frente deixaria o banco com a senha de
-  desenvolvimento, que é pública neste repositório.
-- **Feche o autocadastro depois de criar sua conta**: `REGISTRATION_ENABLED=false`
-  fecha `/registrar` e a criação de conta por OAuth, deixando o acesso só por
-  convite. O default é `true` para que a primeira conta seja possível.
-- **Agende o backup**: [`scripts/backup-postgres.sh`](./scripts/backup-postgres.sh)
-  faz o dump, mantém o ledger de encerramentos e aplica a retenção — coloque-o
-  no cron do host. Detalhes e o passo de restauração em
-  [docs/deploy.md](./docs/deploy.md#backup-do-banco).
+O guia completo — requisitos, topologia, backup, atualização, segurança e uma
+tabela de problemas comuns — está em
+**[docs/autohospedagem.md](./docs/autohospedagem.md)**.
 
 As migrations são aplicadas automaticamente a cada start da API.
+
+<details>
+<summary><strong>Já tem um Traefik no host?</strong></summary>
+
+Então o [`docker-compose.prod.yml`](./docker-compose.prod.yml) é a base mais
+próxima do que você quer: é o deploy usado pelo mantenedor, com imagens vindas
+do Docker Hub e o TLS delegado a um Traefik já configurado (rede externa
+`traefik-proxy` + resolver ACME). Ele **não** funciona copiado e colado — as
+imagens estão sob o `DOCKERHUB_USERNAME` de quem publicou. Troque `image:` por
+`build:` como no selfhost, ou publique as suas. Contrato de variáveis em
+[`.env.example`](./.env.example) e pipeline em
+[docs/deploy.md](./docs/deploy.md).
+
+</details>
 
 ## Documentação
 
 | Documento | Conteúdo |
 | --- | --- |
-| [docs/deploy.md](./docs/deploy.md) | Deploy em produção, secrets, backup e rollback |
+| [docs/autohospedagem.md](./docs/autohospedagem.md) | **Subir sua própria instância numa VPS** (start aqui) |
+| [docs/deploy.md](./docs/deploy.md) | Deploy do mantenedor: Traefik, secrets, pipeline e rollback |
 | [docs/observabilidade.md](./docs/observabilidade.md) | Log estruturado, consultas prontas e `x-request-id` |
 | [docs/billing-stripe.md](./docs/billing-stripe.md) | Integração de assinatura via Stripe (opcional) |
 | [apps/api/ENDPOINTS.md](./apps/api/ENDPOINTS.md) | Referência de todos os endpoints da API |

@@ -1,5 +1,10 @@
 # Deploy em produção
 
+> **Quer só subir sua própria instância?** Vá para
+> [autohospedagem.md](./autohospedagem.md). Este documento descreve o deploy do
+> **mantenedor**, que depende de imagens publicadas num Docker Hub específico e
+> de um Traefik já configurado no host — não funciona copiado e colado.
+
 O CRM sobe como um Compose isolado (nome de projeto, rede interna e volume
 próprios) atrás de um **reverse proxy** que já exista no host — os exemplos aqui
 usam Traefik. Nada é compartilhado com outros projetos do host além da rede
