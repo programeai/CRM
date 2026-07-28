@@ -20,12 +20,8 @@ export interface CatalogItem {
  * depende de o contexto da transação ter sido setado.
  */
 export interface CatalogRepository {
-  /** Ordenado por `name`; `incluirInativos: false` devolve só `active`. */
-  findAll(
-    kind: CatalogKind,
-    ownerId: string,
-    incluirInativos: boolean,
-  ): Promise<CatalogItem[]>;
+  /** Ordenado por `name`. Só os vivos — item `active: false` foi excluído. */
+  findAll(kind: CatalogKind, ownerId: string): Promise<CatalogItem[]>;
   findById(
     kind: CatalogKind,
     id: string,
@@ -44,7 +40,7 @@ export interface CatalogRepository {
     kind: CatalogKind,
     id: string,
     ownerId: string,
-    data: { name?: string; active?: boolean; isFollowUp?: boolean },
+    data: { active?: boolean; isFollowUp?: boolean },
   ): Promise<CatalogItem>;
   delete(kind: CatalogKind, id: string, ownerId: string): Promise<void>;
   /**

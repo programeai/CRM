@@ -24,14 +24,10 @@ describe('CatalogosService', () => {
     service = new CatalogosService(repo);
   });
 
-  it('list sem incluirInativos repassa false ao repositório', async () => {
+  it('list devolve só os vivos — não existe listar excluídos', async () => {
     repo.findAll.mockResolvedValue([]);
     await service.list('owner-1', 'fontes-de-lead');
-    expect(repo.findAll).toHaveBeenCalledWith(
-      'fontes-de-lead',
-      'owner-1',
-      false,
-    );
+    expect(repo.findAll).toHaveBeenCalledWith('fontes-de-lead', 'owner-1');
   });
 
   it('rejeita nome duplicado no create com ConflictException', async () => {
@@ -69,34 +65,32 @@ describe('CatalogosService', () => {
     });
   });
 
-  it('rejeita nome duplicado no update apenas quando o nome muda', async () => {
-    repo.findById.mockResolvedValue({
-      id: 'f1',
-      ownerId: 'owner-1',
-      name: 'Indicação',
-      active: true,
-    });
-    repo.findByName.mockResolvedValue(null);
-    repo.update.mockResolvedValue({
+  it('cadastrar um nome oculto ressuscita a linha em vez de dar 409', async () => {
+    // O item ficou `active: false` porque estava em uso quando foi excluído; o
+    // `@@unique([ownerId, name])` faria o cadastro bater numa linha invisível.
+    repo.findByName.mockResolvedValue({
       id: 'f1',
       ownerId: 'owner-1',
       name: 'Indicação',
       active: false,
     });
-
-    // Mesmo nome: não dispara checagem de duplicidade.
-    await service.update('owner-1', 'fontes-de-lead', 'f1', { active: false });
-    expect(repo.findByName).not.toHaveBeenCalled();
-
-    repo.findByName.mockResolvedValue({
-      id: 'outro',
+    repo.update.mockResolvedValue({
+      id: 'f1',
       ownerId: 'owner-1',
-      name: 'Orgânico',
+      name: 'Indicação',
       active: true,
     });
-    await expect(
-      service.update('owner-1', 'fontes-de-lead', 'f1', { name: 'Orgânico' }),
-    ).rejects.toBeInstanceOf(ConflictException);
+
+    const item = await service.create('owner-1', 'fontes-de-lead', {
+      name: 'Indicação',
+    });
+
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(repo.update).toHaveBeenCalledWith('fontes-de-lead', 'f1', 'owner-1', {
+      active: true,
+    });
+    // Mesmo id de antes: os registros que já apontavam para ele reencontram.
+    expect(item.id).toBe('f1');
   });
 
   it('lança NotFoundException para item de outro owner (repositório devolve null)', async () => {
@@ -131,7 +125,7 @@ describe('CatalogosService', () => {
     ).resolves.toEqual(item);
   });
 
-  it('impede excluir item em uso com ConflictException citando a contagem', async () => {
+  it('excluir item EM USO oculta em vez de apagar — as FKs são RESTRICT', async () => {
     repo.findById.mockResolvedValue({
       id: 'f1',
       ownerId: 'owner-1',
@@ -139,13 +133,17 @@ describe('CatalogosService', () => {
       active: true,
     });
     repo.contarUsos.mockResolvedValue(3);
-    await expect(
-      service.delete('owner-1', 'fontes-de-lead', 'f1'),
-    ).rejects.toThrow(/3 registro\(s\)/);
+
+    const resultado = await service.delete('owner-1', 'fontes-de-lead', 'f1');
+
     expect(repo.delete).not.toHaveBeenCalled();
+    expect(repo.update).toHaveBeenCalledWith('fontes-de-lead', 'f1', 'owner-1', {
+      active: false,
+    });
+    expect(resultado).toEqual({ ocultado: true, usos: 3 });
   });
 
-  it('exclui item sem uso', async () => {
+  it('excluir item SEM uso apaga de verdade', async () => {
     repo.findById.mockResolvedValue({
       id: 'f1',
       ownerId: 'owner-1',
@@ -153,8 +151,12 @@ describe('CatalogosService', () => {
       active: true,
     });
     repo.contarUsos.mockResolvedValue(0);
-    await service.delete('owner-1', 'fontes-de-lead', 'f1');
+
+    const resultado = await service.delete('owner-1', 'fontes-de-lead', 'f1');
+
     expect(repo.delete).toHaveBeenCalledWith('fontes-de-lead', 'f1', 'owner-1');
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(resultado).toEqual({ ocultado: false, usos: 0 });
   });
 
   it('rejeita isFollowUp em kind diferente de tipos-de-atividade com 422', async () => {

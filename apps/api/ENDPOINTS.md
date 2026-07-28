@@ -177,9 +177,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Criar um cliente para o usuário autenticado (`ownerId` derivado do token).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** `{ name: string (mín. 2), tradeName?, document?, email?, phone?, website?, sourceId?: uuid | null, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state?, assigneeId?: uuid | null }`
-  `personType` **não** entra no corpo: é deduzido do `document` (11 dígitos = CPF → `INDIVIDUAL`, 14 = CNPJ → `COMPANY`). Sem documento, vale o default do schema (`COMPANY`). `sourceId` referencia um item **ativo** de `GET /catalogos/fontes-de-lead` do mesmo owner.
+  `personType` **não** entra no corpo: é deduzido do `document` (11 dígitos = CPF → `INDIVIDUAL`, 14 = CNPJ → `COMPANY`). Sem documento, vale o default do schema (`COMPANY`). `sourceId` referencia um item vivo de `GET /catalogos/fontes-de-lead` do mesmo owner.
 - **Resposta:** `201 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
-- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
+- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead foi excluído. Escolha outro ou cadastre-o novamente.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.create`
 
 ### GET /clients/tags
@@ -219,7 +219,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
 - **Body:** Campos parciais de `POST /clients` (todos opcionais). `document` pode ser enviado como `null`/vazio para limpar; `assigneeId: null` limpa o responsável, o campo ausente preserva. Trocar o `document` reclassifica o `personType`; limpá-lo preserva a classificação atual.
 - **Resposta:** `200 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
-- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Cliente não encontrado.` / `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
+- **Erros:** `400` (validação / `Documento inválido: informe um CPF (11 dígitos) ou um CNPJ (14 dígitos).` / `CPF inválido.` / `CNPJ inválido.`), `409 Já existe um cliente com este documento.`, `404 Cliente não encontrado.` / `404 Fonte de lead não encontrado no catálogo.`, `422 Responsável inválido: escolha alguém da sua equipe.` / `422 Este fonte de lead foi excluído. Escolha outro ou cadastre-o novamente.`, `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.update`
 
 ### POST /clients/:id/archive
@@ -313,7 +313,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /activities
 - **Propósito:** Criar uma atividade/anotação na timeline de um cliente. Com um `typeId` marcado como `isFollowUp` no catálogo e `scheduledFor`, registra um follow-up (é essa marca — não o nome do tipo — que o cron das 6h e o dashboard consultam).
 - **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
-- **Body:** `{ clientId: uuid, typeId: uuid, content: string, dealId?: uuid, scheduledFor?: ISO date, assigneeId?: uuid | null }` (`typeId` referencia um item **ativo** de `GET /catalogos/tipos-de-atividade` do mesmo owner)
+- **Body:** `{ clientId: uuid, typeId: uuid, content: string, dealId?: uuid, scheduledFor?: ISO date, assigneeId?: uuid | null }` (`typeId` referencia um item vivo de `GET /catalogos/tipos-de-atividade` do mesmo owner)
 - **Resposta:** `201 Activity` (com `assignee: { id, name } | null` e `type: { id, name, active, isFollowUp }`).
 - **Erros:** `400` (validação), `422 Responsável inválido: escolha alguém da sua equipe.`, `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/activities/api/activities.controller.ts` → `ActivitiesController.create`
@@ -342,50 +342,61 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 > com a conta e configuráveis sem afetar ninguém. `kind` ∈ `{ servicos, fontes-de-lead,
 > tipos-de-atividade, motivos-de-perda }`. A **leitura não exige permissão de
 > módulo** (só sessão válida): o `Select` de um catálogo aparece em formulários de módulos diferentes.
-> A escrita exige `catalogo:gerenciar`. Exclusão é hard-delete; item em uso responde `409` instruindo a
-> desativar. `active: false` não é arquivamento — o item some dos formulários de cadastro, mas
-> continua rotulando os registros antigos que já o usam.
+> A escrita exige `catalogo:gerenciar`. **Só existem duas operações: cadastrar e excluir.** Renomear
+> não é operação do produto — troca-se o item por outro, e cada registro segue exibindo o nome que
+> valia quando foi classificado.
+>
+> `active` **não é estado que alguém escolhe**, e nunca aparece na interface: é como o DELETE se
+> comporta quando o item ainda rotula registros. As FKs são `RESTRICT` e três delas são NOT NULL
+> (`Deal`, `Proposal`, `Project` → `serviceTypeId`; `Activity.typeId`), então apagar a linha
+> exigiria apagar o histórico junto. Nesse caso a linha vira `active: false`: some do `GET` e de
+> todos os Select, e sobrevive apenas embutida nos registros que já a carregavam. Cadastrar de novo
+> o mesmo nome **ressuscita** a mesma linha, e os registros antigos a reencontram.
 
 ### GET /catalogos/:kind
-- **Propósito:** Listar os itens do catálogo do owner, ordenados por `name`. `incluirInativos=true`
-  inclui os desativados (usado pela tela de configuração); por padrão só devolve os ativos.
+- **Propósito:** Listar os itens vivos do catálogo do owner, ordenados por `name`. Não existe listar
+  excluídos — item oculto só aparece embutido no registro de negócio que o usa.
 - **Auth:** Bearer (access token). Sem `@RequirePermission` — só exige sessão válida.
-- **Body:** — (query: `incluirInativos?: 'true'`)
-- **Resposta:** `200 CatalogItem[]` (`{ id, name, active, isFollowUp? }`; `isFollowUp` só em
-  `tipos-de-atividade`).
+- **Body:** —
+- **Resposta:** `200 CatalogItem[]` (`{ id, name, active, isFollowUp? }`; `active` é sempre `true`
+  aqui, `isFollowUp` só em `tipos-de-atividade`).
 - **Erros:** `404 Catálogo não encontrado.` (`kind` desconhecido), `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.list`
 
 ### POST /catalogos/:kind
-- **Propósito:** Criar um item no catálogo do owner.
+- **Propósito:** Cadastrar um item no catálogo do owner — ou ressuscitar o item oculto de mesmo nome,
+  devolvendo o `id` original para que os registros antigos o reencontrem.
 - **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
 - **Body:** `{ name: string (2-60), isFollowUp?: boolean }` (`isFollowUp` só aceito em
   `tipos-de-atividade`).
 - **Resposta:** `201 CatalogItem`.
 - **Erros:** `400` (validação), `404 Catálogo não encontrado.`, `409 Já existe um <item> com este
-  nome.`, `422 Marcar follow-up só vale para tipos de atividade.`, `403`, `401`.
+  nome.` (só quando o item de mesmo nome está **vivo**), `422 Marcar follow-up só vale para tipos de
+  atividade.`, `403`, `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.create`
 
 ### PATCH /catalogos/:kind/:id
-- **Propósito:** Atualizar parcialmente um item do catálogo do owner — renomear, ativar/desativar ou
-  (só em `tipos-de-atividade`) marcar `isFollowUp`.
+- **Propósito:** Mover a marca `isFollowUp` — a única edição que existe. Vale só para
+  `tipos-de-atividade`; marcar um item desmarca o anterior.
 - **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
-- **Body:** Campos parciais de `POST /catalogos/:kind` + `active?: boolean`.
+- **Body:** `{ isFollowUp?: boolean }`. Não aceita `name` (renomear não existe) nem `active`
+  (consequência do DELETE, não escolha).
 - **Resposta:** `200 CatalogItem`.
 - **Erros:** `400` (validação), `404 Catálogo não encontrado.` / `404 <Item> não encontrado no
-  catálogo.` (inexistente ou de outro owner), `409 Já existe um <item> com este nome.`, `422 Marcar
-  follow-up só vale para tipos de atividade.`, `403`, `401`.
+  catálogo.` (inexistente ou de outro owner), `422 Marcar follow-up só vale para tipos de
+  atividade.`, `403`, `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.update`
 
 ### DELETE /catalogos/:kind/:id
-- **Propósito:** Excluir em definitivo um item do catálogo do owner, desde que não haja nenhum
-  registro apontando para ele (a contagem inclui arquivados — as FKs são `RESTRICT`).
+- **Propósito:** Excluir o item. Sem nenhum registro apontando, apaga a linha; em uso (a contagem
+  inclui arquivados), oculta com `active: false` para não derrubar as FKs `RESTRICT`. Nunca falha
+  por conflito — a resposta diz qual dos dois aconteceu.
 - **Auth:** Bearer (access token). Permissão: `catalogo:gerenciar`.
 - **Body:** —
-- **Resposta:** `200` (sem corpo).
+- **Resposta:** `200 { ocultado: boolean, usos: number }`. `ocultado: true` → a linha continua no
+  banco rotulando `usos` registros; `false` → apagada de vez.
 - **Erros:** `404 Catálogo não encontrado.` / `404 <Item> não encontrado no catálogo.` (inexistente ou
-  de outro owner), `409 Não é possível excluir um <item> em uso por N registro(s), inclusive
-  arquivados. Desative-o para tirá-lo dos formulários sem perder o histórico.`, `403`, `401`.
+  de outro owner), `403`, `401`.
 - **Handler:** `modules/catalogos/api/catalogos.controller.ts` → `CatalogosController.remove`
 
 ---
@@ -480,11 +491,11 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.update`
 
 ### PATCH /deals/:id/move
-- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReasonId` (item **ativo** de `GET /catalogos/motivos-de-perda` do mesmo owner); ao sair de um estágio `isLost` para outro, limpa o motivo. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
+- **Propósito:** Mover a oportunidade para `(stageId, position)`, reindexando as colunas afetadas em transação. Ao mover para um estágio `isLost`, exige `lostReasonId` (item vivo de `GET /catalogos/motivos-de-perda` do mesmo owner); ao sair de um estágio `isLost` para outro, limpa o motivo. Muda de estágio → atualiza `stageMovedAt`. Ao mover para um estágio `isWon` (mudança de estágio), cria automaticamente um Projeto a partir do deal (idempotente por `dealId`).
 - **Auth:** Bearer (access token). Permissão: `oportunidade:gerenciar`.
 - **Body:** `{ stageId: uuid, position: number (>=0), lostReasonId?: uuid }`
 - **Resposta:** `200 Deal` (com `lostReason: { id, name, active } | null`).
-- **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.` / `404 Motivo de perda não encontrado no catálogo.`, `422 Informe o motivo da perda.` / `422 Este motivo de perda está desativado. Reative-o no catálogo ou escolha outro.`, `401`.
+- **Erros:** `400` (validação), `404 Oportunidade não encontrada.` / `404 Estágio não encontrado.` / `404 Motivo de perda não encontrado no catálogo.`, `422 Informe o motivo da perda.` / `422 Este motivo de perda foi excluído. Escolha outro ou cadastre-o novamente.`, `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.move`
 
 ### POST /deals/:id/archive
@@ -608,7 +619,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /projects
 - **Propósito:** Criar um projeto vinculado a um cliente do usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `projeto:gerenciar`.
-- **Body:** `{ name, clientId, serviceTypeId: uuid, proposalId?, startDate?, dueDate? }`. `serviceTypeId` referencia um item **ativo** de `GET /catalogos/servicos` do mesmo owner.
+- **Body:** `{ name, clientId, serviceTypeId: uuid, proposalId?, startDate?, dueDate? }`. `serviceTypeId` referencia um item vivo de `GET /catalogos/servicos` do mesmo owner.
 - **Resposta:** `201 Project`.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/projects/api/projects.controller.ts` → `ProjectsController.create`

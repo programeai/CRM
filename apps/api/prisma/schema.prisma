@@ -266,9 +266,12 @@ model PipelineStage {
 // owners podem ter um "Indicação" cada) e provisionamento na criação da conta
 // a partir de `shared/default-catalogs.ts`.
 //
-// `active` é desativação de catálogo, não arquivamento: item desativado sai dos
-// Select de cadastro mas continua rotulando os registros antigos que o usam.
-// Exclusão de verdade só quando não há nenhum registro apontando (FK RESTRICT).
+// `active` NÃO é estado escolhido por ninguém e nunca aparece na interface: é
+// como o DELETE se comporta quando o item ainda rotula registros. Sem uso, a
+// linha é apagada; em uso, as FKs RESTRICT (três delas NOT NULL) impedem o
+// DELETE, então ela vira `active: false` — some do GET e de todo Select, e
+// sobrevive só embutida nos registros que já a carregavam. Cadastrar o mesmo
+// nome de novo ressuscita a linha. Ver `CatalogosService.delete`/`create`.
 
 /// Fontes de lead do owner. Substitui o enum fechado `LeadSource`.
 model LeadSourceCatalog {
