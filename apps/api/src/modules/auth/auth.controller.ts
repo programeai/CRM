@@ -169,9 +169,10 @@ export class AuthController {
   async logout(
     @CurrentUserId() userId: string,
     @CurrentSessionId() sid: string | undefined,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.auth.logout(userId, sid);
+    await this.auth.logout(userId, sid, this.device(req, res));
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_COOKIE_PATH });
     return { ok: true };
   }

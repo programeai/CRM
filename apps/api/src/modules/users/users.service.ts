@@ -209,6 +209,14 @@ export class UsersService {
   findById(id: string) {
     return this.prisma.user.findUnique({ where: { id } });
   }
+
+  /** Só o agendamento de encerramento de um owner — para o `me` do colaborador. */
+  findDeletionSchedule(ownerId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { deletionRequestedAt: true, deletionScheduledFor: true },
+    });
+  }
   updatePassword(id: string, passwordHash: string) {
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }

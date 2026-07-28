@@ -9,12 +9,13 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { OAuthProvider } from '@prisma/client';
+import { OAuthProvider, type AccessRecordKind } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
 import { SessionsService, type DeviceInfo } from './sessions.service';
+import { AccessRecordsService } from './access-records.service';
 import type { AccessContext } from '../access/domain/access-context';
 import type { OAuthProfile } from './oauth/oauth.service';
 
@@ -31,6 +32,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private mail: MailService,
+    private accessRecords: AccessRecordsService,
   ) {}
 
   async register(
@@ -68,7 +70,7 @@ export class AuthService {
     );
     if (linked) {
       this.assertActive(linked.active);
-      return this.issueTokens(linked.id, device);
+      return this.issueTokens(linked.id, device, 'LOGIN_OAUTH');
     }
 
     if (!profile.email || !profile.emailVerified) {
@@ -85,7 +87,7 @@ export class AuthService {
         provider,
         profile.providerAccountId,
       );
-      return this.issueTokens(existing.id, device);
+      return this.issueTokens(existing.id, device, 'LOGIN_OAUTH');
     }
 
     this.assertRegistrationEnabled();
@@ -95,7 +97,7 @@ export class AuthService {
       provider,
       providerAccountId: profile.providerAccountId,
     });
-    return this.issueTokens(created.id, device);
+    return this.issueTokens(created.id, device, 'LOGIN_OAUTH');
   }
 
   async login(email: string, password: string, device: DeviceInfo = {}) {
@@ -272,19 +274,59 @@ export class AuthService {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
     // `ownerId`/`roleId` ficam de fora: são o mesmo dado que `isOwner`/`role`
-    // expressam melhor — não vale expor duas formas do mesmo estado.
-    const { passwordHash, ownerId, roleId, ...safe } = user;
+    // expressam melhor. As colunas de encerramento também saem cruas: viram o
+    // objeto `deletion`, que o banner global consome — e assim o front não
+    // precisa saber que existem duas colunas que andam em par.
+    const {
+      passwordHash,
+      ownerId,
+      roleId,
+      deletionRequestedAt,
+      deletionScheduledFor,
+      ...safe
+    } = user;
+
+    // Encerramento agendado da WORKSPACE, não do próprio registro: no
+    // colaborador, `deletionScheduledFor` do PRÓPRIO `User` é sempre nulo (a
+    // invariante garante — colaborador não encerra workspace). O banner
+    // precisa do agendamento do OWNER, então busca por `access.ownerId` quando
+    // quem está logado é um colaborador.
+    const agendamento =
+      access.ownerId === userId
+        ? { deletionRequestedAt, deletionScheduledFor }
+        : ((await this.users.findDeletionSchedule(access.ownerId)) ?? {
+            deletionRequestedAt: null,
+            deletionScheduledFor: null,
+          });
+
     return {
       ...safe,
       isOwner: access.isOwner,
       role: access.roleId ? { id: access.roleId, name: access.roleName } : null,
       permissions: access.permissions,
+      /**
+       * `false` no owner criado por OAuth. O diálogo de encerramento usa isto
+       * para pedir a senha ou o e-mail da conta — e é a única informação sobre
+       * autenticação que o front recebe.
+       */
+      hasPassword: passwordHash !== null,
+      /**
+       * Encerramento agendado da WORKSPACE. Vem no `me` de todo mundo, owner ou
+       * colaborador: o banner tem de avisar a equipe inteira, e só o owner vê o
+       * botão de cancelar.
+       */
+      deletion: agendamento.deletionScheduledFor
+        ? {
+            requestedAt: agendamento.deletionRequestedAt,
+            scheduledFor: agendamento.deletionScheduledFor,
+          }
+        : null,
     };
   }
 
   /** Emite sessão para um usuário já validado (usado no aceite do convite). */
   issueSession(userId: string, device: DeviceInfo = {}) {
-    return this.issueTokens(userId, device);
+    return this.issueTokens(userId, device, 'ACEITE_DE_CONVITE');
   }
 
   /**
@@ -302,11 +344,17 @@ export class AuthService {
   }
 
   /** Encerra apenas a sessão corrente — os outros dispositivos seguem logados. */
-  async logout(userId: string, sid?: string) {
+  async logout(userId: string, sid?: string, device: DeviceInfo = {}) {
     if (sid) await this.sessions.revoke(sid, userId);
     // Access token emitido antes do `sid` (deploy da Fase 8A) não traz sessão:
     // nesse caso o logout derruba tudo, que é o comportamento antigo.
     else await this.sessions.revokeAll(userId);
+    await this.accessRecords.registrar({
+      userId,
+      kind: 'LOGOUT',
+      ip: device.ip,
+      userAgent: device.userAgent,
+    });
   }
 
   /** Sessões ativas do próprio usuário, para a tela de perfil. */
@@ -344,7 +392,11 @@ export class AuthService {
    * `argon2.verify`); no access porque logout e "revogar esta sessão" precisam
    * saber qual é a sessão corrente numa rota autenticada.
    */
-  private async issueTokens(sub: string, device: DeviceInfo = {}) {
+  private async issueTokens(
+    sub: string,
+    device: DeviceInfo = {},
+    kind: AccessRecordKind = 'LOGIN',
+  ) {
     const sid = randomUUID();
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(
@@ -367,6 +419,14 @@ export class AuthService {
       userId: sub,
       tokenHash: await this.hashSecret(refreshToken),
       device,
+    });
+    // Registro de acesso (Marco Civil art. 15) — depois de a sessão existir,
+    // para não registrar acesso de um login que falhou na última linha.
+    await this.accessRecords.registrar({
+      userId: sub,
+      kind,
+      ip: device.ip,
+      userAgent: device.userAgent,
     });
     return { accessToken, refreshToken };
   }

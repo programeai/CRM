@@ -6,6 +6,8 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { SessionsService } from './sessions.service';
 import { SessionsCleanupJob } from './sessions-cleanup.job';
+import { AccessRecordsService } from './access-records.service';
+import { AccessRecordsCleanupJob } from './access-records-cleanup.job';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 
@@ -15,6 +17,8 @@ import { CaptchaService } from './captcha/captcha.service';
     AuthService,
     SessionsService,
     SessionsCleanupJob,
+    AccessRecordsService,
+    AccessRecordsCleanupJob,
     OAuthService,
     CaptchaService,
   ],
