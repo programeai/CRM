@@ -12,6 +12,7 @@ import { KanbanColumn } from './components/KanbanColumn';
 import { SortableDealCard } from './components/SortableDealCard';
 import { DealCard } from './components/DealCard';
 import { DealFormDialog } from './DealFormDialog';
+import { DealDetailSheet } from './DealDetailSheet';
 import { LostReasonDialog } from './LostReasonDialog';
 import { StageConfigDialog } from './StageConfigDialog';
 import type { Deal } from './api/types';
@@ -22,6 +23,14 @@ const getDealId = (d: Deal) => d.id;
 const PIPELINE_FILTERS = {
   /** `''` = todos; `'me'` = o usuário logado; senão o id de um membro. */
   assignee: stringFilter(),
+  /**
+   * Oportunidade aberta no drawer — `''` = nenhuma. Fica na URL, não em
+   * `useState`, porque de dentro do drawer se navega para fora (o link de uma
+   * proposta): sair desmonta a tela e o estado local morreria com ela. Como o
+   * `useUrlFilters` grava com `replace`, o "voltar" do navegador cai nesta mesma
+   * entrada de histórico e o drawer reabre no negócio em que a pessoa estava.
+   */
+  oportunidade: stringFilter(),
 };
 
 export default function PipelineBoardPage() {
@@ -33,7 +42,6 @@ export default function PipelineBoardPage() {
   const { data: deals, isLoading: loadingDeals } = useBoard(boardParams);
   const [formOpen, setFormOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [editing, setEditing] = useState<Deal | undefined>();
   const [pendingLost, setPendingLost] = useState<{ id: string; stageId: string; position: number } | null>(
     null,
   );
@@ -73,14 +81,18 @@ export default function PipelineBoardPage() {
 
   const activeDeal = activeId ? (deals ?? []).find((d) => d.id === activeId) ?? null : null;
 
-  const openCreate = () => {
-    setEditing(undefined);
-    setFormOpen(true);
-  };
-  const openEdit = (deal: Deal) => {
-    setEditing(deal);
-    setFormOpen(true);
-  };
+  const openCreate = () => setFormOpen(true);
+  /**
+   * Clicar no card abre o DETALHE, não o formulário: editar campos é uma ação
+   * secundária lá dentro. Ver `DealDetailSheet`.
+   */
+  const openDetail = (deal: Deal) => set({ oportunidade: deal.id });
+  /**
+   * O registro é resolvido a partir do id da URL, sempre pelo cache: é isso que
+   * mantém o drawer refletindo a versão atual (depois de editar, mover ou
+   * registrar uma atividade) em vez de uma cópia congelada no clique.
+   */
+  const detailDeal = (deals ?? []).find((d) => d.id === values.oportunidade);
 
   const isLoading = loadingStages || loadingDeals;
 
@@ -124,7 +136,7 @@ export default function PipelineBoardPage() {
                       key={deal.id}
                       deal={deal}
                       cooling={cooling}
-                      onClick={() => openEdit(deal)}
+                      onClick={() => openDetail(deal)}
                     />
                   ))}
                 </KanbanColumn>
@@ -135,7 +147,15 @@ export default function PipelineBoardPage() {
         </DndContext>
       )}
 
-      <DealFormDialog open={formOpen} onOpenChange={setFormOpen} deal={editing} />
+      {/* `open` depende do registro existir: arquivar pela edição tira o deal do
+          quadro, e o drawer fecha em vez de ficar vazio. */}
+      <DealDetailSheet
+        deal={detailDeal}
+        open={!!detailDeal}
+        onOpenChange={(o) => !o && set({ oportunidade: '' })}
+      />
+
+      <DealFormDialog open={formOpen} onOpenChange={setFormOpen} />
 
       <LostReasonDialog
         open={!!pendingLost}

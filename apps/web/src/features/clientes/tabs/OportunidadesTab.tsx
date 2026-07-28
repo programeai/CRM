@@ -7,19 +7,28 @@ import {
   Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
 } from '@/components/ui/empty';
 import { KanbanSquare } from 'lucide-react';
+import { stringFilter, useUrlFilters } from '@/hooks/use-url-filters';
 import { useDealsByClient, useStages } from '@/features/pipeline/api/hooks';
 import { DealFormDialog } from '@/features/pipeline/DealFormDialog';
+import { DealDetailSheet } from '@/features/pipeline/DealDetailSheet';
 import { formatDealAmount } from '@/features/pipeline/lib/deal-format';
 import type { Client } from '../api/types';
+
+/** `''` = nenhuma aberta. Ver o mesmo param em `PipelineBoardPage`. */
+const OPORTUNIDADES_FILTERS = { oportunidade: stringFilter() };
 
 export default function OportunidadesTab() {
   const client = useOutletContext<Client>();
   const { data, isLoading } = useDealsByClient(client.id);
   const { data: stages } = useStages();
   const [formOpen, setFormOpen] = useState(false);
+  // Drawer na URL, não em estado local — mesma razão do quadro: de dentro dele se
+  // navega para a proposta, e o "voltar" tem de reabrir o mesmo negócio.
+  const { values, set } = useUrlFilters(OPORTUNIDADES_FILTERS);
 
   const stageName = (id: string) => stages?.find((s) => s.id === id)?.name ?? '—';
   const deals = data?.data ?? [];
+  const detailDeal = deals.find((d) => d.id === values.oportunidade);
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,18 +49,23 @@ export default function OportunidadesTab() {
       ) : deals.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {deals.map((deal) => (
-            <li
-              key={deal.id}
-              className="flex items-center justify-between gap-4 rounded-lg border p-3"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">{deal.title}</span>
-                <span className="text-xs text-muted-foreground">
-                  {stageName(deal.stageId)} · {deal.serviceType.name}
-                  {deal.lostReason && <> · {deal.lostReason.name}</>}
-                </span>
-              </div>
-              <span className="text-sm tabular-nums">{formatDealAmount(deal.amount)}</span>
+            <li key={deal.id}>
+              {/* Mesma superfície do quadro: a oportunidade abre no detalhe, onde
+                  se registra atividade e se agenda follow-up sem sair do cliente. */}
+              <button
+                type="button"
+                onClick={() => set({ oportunidade: deal.id })}
+                className="flex w-full items-center justify-between gap-4 rounded-lg border p-3 text-left hover:border-ring"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{deal.title}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {stageName(deal.stageId)} · {deal.serviceType.name}
+                    {deal.lostReason && <> · {deal.lostReason.name}</>}
+                  </span>
+                </div>
+                <span className="text-sm tabular-nums">{formatDealAmount(deal.amount)}</span>
+              </button>
             </li>
           ))}
         </ul>
@@ -66,6 +80,12 @@ export default function OportunidadesTab() {
           </EmptyHeader>
         </Empty>
       )}
+
+      <DealDetailSheet
+        deal={detailDeal}
+        open={!!detailDeal}
+        onOpenChange={(o) => !o && set({ oportunidade: '' })}
+      />
 
       <DealFormDialog
         open={formOpen}
