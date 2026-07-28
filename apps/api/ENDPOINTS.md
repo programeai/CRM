@@ -556,7 +556,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Retornar todas as oportunidades do usuário autenticado, sem paginação, ordenadas por `stageId` e `position` — alimenta o Kanban. Sem `oportunidade:ver_todas`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `oportunidade:ver` ou `oportunidade:gerenciar`.
 - **Body:** — (query: `assigneeId?: uuid` — filtro "Atribuídos a mim" do quadro)
-- **Resposta:** `200 Deal[]` (com `client: { id, name }` e `assignee: { id, name } | null`).
+- **Resposta:** `200 Deal[]` (com `client: { id, name }`, `assignee: { id, name } | null` e `nextActivityAt: ISO date | null` — o próximo follow-up pendente da oportunidade, `null` quando não há nenhum agendado. Esse campo é dado de **atividade**: é recortado por `cliente:ver_todos`, não por `oportunidade:ver_todas`).
 - **Erros:** `401`.
 - **Handler:** `modules/pipeline/api/deals.controller.ts` → `DealsController.board`
 
@@ -623,7 +623,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### GET /proposals
 - **Propósito:** Listar propostas do usuário autenticado (via cliente), com filtros e paginação. `search` filtra por número da proposta ou nome/email do cliente (contains, case-insensitive).
 - **Auth:** Bearer (access token). Permissão: `proposta:ver` ou `proposta:gerenciar`.
-- **Body:** — (query: `page?`, `limit?`, `search?`, `clientId?`, `status?`)
+- **Body:** — (query: `page?`, `limit?`, `search?`, `clientId?`, `dealId?`, `status?`)
 - **Resposta:** `200 { data: Proposal[], meta: { total, page, limit } }` (`Proposal` inclui `items[]` e `client: { id, name }`).
 - **Erros:** `400` (query inválida), `404 Cliente não encontrado.` (quando `clientId` é de outro dono), `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.list`
