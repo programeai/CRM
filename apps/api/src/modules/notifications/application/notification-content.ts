@@ -97,6 +97,9 @@ const ENTIDADE: Record<AuditEntity, string> = {
   USER: 'o colaborador',
   SUBSCRIPTION: 'a assinatura',
   ACTIVITY: 'a atividade',
+  // A importação (Fase 14-A) nunca dispara notificação — nenhum gatilho
+  // aponta `entity: 'IMPORT'` — mas o Record é exaustivo sobre AuditEntity.
+  IMPORT: 'a importação',
 };
 
 /**

@@ -129,6 +129,7 @@ export const AUDIT_ENTITY_LABELS = {
   USER: 'Colaborador',
   SUBSCRIPTION: 'Assinatura',
   ACTIVITY: 'Atividade',
+  IMPORT: 'Importação',
 } as const;
 export const translateAuditEntity = make(AUDIT_ENTITY_LABELS);
 
@@ -155,6 +156,7 @@ export const AUDIT_ACTION_LABELS = {
   ALTERAR_PAPEL: 'Alterou o papel',
   EXPIRAR: 'Expirou',
   VENCER: 'Marcou como vencida',
+  IMPORTAR: 'Importou',
 } as const;
 export const translateAuditAction = make(AUDIT_ACTION_LABELS);
 
