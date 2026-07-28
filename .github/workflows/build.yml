@@ -28,8 +28,13 @@ on:
       - ".github/**"
       - ".gitignore"
       - ".env.example"
+      - ".env.selfhost.example"
       - "docker-compose.yml"
       - "docker-compose.prod.yml"
+      - "docker-compose.selfhost.yml"
+      # Config do Caddy da autohospedagem: montada como volume, nunca entra em
+      # imagem (o .dockerignore a exclui do contexto).
+      - "docker/caddy/**"
       - LICENSE
       - NOTICE
   workflow_dispatch:

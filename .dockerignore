@@ -43,3 +43,8 @@ apps/web/DESIGN-PATTERNS.md
 .DS_Store
 docker-compose.yml
 docker-compose.prod.yml
+docker-compose.selfhost.yml
+# Config do reverse proxy da autohospedagem: é montada como volume no container
+# do Caddy, não entra em imagem nenhuma. (Não confundir com apps/api/docker/,
+# que tem o entrypoint e PRECISA ir para a imagem da API.)
+docker/caddy
