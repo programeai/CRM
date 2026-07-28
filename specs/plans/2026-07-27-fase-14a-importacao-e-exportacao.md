@@ -4,7 +4,7 @@ author: claude
 source_prd: specs/research/2026-07-27-fase-14-dados-importacao-exportacao-busca-duplicidade.md
 git_commit: 9b90bb6e8167b859b6136a49be0c30f5b30ac8ab
 branch: main
-status: draft
+status: implemented
 tags: [spec, dados, importacao, exportacao, clients, contacts, finance, catalogos]
 ---
 
@@ -693,11 +693,11 @@ O `paramsSerializer: { indexes: null }` do axios já serializa `status` como
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — verde, incluindo o `spreadsheet.writer.spec.ts` novo e os casos novos de `clients.service.spec.ts`
-- [ ] `pnpm --filter api build` — verde (compila os imports CJS de `csv-stringify/sync` e `write-excel-file/node`)
-- [ ] `pnpm --filter api lint` — verde
-- [ ] `pnpm --filter web build` — verde
-- [ ] `pnpm --filter web lint` — verde
+- [x] `pnpm --filter api test` — verde, incluindo o `spreadsheet.writer.spec.ts` novo e os casos novos de `clients.service.spec.ts`
+- [x] `pnpm --filter api build` — verde (compila os imports CJS de `csv-stringify/sync` e `write-excel-file/node`)
+- [x] `pnpm --filter api lint` — verde (único erro remanescente é pré-existente em `main.ts`, sem relação com esta fase — confirmado rodando o lint na árvore limpa antes desta implementação)
+- [x] `pnpm --filter web build` — verde
+- [x] `pnpm --filter web lint` — verde
 
 #### Manual Verification
 - [ ] `GET /clients/export?formato=csv` baixa `clientes-AAAA-MM-DD.csv`; o arquivo abre no Excel/LibreOffice em pt-BR **sem** assistente de importação, com acentos corretos e colunas separadas
@@ -1302,10 +1302,13 @@ Não há chave de exportação: quem pode ver a listagem pode exportá-la.
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — verde, incluindo `spreadsheet.reader.spec.ts`, `normalizar.spec.ts`, `catalog-resolver.spec.ts` e o spec novo de `import.service.spec.ts` (sugestão de mapeamento, validação linha a linha, documento repetido no arquivo, cliente ambíguo)
-- [ ] `pnpm --filter api build` e `pnpm --filter api lint` — verdes
-- [ ] `curl -F arquivo=@clientes.csv -F tipo=clientes …/data/import/previa` devolve `200` com `mapeamento` sugerido preenchido
-- [ ] O mesmo `curl` com um arquivo de 501 linhas devolve `422` com a mensagem do teto
+- [x] `pnpm --filter api test` — verde, incluindo `spreadsheet.reader.spec.ts`, `normalizar.spec.ts`, `catalog-resolver.spec.ts` e o spec novo de `import.service.spec.ts` (sugestão de mapeamento, validação linha a linha, documento repetido no arquivo, cliente ambíguo)
+- [x] `pnpm --filter api build` e `pnpm --filter api lint` — verdes (único erro remanescente é o mesmo pré-existente de `main.ts`)
+- [x] `pnpm --filter api test:e2e` — verde (confirma que o `forwardRef` entre `ClientsModule` ↔ `DataModule` resolve em runtime, não só na compilação)
+- [x] `curl -F arquivo=@clientes.csv -F tipo=clientes …/data/import/previa` devolve `200` com `mapeamento` sugerido preenchido — executado de verdade contra a API local (owner registrado, token real): `mapeamento` saiu `{Nome: name, E-mail: email, CNPJ: document}`, `erros: []`
+- [x] O mesmo `curl` com um arquivo de 501 linhas devolve `422` com a mensagem do teto — confirmado: `A importação é limitada a 500 linhas por arquivo e esta planilha tem 501. Divida o arquivo e importe em partes.`
+
+**Achado durante a verificação (corrigido):** `multer` estava só como transitivo de `@nestjs/platform-express` no lockfile; sob o isolamento estrito do pnpm, `import { memoryStorage } from 'multer'` em `import.controller.ts` não resolvia em runtime (`Cannot find module 'multer'`) — só o `FileInterceptor` (que o exige de dentro do próprio `@nestjs/platform-express`) funcionava. Corrigido acrescentando `multer@^2.2.0` como dependência direta de `apps/api`. O PRD/spec descreveu `multer` como "já resolvido"; era só quando importado indiretamente.
 
 #### Manual Verification
 - [ ] Planilha real do Excel em pt-BR (`.xlsx`) sobe e as colunas aparecem corretas, com acento
@@ -1556,11 +1559,11 @@ Cobre o que o mock não cobre — o isolamento real com RLS ligado. Molde:
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter api test` — verde
-- [ ] `pnpm --filter api test:e2e` — verde, incluindo `data.e2e-spec.ts`
-- [ ] `DATABASE_URL=postgresql://crm_user:crm_password@localhost:5435/crm_db apps/api/scripts/validar-migrations-com-dados.sh` — verde (a migration do enum aplica sobre banco com dado dentro)
-- [ ] `pnpm --filter api build` e `pnpm --filter api lint` — verdes
-- [ ] `pnpm --filter web build` — verde
+- [x] `pnpm --filter api test` — verde (509 testes, incluindo os novos de `importar`: cancelamento total, 403 sem `catalogo:gerenciar`, origem criada casando as duas linhas, evento único de auditoria, gravação em série, contatos casando por documento)
+- [x] `pnpm --filter api test:e2e` — verde, incluindo `data.e2e-spec.ts` (isolamento por owner e recorte por responsável na exportação; `ownerId` correto e teto de 500 linhas na importação; 403 sem `dados:importar`)
+- [x] `DATABASE_URL=postgresql://crm_user:crm_password@localhost:5435/crm_db apps/api/scripts/validar-migrations-com-dados.sh` — verde (a migration do enum aplica sobre banco com dado dentro)
+- [x] `pnpm --filter api build` e `pnpm --filter api lint` — verdes (único erro remanescente é o mesmo pré-existente de `main.ts`)
+- [x] `pnpm --filter web build` — verde
 
 #### Manual Verification
 - [ ] Importar uma planilha de 5 clientes limpos → os 5 aparecem em `/clientes`, com origem e status corretos
@@ -1665,8 +1668,8 @@ Em Organização, antes de "Auditoria":
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `pnpm --filter web build` — verde
-- [ ] `pnpm --filter web lint` — verde
+- [x] `pnpm --filter web build` — verde
+- [x] `pnpm --filter web lint` — verde
 
 #### Manual Verification
 - [ ] O wizard completa a importação de uma planilha de clientes de ponta a ponta, sem `curl`
