@@ -7,6 +7,7 @@ import {
   type EmailContent,
 } from './templates/password-reset.template';
 import { collaboratorInviteEmail } from './templates/collaborator-invite.template';
+import { accountDeletionScheduledEmail } from './templates/account-deletion-scheduled.template';
 
 /** O que aconteceu com um envio. `disabled` não é falha — é SMTP ausente. */
 export type ResultadoDeEnvio = { status: 'sent' } | { status: 'disabled' };
@@ -179,6 +180,49 @@ export class MailService {
         {
           evento: 'email.envio_falhou',
           msg: 'Falha ao enviar e-mail de convite de colaborador.',
+          destinatario: to,
+        },
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Avisa que o encerramento da conta foi agendado. Mesmo contrato do reset e
+   * do convite: **engole** a falha — o aviso na interface (banner + toast) é o
+   * caminho que não depende de SMTP. Sem SMTP, registra o agendamento no log
+   * (sem link: não há token) para permitir o fluxo em desenvolvimento.
+   */
+  async sendAccountDeletionScheduled(params: {
+    to: string;
+    name: string;
+    scheduledFor: Date;
+  }): Promise<void> {
+    const { to, scheduledFor } = params;
+    if (!this.isEnabled()) {
+      this.logger.warn({
+        evento: 'email.smtp_desabilitado',
+        msg: 'SMTP desabilitado — e-mail de encerramento agendado não enviado.',
+        destinatario: to,
+      });
+      return;
+    }
+
+    try {
+      await this.send(
+        to,
+        accountDeletionScheduledEmail({
+          scheduledFor,
+          appUrl:
+            this.config.get<string>('FRONTEND_URL') ||
+            'https://crm.programeai.com.br',
+        }),
+      );
+    } catch (err) {
+      this.logger.error(
+        {
+          evento: 'email.envio_falhou',
+          msg: 'Falha ao enviar e-mail de encerramento agendado.',
           destinatario: to,
         },
         err instanceof Error ? err.stack : undefined,
