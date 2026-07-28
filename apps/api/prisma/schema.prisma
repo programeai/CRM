@@ -400,11 +400,17 @@ model ActivityTypeCatalog {
   ownerId    String
   owner      User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name       String
-  /// É REGRA, não rótulo: marca o tipo que representa follow-up agendado. O cron
-  /// de lembretes (cross-owner, pelo client admin) e o dashboard filtram por
-  /// ela — é o análogo de `PipelineStage.isWon`/`isLost`. No máximo um item por
-  /// owner fica marcado (garantido no `CatalogosService`, não no banco: um
-  /// unique parcial impediria desmarcar-e-remarcar numa transação).
+  /// É REGRA, não rótulo: marca o tipo PRIMITIVO 'Follow-up'. O cron de
+  /// lembretes (cross-owner, pelo client admin) e o dashboard filtram por ela —
+  /// é o análogo de `PipelineStage.isWon`/`isLost`.
+  ///
+  /// Somente leitura para a aplicação: quem grava é o provisionamento da conta
+  /// (`shared/default-catalogs.ts`) e as migrations. Não há DTO, rota ou método
+  /// de repositório que a altere — e o `delete` do service responde 422 no item
+  /// marcado, porque excluí-lo (ou só ocultá-lo) silenciaria os lembretes do
+  /// owner sem erro nenhum. Exatamente um item ativo por owner, conferido pelo
+  /// portão de CI em `prisma/fixtures/invariantes.sql`; índice parcial não
+  /// entrou porque o schema do Prisma não o expressa e ele viraria drift.
   isFollowUp Boolean    @default(false)
   active     Boolean    @default(true)
   activities Activity[]

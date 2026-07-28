@@ -254,16 +254,28 @@ BEGIN
     RAISE EXCEPTION 'Owner com número inesperado de tipos de atividade (esperado 6): %', por_owner;
   END IF;
 
-  -- A invariante que MAIS importa: exatamente UM tipo marcado por owner. Zero
-  -- marcados silencia o cron de lembretes daquele owner, sem erro nenhum.
+  -- A invariante que MAIS importa: exatamente UM tipo marcado por owner, e ele
+  -- ATIVO (20260816100000_activity_type_followup_primitivo). Zero marcados
+  -- silencia o cron de lembretes daquele owner, sem erro nenhum; um marcado
+  -- oculto é pior ainda — o cron continua disparando por um tipo que saiu de
+  -- todo Select e que ninguém consegue mais escolher.
+  --
+  -- Esta é a única trava do "exatamente um": não existe índice parcial (o schema
+  -- do Prisma não o expressa) nem via de escrita na coluna — `isFollowUp` saiu
+  -- dos DTOs e do repositório, e o `delete` do service responde 422 no item
+  -- marcado. Migration futura que volte a mexer na coluna reprova aqui.
   SELECT string_agg(t."ownerId" || '=' || t.n, ', ') INTO sem_regra
     FROM (
-      SELECT "ownerId", count(*) FILTER (WHERE "isFollowUp") AS n
-        FROM "ActivityTypeCatalog" GROUP BY "ownerId"
+      SELECT u."id" AS "ownerId",
+             count(c.*) FILTER (WHERE c."isFollowUp" AND c."active") AS n
+        FROM "User" u
+        LEFT JOIN "ActivityTypeCatalog" c ON c."ownerId" = u."id"
+       WHERE u."ownerId" IS NULL
+       GROUP BY u."id"
     ) t
    WHERE t.n <> 1;
   IF sem_regra IS NOT NULL THEN
-    RAISE EXCEPTION 'Owner com número inesperado de tipos marcados como follow-up (esperado 1): %', sem_regra;
+    RAISE EXCEPTION 'Owner com número inesperado de tipos de follow-up ATIVOS (esperado 1): %', sem_regra;
   END IF;
 END $$;
 
