@@ -88,6 +88,9 @@ export const queryKeys = {
   invites: {
     detail: (token: string) => ['invites', token] as const,
   },
+  canaisDeCaptacao: {
+    all: ['canais-de-captacao'] as const,
+  },
   clientOptions: (search: string) => ['client-options', search] as const,
   workspaceMembers: ['workspace', 'members'] as const,
   auth: {

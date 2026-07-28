@@ -39,6 +39,7 @@ import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
 import TiposDeAtividadePage from '@/features/catalogos/TiposDeAtividadePage';
 import ImportacaoPage from '@/features/dados/ImportacaoPage';
+import CaptacaoPage from '@/features/integracoes/CaptacaoPage';
 import AdministracaoLayout, {
   AdministracaoIndex,
 } from '@/features/administracao/AdministracaoLayout';
@@ -197,6 +198,14 @@ export const router = createBrowserRouter([
                     element: <PermissionRoute permission={['dados:importar']} />,
                     children: [
                       { path: 'importacao', element: <ImportacaoPage /> },
+                    ],
+                  },
+                  {
+                    element: (
+                      <PermissionRoute permission={['integracao:gerenciar']} />
+                    ),
+                    children: [
+                      { path: 'captacao', element: <CaptacaoPage /> },
                     ],
                   },
                   {
