@@ -178,6 +178,7 @@ export const NOTIFICATION_TYPE_LABELS = {
   PAYMENT_OVERDUE: 'Cobrança vencida',
   TASK_OVERDUE: 'Demanda atrasada',
   RECORD_ASSIGNED: 'Atribuído a você',
+  LEAD_RECEIVED: 'Lead recebido',
 } as const;
 export const translateNotificationType = make(NOTIFICATION_TYPE_LABELS);
 
