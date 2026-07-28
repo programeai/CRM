@@ -31,6 +31,7 @@ const TIPO_LABEL: Record<NotificationType, string> = {
   PAYMENT_OVERDUE: 'Cobrança vencida',
   TASK_OVERDUE: 'Demanda atrasada',
   RECORD_ASSIGNED: 'Atribuído a você',
+  LEAD_RECEIVED: 'Lead recebido',
 };
 
 @Injectable()

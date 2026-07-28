@@ -75,6 +75,57 @@ describe('montarConteudo', () => {
     );
   });
 
+  it('LEAD_RECEIVED cita o cenário e aponta para o cadastro do lead', () => {
+    const conteudo = montarConteudo(
+      {
+        tipo: 'LEAD_RECEIVED',
+        entityId: 'c1',
+        leadNome: 'Ana Ribeiro',
+        origem: 'site-institucional',
+        cenario: 'Operação no limite',
+      },
+      { autorNome: null },
+    );
+
+    expect(conteudo.title).toBe('Lead novo');
+    expect(conteudo.body).toBe(
+      'Ana Ribeiro chegou por site-institucional. Cenário: Operação no limite.',
+    );
+    expect(conteudo.link).toBe('/clientes/c1');
+  });
+
+  it('LEAD_RECEIVED sem cenário fecha a frase na origem', () => {
+    const conteudo = montarConteudo(
+      {
+        tipo: 'LEAD_RECEIVED',
+        entityId: 'c1',
+        leadNome: 'Ana Ribeiro',
+        origem: 'landing-agenda-cheia',
+      },
+      { autorNome: null },
+    );
+
+    expect(conteudo.body).toBe('Ana Ribeiro chegou por landing-agenda-cheia.');
+  });
+
+  it('LEAD_RECEIVED reincidente muda o título e avisa do cadastro anterior', () => {
+    const conteudo = montarConteudo(
+      {
+        tipo: 'LEAD_RECEIVED',
+        entityId: 'c1',
+        leadNome: 'Ana Ribeiro',
+        origem: 'site-institucional',
+        reincidente: true,
+      },
+      { autorNome: null },
+    );
+
+    expect(conteudo.title).toBe('Lead voltou a procurar');
+    expect(conteudo.body).toBe(
+      'Ana Ribeiro chegou por site-institucional. Já havia um cadastro com este contato.',
+    );
+  });
+
   it('título e corpo são texto puro em pt-BR — nunca tag HTML', () => {
     const conteudo = montarConteudo(
       {
