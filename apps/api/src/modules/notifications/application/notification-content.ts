@@ -103,6 +103,9 @@ const ENTIDADE: Record<AuditEntity, string> = {
   // A chave de integração (Fase 17-A) também nunca dispara notificação —
   // emissão/rotação viram trilha de auditoria, não aviso.
   INTEGRATION: 'a integração',
+  // A conta (Fase 19-A) também nunca dispara notificação — exportar/encerrar
+  // viram trilha de auditoria e e-mail direto, não o sino da central.
+  ACCOUNT: 'a conta',
 };
 
 /**
