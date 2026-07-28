@@ -25,9 +25,8 @@ export interface NavItem {
   permission?: string[]
 }
 export interface NavGroup {
-  /** Sem `label` o grupo vira só um bloco separado, sem cabeçalho — é o caso
-   *  de Administração, item único cujo nome já diz tudo. */
-  label?: string
+  /** Todo grupo tem cabeçalho — é o padrão da sidebar, sem exceção. */
+  label: string
   items: NavItem[]
 }
 
@@ -58,6 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
   // Configuração da workspace (colaboradores, papéis, catálogos, auditoria e
   // lixeira) vive atrás de uma entrada só — ver `features/administracao/tabs`.
   {
+    label: "Sistema",
     items: [
       { to: "/administracao", label: "Administração", icon: ShieldCheck, permission: ADMIN_PERMISSIONS },
     ],
