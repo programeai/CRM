@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -42,7 +43,7 @@ async function bootstrap() {
   // (Buffer), necessário para stripe.webhooks.constructEvent no webhook Stripe.
   // logger: JsonLogger troca o console colorido do Nest por uma linha JSON por
   // evento — o formato que a stack de observabilidade da VPS indexa.
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
     logger: new JsonLogger(),
   });
@@ -53,10 +54,7 @@ async function bootstrap() {
   // `return req.ip`, o @Throttle de /auth/* viraria um balde ÚNICO compartilhado
   // por todos os clientes — 5 logins/min derrubariam o login de todo mundo. O
   // mesmo req.ip vai como `remoteip` ao Turnstile.
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .set('trust proxy', config.get<number>('TRUST_PROXY_HOPS') ?? 1);
+  app.set('trust proxy', config.get<number>('TRUST_PROXY_HOPS') ?? 1);
   // Primeiro middleware da cadeia: define o requestId que todas as linhas de log
   // daquele acesso (inclusive as do próprio Nest) vão carregar.
   app.use(contextoDaRequisicao);
