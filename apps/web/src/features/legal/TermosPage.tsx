@@ -196,8 +196,10 @@ const SECOES: Secao[] = [
         </Lista>
         <Destaque>
           <p>
-            Antes de encerrar a conta em definitivo, exporte o que precisa. Após o
-            encerramento os dados são excluídos nos prazos descritos na{' '}
+            Antes de encerrar a conta em definitivo, exporte o que precisa: em{' '}
+            <Interno to="/configuracoes/conta">Configurações → Conta</Interno> você
+            baixa todos os seus dados num arquivo único. Após o encerramento os
+            dados são excluídos nos prazos descritos na{' '}
             <Interno to="/privacidade">Política de Privacidade</Interno> e a
             recuperação deixa de ser possível.
           </p>
@@ -369,8 +371,14 @@ const SECOES: Secao[] = [
     corpo: (
       <>
         <P>
-          Você pode encerrar sua conta a qualquer momento, solicitando por{' '}
-          <Email endereco={EMPRESA.emailContato} />.
+          Você pode encerrar sua conta a qualquer momento, em{' '}
+          <Interno to="/configuracoes/conta">Configurações → Conta</Interno>. O
+          pedido exige confirmação de identidade e fica{' '}
+          <Forte>30 dias em carência</Forte>, período em que o serviço continua
+          funcionando e você pode desistir com um clique. Passado o prazo, a conta
+          e todos os dados são apagados em definitivo, a assinatura é cancelada e
+          a recuperação deixa de ser possível — os detalhes de prazo estão na{' '}
+          <Interno to="/privacidade">Política de Privacidade</Interno>.
         </P>
         <P>
           Podemos suspender ou encerrar o acesso quando houver descumprimento destes

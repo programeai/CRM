@@ -124,10 +124,12 @@ const SECOES: Secao[] = [
         <Sub>Dados gerados pelo uso</Sub>
         <Lista>
           <Item>
-            <Forte>Registros de acesso:</Forte> endereço IP, data e hora, rota
-            acessada, método, código de resposta, tempo de processamento e
-            identificação do navegador. A guarda desses registros por 6 meses é
-            determinada pelo Marco Civil da Internet (art. 15).
+            <Forte>Registros de acesso:</Forte> data, hora e endereço IP de cada
+            login, login social e saída da sua conta, persistidos em tabela
+            própria por 6 meses — determinação do Marco Civil da Internet (art.
+            15), sem exceção. Diagnóstico técnico da requisição (rota, método,
+            código de resposta, tempo de processamento) é guardado à parte, por
+            apenas 30 dias, só para depuração de incidentes.
           </Item>
           <Item>
             <Forte>Registros de erro:</Forte> informações técnicas necessárias para
@@ -283,13 +285,30 @@ const SECOES: Secao[] = [
             existir.
           </Item>
           <Item>
-            <Forte>Após o encerramento da conta:</Forte> exclusão dos dados em até{' '}
-            <Forte>30 dias</Forte>, ressalvado o que a lei obrigar a manter. Nesse
-            prazo os backups em rotação também expiram.
+            <Forte>Ao pedir o encerramento da conta:</Forte> o pedido fica{' '}
+            <Forte>30 dias</Forte> em carência, cancelável a qualquer momento por
+            você na própria interface. Nesse período o CRM continua funcionando
+            normalmente e nada é apagado.
+          </Item>
+          <Item>
+            <Forte>Passada a carência:</Forte> a conta e todo o conteúdo do CRM
+            são apagados em definitivo, junto com a trilha de auditoria e o
+            histórico de notificações — ressalvado o que a lei obriga a manter
+            (abaixo). A recuperação deixa de ser possível.
+          </Item>
+          <Item>
+            <Forte>Backups:</Forte> mantemos backups do banco com rotação de{' '}
+            <Forte>30 dias</Forte>. Um dado apagado pode continuar existindo num
+            backup ainda não expirado por até esse prazo; ele não é usado para
+            nenhuma outra finalidade, e a exclusão é reaplicada se um backup
+            precisar ser restaurado.
           </Item>
           <Item>
             <Forte>Registros de acesso:</Forte> 6 meses, por determinação do Marco
-            Civil da Internet.
+            Civil da Internet (art. 15). São mantidos{' '}
+            <Forte>mesmo após o encerramento da conta</Forte> — é obrigação legal,
+            e a LGPD (art. 16, I) autoriza expressamente essa conservação. Guardam
+            data, hora e endereço IP dos seus acessos, e nada do conteúdo do CRM.
           </Item>
           <Item>
             <Forte>Registros fiscais e de cobrança:</Forte> pelos prazos exigidos
@@ -370,8 +389,12 @@ const SECOES: Secao[] = [
           <Item>opor-se a tratamento fundado em legítimo interesse.</Item>
         </Lista>
         <P>
-          Boa parte disso você resolve sozinho na própria interface: dados de perfil
-          são editáveis, registros do CRM podem ser alterados ou excluídos e a
+          Boa parte disso você resolve sozinho, sem precisar escrever para
+          ninguém. Em <Interno to="/configuracoes/conta">Configurações → Conta</Interno>{' '}
+          você <Forte>baixa todos os seus dados</Forte> num arquivo único, em
+          formato legível por máquina (portabilidade), e{' '}
+          <Forte>encerra a conta</Forte> em definitivo. Dados de perfil são
+          editáveis, registros do CRM podem ser alterados ou excluídos e a
           assinatura é gerenciável na tela de assinatura.
         </P>
         <P>

@@ -37,7 +37,7 @@ export const EMPRESA = {
 } as const;
 
 /** Data de vigência exibida nos dois documentos. Atualize a cada revisão. */
-export const ATUALIZADO_EM = '25 de julho de 2026';
+export const ATUALIZADO_EM = '28 de julho de 2026';
 
 /** Preço vigente do plano hospedado, citado nos Termos. */
 export const PRECO_PLANO = 'R$ 27,97 por mês';
