@@ -84,6 +84,26 @@ export class ActivitiesService {
     return paginated(data, total, page, limit);
   }
 
+  /**
+   * Próximo follow-up pendente de cada oportunidade, indexado por `dealId`.
+   *
+   * É a porta pela qual o `DealsService` obtém o sinal de "próximo passo" do card
+   * do funil — o módulo `pipeline` não toca a tabela de atividades, ele chama
+   * este service (fronteira do modular monolith).
+   *
+   * `scope` aqui é o recorte de ATIVIDADE (`cliente:ver_todos`), não o de
+   * oportunidade: quem não pode ver a atividade de outra pessoa também não vê a
+   * data dela no card.
+   */
+  async proximaPorDeal(
+    ownerId: string,
+    dealIds: string[],
+    scope: AssigneeScope = ALL_RECORDS,
+  ): Promise<Map<string, Date>> {
+    const rows = await this.repo.nextScheduledByDeal(ownerId, dealIds, scope);
+    return new Map(rows.map((r) => [r.dealId, r.scheduledFor]));
+  }
+
   async update(
     ownerId: string,
     id: string,

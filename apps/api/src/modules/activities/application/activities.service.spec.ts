@@ -23,6 +23,7 @@ describe('ActivitiesService', () => {
       findById: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      nextScheduledByDeal: jest.fn(),
     };
     clients = { findOne: jest.fn().mockResolvedValue({ id: 'client-1' }) };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
@@ -50,6 +51,25 @@ describe('ActivitiesService', () => {
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({ clientId: 'client-1', typeId: 'tipo-1' }),
     );
+  });
+
+  it('indexa a próxima atividade por dealId, repassando o recorte recebido', async () => {
+    const proxima = new Date('2026-08-03T13:00:00.000Z');
+    const scope = { kind: 'mine', userId: 'u1' } as const;
+    repo.nextScheduledByDeal.mockResolvedValue([
+      { dealId: 'd1', scheduledFor: proxima },
+    ]);
+
+    const mapa = await service.proximaPorDeal('owner-1', ['d1', 'd2'], scope);
+
+    expect(repo.nextScheduledByDeal).toHaveBeenCalledWith(
+      'owner-1',
+      ['d1', 'd2'],
+      scope,
+    );
+    expect(mapa.get('d1')).toBe(proxima);
+    // Deal sem follow-up pendente não vem do repositório e fica fora do mapa.
+    expect(mapa.has('d2')).toBe(false);
   });
 
   it('define completedAt ao concluir uma atividade', async () => {

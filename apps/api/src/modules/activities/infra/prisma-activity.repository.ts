@@ -45,6 +45,36 @@ export class PrismaActivityRepository implements ActivityRepository {
     return { data, total };
   }
 
+  async nextScheduledByDeal(
+    ownerId: string,
+    dealIds: string[],
+    scope: AssigneeScope = ALL_RECORDS,
+  ) {
+    if (dealIds.length === 0) return []; // quadro vazio: nem consulta
+    const scoped = assigneeScopeWhere(scope);
+    const rows = await this.prisma.db.activity.groupBy({
+      by: ['dealId'],
+      where: {
+        ownerId,
+        dealId: { in: dealIds },
+        // Mesmo predicado do cron de lembretes e do dashboard: a REGRA vem do
+        // catálogo (`isFollowUp`), não do nome do tipo.
+        type: { isFollowUp: true },
+        completedAt: null,
+        scheduledFor: { not: null },
+        ...(scoped ? { AND: [scoped] } : {}),
+      },
+      _min: { scheduledFor: true },
+    });
+    // `dealId` é anulável no schema, então o groupBy o tipa como `string | null`
+    // — o `in` acima já exclui o nulo; o guarda existe para o TypeScript.
+    return rows.flatMap((r) =>
+      r.dealId && r._min.scheduledFor
+        ? [{ dealId: r.dealId, scheduledFor: r._min.scheduledFor }]
+        : [],
+    );
+  }
+
   findById(id: string, scope: AssigneeScope = ALL_RECORDS) {
     const scoped = assigneeScopeWhere(scope);
     // findFirst (não findUnique): o recorte faz parte da busca.

@@ -26,10 +26,28 @@ export interface ActivityListFilter {
   take: number;
 }
 
+/** Próximo follow-up pendente de uma oportunidade — o sinal do card do funil. */
+export interface NextActivityByDeal {
+  dealId: string;
+  scheduledFor: Date;
+}
+
 export interface ActivityRepository {
   findManyAndCount(
     filter: ActivityListFilter,
   ): Promise<{ data: ActivityWithAssignee[]; total: number }>;
+  /**
+   * Menor `scheduledFor` de follow-up pendente de cada deal pedido, em UMA
+   * consulta agregada. O card do funil precisa do sinal, não das atividades —
+   * carregar a timeline de cada deal do quadro seria um N+1.
+   *
+   * Deal sem follow-up pendente simplesmente não aparece no resultado.
+   */
+  nextScheduledByDeal(
+    ownerId: string,
+    dealIds: string[],
+    scope?: AssigneeScope,
+  ): Promise<NextActivityByDeal[]>;
   findById(
     id: string,
     scope?: AssigneeScope,
