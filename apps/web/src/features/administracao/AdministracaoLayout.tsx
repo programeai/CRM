@@ -22,7 +22,7 @@ export default function AdministracaoLayout() {
         <h1 className="font-heading text-2xl font-semibold">Administração</h1>
         <p className="text-sm text-muted-foreground">
           A configuração da sua workspace: quem tem acesso, o que cada papel
-          pode fazer, as listas do domínio e o rastro do que mudou.
+          pode fazer, de onde entram os leads e o rastro do que mudou.
         </p>
       </div>
 

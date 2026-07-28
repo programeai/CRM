@@ -1,13 +1,14 @@
 import { Navigate } from 'react-router';
 
 /**
- * Endereços antigos dos catálogos → a única tela de catálogo que sobrou.
+ * Endereços antigos dos catálogos → Administração.
  *
- * Serviços, fontes de lead e motivos de perda deixaram de ter página: passaram a
- * nascer e morrer dentro do `CatalogSelect`, no formulário em que aparecem. Um
- * link salvo para eles não tem mais destino próprio, então cai em Tipos de
- * atividade — sucessora da tela de Catálogos — em vez de num 404.
+ * Nenhum dos quatro catálogos tem tela: todos nascem, são escolhidos e morrem
+ * dentro do `CatalogSelect`, no formulário em que fazem falta. Tipos de atividade
+ * foi o último a sair, quando 'Follow-up' passou a ser tipo primitivo e deixou de
+ * haver regra para escolher ali. Um link salvo cai na primeira aba que a pessoa
+ * pode ver (`AdministracaoIndex`), em vez de num 404.
  */
 export default function CatalogosRedirect() {
-  return <Navigate to="/administracao/tipos-de-atividade" replace />;
+  return <Navigate to="/administracao" replace />;
 }

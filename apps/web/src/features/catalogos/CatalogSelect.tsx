@@ -33,12 +33,20 @@ interface CatalogSelectProps {
 
 /**
  * Seletor de item de catálogo com cadastro e exclusão embutidos — **o** campo de
- * tipo de serviço, fonte de lead e motivo de perda; não monte um `Select` cru
- * para esses três. É o análogo do `TagSelect` para valores de escolha única.
+ * tipo de serviço, fonte de lead, motivo de perda e tipo de atividade; não monte
+ * um `Select` cru para os quatro. É o análogo do `TagSelect` para valores de
+ * escolha única.
  *
  * Todo o ciclo de vida acontece aqui: digitar um nome que não existe e confirmar
  * cadastra, a lixeira exclui. Não existe renomear — troca-se o item por outro, e
- * cada registro segue exibindo o nome que valia quando foi classificado.
+ * cada registro segue exibindo o nome que valia quando foi classificado. Por
+ * isso nenhum dos quatro catálogos tem tela em Administração.
+ *
+ * A única exceção é o item com `isFollowUp` (o tipo primitivo 'Follow-up', em
+ * `tipos-de-atividade`): ele não oferece lixeira, porque é por ele que os
+ * lembretes diários e o bloco "Próximas ações" do painel encontram as atividades
+ * agendadas — e nenhuma rota move essa marca para outro tipo. O backend responde
+ * 422 de todo jeito; esconder o botão é só não oferecer o que não pode.
  *
  * Cadastrar e excluir exigem `catalogo:gerenciar`; sem a permissão o componente
  * vira um seletor comum, porque o backend responderia 403.
@@ -212,7 +220,7 @@ export function CatalogSelect({
                 <span className="truncate">{item.name}</span>
               </button>
 
-              {podeGerenciar && (
+              {podeGerenciar && !item.isFollowUp && (
                 <button
                   type="button"
                   onClick={(e) => {

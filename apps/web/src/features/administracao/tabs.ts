@@ -24,14 +24,11 @@ export const ADMIN_TABS: SectionTabItem[] = [
     to: '/administracao/papeis',
     permission: ['papel:gerenciar'],
   },
-  // Os outros três catálogos (serviços, fontes de lead, motivos de perda) não
-  // têm tela: nascem e morrem dentro do `CatalogSelect`, no formulário em que
-  // fazem falta. Este ficou por causa da marca de follow-up, que é regra.
-  {
-    label: 'Tipos de atividade',
-    to: '/administracao/tipos-de-atividade',
-    permission: ['catalogo:gerenciar'],
-  },
+  // Nenhum dos quatro catálogos (serviços, fontes de lead, tipos de atividade,
+  // motivos de perda) tem aba: todos nascem e morrem dentro do `CatalogSelect`,
+  // no formulário em que fazem falta. Tipos de atividade foi o último a sair,
+  // quando 'Follow-up' virou tipo primitivo — sem marca para mover, não sobrou
+  // regra a configurar aqui.
   {
     label: 'Importação',
     to: '/administracao/importacao',

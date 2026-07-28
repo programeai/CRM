@@ -21,18 +21,18 @@ export interface CatalogItem {
    * ainda o carrega. A interface não mostra este campo: ver `ENDPOINTS.md`.
    */
   active: boolean;
-  /** Só em `tipos-de-atividade`. */
+  /**
+   * Só em `tipos-de-atividade`, e **somente leitura**: marca o tipo primitivo
+   * 'Follow-up', semeado com a conta, que é o único que os lembretes e o bloco
+   * "Próximas ações" do painel usam. Não há rota que mova a marca, e o `DELETE`
+   * dele responde 422 — o `CatalogSelect` esconde a lixeira nesse item.
+   */
   isFollowUp?: boolean;
 }
 
+/** O nome é o único dado de um item. Não existe corpo de edição — nem `PATCH`. */
 export interface CreateCatalogItemBody {
   name: string;
-  isFollowUp?: boolean;
-}
-
-/** Única edição que existe: mover a marca de follow-up. Renomear não existe. */
-export interface UpdateCatalogItemBody {
-  isFollowUp?: boolean;
 }
 
 /**

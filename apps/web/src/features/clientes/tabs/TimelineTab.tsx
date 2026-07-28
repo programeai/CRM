@@ -25,12 +25,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
-import {
   Field,
   FieldError,
   FieldGroup,
@@ -47,6 +41,7 @@ import {
 } from '../api/hooks';
 import type { Client } from '../api/types';
 import { useCatalogo } from '@/features/catalogos/api/hooks';
+import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 
 const schema = z.object({
   typeId: z.string().uuid('Selecione o tipo.'),
@@ -228,25 +223,24 @@ export default function TimelineTab() {
           <DialogBody>
             <form onSubmit={handleSubmit(onSubmit)} id="activity-form">
               <FieldGroup>
-                <Field>
-                  <FieldLabel required>Tipo</FieldLabel>
+                <Field data-invalid={!!errors.typeId}>
+                  <FieldLabel htmlFor="activity-typeId" required>
+                    Tipo
+                  </FieldLabel>
+                  {/* Cadastrar e excluir tipo acontece aqui dentro — tipos de
+                      atividade não têm tela de configuração, como os outros três
+                      catálogos. O 'Follow-up' não oferece lixeira. */}
                   <Controller
                     control={control}
                     name="typeId"
                     render={({ field }) => (
-                      <Select<string>
+                      <CatalogSelect
+                        id="activity-typeId"
+                        kind="tipos-de-atividade"
                         value={field.value}
-                        onValueChange={(v) => field.onChange(v ?? '')}
-                      >
-                        <SelectTrigger placeholder="Selecione o tipo" />
-                        <SelectContent>
-                          {(tipos ?? []).map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(id) => field.onChange(id ?? '')}
+                        aria-invalid={!!errors.typeId}
+                      />
                     )}
                   />
                   {errors.typeId && (

@@ -38,7 +38,6 @@ import ColaboradoresPage from '@/features/organizacao/ColaboradoresPage';
 import PapeisPage from '@/features/organizacao/PapeisPage';
 import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
-import TiposDeAtividadePage from '@/features/catalogos/TiposDeAtividadePage';
 import ImportacaoPage from '@/features/dados/ImportacaoPage';
 import CaptacaoPage from '@/features/integracoes/CaptacaoPage';
 import AdministracaoLayout, {
@@ -184,17 +183,6 @@ export const router = createBrowserRouter([
                   {
                     element: <PermissionRoute permission={['papel:gerenciar']} />,
                     children: [{ path: 'papeis', element: <PapeisPage /> }],
-                  },
-                  {
-                    element: (
-                      <PermissionRoute permission={['catalogo:gerenciar']} />
-                    ),
-                    children: [
-                      {
-                        path: 'tipos-de-atividade',
-                        element: <TiposDeAtividadePage />,
-                      },
-                    ],
                   },
                   {
                     element: <PermissionRoute permission={['dados:importar']} />,

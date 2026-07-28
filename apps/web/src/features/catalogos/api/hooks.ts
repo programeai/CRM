@@ -1,11 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { catalogosApi } from './catalogos.api';
-import type {
-  CatalogKind,
-  CreateCatalogItemBody,
-  UpdateCatalogItemBody,
-} from './types';
+import type { CatalogKind, CreateCatalogItemBody } from './types';
 
 /**
  * Invalidação: excluir um item mexe no rótulo **embutido** em todo registro que
@@ -38,15 +34,6 @@ export function useCreateCatalogItem(kind: CatalogKind) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateCatalogItemBody) => catalogosApi.create(kind, body),
-    onSuccess: () => invalidateCatalogo(qc, kind),
-  });
-}
-
-export function useUpdateCatalogItem(kind: CatalogKind) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateCatalogItemBody }) =>
-      catalogosApi.update(kind, id, body),
     onSuccess: () => invalidateCatalogo(qc, kind),
   });
 }
