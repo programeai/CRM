@@ -80,10 +80,22 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   proposal?: Proposal;
   defaultClientId?: string;
+  /**
+   * Vincula a proposta nova a uma oportunidade — é o que faz ela aparecer no
+   * detalhe dela no funil. Só vale na criação: `dealId` não é editável (ver
+   * `UpdateProposalBody`, que o omite).
+   */
+  defaultDealId?: string;
 }
 
 /** Cria/edita propostas (RHF+Zod) com editor de itens; edição só permitida em DRAFT. */
-export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClientId }: Props) {
+export function ProposalFormDialog({
+  open,
+  onOpenChange,
+  proposal,
+  defaultClientId,
+  defaultDealId,
+}: Props) {
   const isEdit = !!proposal;
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal(proposal?.id ?? '');
@@ -144,7 +156,7 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
         await updateProposal.mutateAsync(patch);
         toast.success('Proposta atualizada.');
       } else {
-        await createProposal.mutateAsync(body);
+        await createProposal.mutateAsync({ ...body, dealId: defaultDealId });
         toast.success('Proposta criada.');
       }
       onOpenChange(false);

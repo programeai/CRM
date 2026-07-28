@@ -15,6 +15,13 @@ export function useProposalsByClient(clientId: string) {
     queryFn: () => proposalsApi.listByClient(clientId),
   });
 }
+export function useProposalsByDeal(dealId: string) {
+  return useQuery({
+    queryKey: queryKeys.proposals.byDeal(dealId),
+    queryFn: () => proposalsApi.listByDeal(dealId),
+    enabled: !!dealId,
+  });
+}
 export function useProposal(id: string) {
   return useQuery({
     queryKey: queryKeys.proposals.detail(id),

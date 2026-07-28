@@ -8,6 +8,8 @@ export const proposalsApi = {
     api.get<Paginated<Proposal>>('/proposals', { params }).then((r) => r.data),
   listByClient: (clientId: string) =>
     api.get<Paginated<Proposal>>('/proposals', { params: { clientId, limit: 100 } }).then((r) => r.data),
+  listByDeal: (dealId: string) =>
+    api.get<Paginated<Proposal>>('/proposals', { params: { dealId, limit: 100 } }).then((r) => r.data),
   get: (id: string) => api.get<Proposal>(`/proposals/${id}`).then((r) => r.data),
   versions: (id: string) => api.get<Proposal[]>(`/proposals/${id}/versions`).then((r) => r.data),
   create: (body: CreateProposalBody) => api.post<Proposal>('/proposals', body).then((r) => r.data),
