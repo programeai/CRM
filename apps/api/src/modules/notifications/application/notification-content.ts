@@ -100,6 +100,9 @@ const ENTIDADE: Record<AuditEntity, string> = {
   // A importação (Fase 14-A) nunca dispara notificação — nenhum gatilho
   // aponta `entity: 'IMPORT'` — mas o Record é exaustivo sobre AuditEntity.
   IMPORT: 'a importação',
+  // A chave de integração (Fase 17-A) também nunca dispara notificação —
+  // emissão/rotação viram trilha de auditoria, não aviso.
+  INTEGRATION: 'a integração',
 };
 
 /**

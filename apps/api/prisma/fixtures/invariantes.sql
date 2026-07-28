@@ -277,10 +277,26 @@ BEGIN
    WHERE n.nspname = 'public'
      AND c.relname IN (
        'LeadSourceCatalog', 'LostReasonCatalog', 'ServiceCatalog',
-       'ActivityTypeCatalog'
+       'ActivityTypeCatalog', 'IntegrationKey', 'LeadIntakeChannel'
      )
      AND (c.relrowsecurity IS FALSE OR c.relforcerowsecurity IS FALSE);
   IF sem_rls IS NOT NULL THEN
     RAISE EXCEPTION 'Tabela(s) de catálogo sem RLS habilitado e forçado: %', sem_rls;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Canal de captação de lead (20260812100000_lead_intake_channel)
+-- ---------------------------------------------------------------------------
+-- Canal de captação não pode apontar para a fonte de lead de OUTRO owner.
+DO $$
+DECLARE cruzados INT;
+BEGIN
+  SELECT count(*) INTO cruzados
+    FROM "LeadIntakeChannel" ch
+    JOIN "LeadSourceCatalog" s ON s."id" = ch."sourceId"
+   WHERE s."ownerId" <> ch."ownerId";
+  IF cruzados > 0 THEN
+    RAISE EXCEPTION 'Há % canal(is) de captação apontando para fonte de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
   END IF;
 END $$;

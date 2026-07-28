@@ -48,6 +48,9 @@ model User {
   invites            CollaboratorInvite[]
   notifications        Notification[]
   notificationTargets  UserNotificationTarget[]
+  integrationKeys    IntegrationKey[]
+  leadIntakeChannels LeadIntakeChannel[] @relation("OwnerLeadIntakeChannels")
+  assignedLeadIntakeChannels LeadIntakeChannel[] @relation("AssignedLeadIntakeChannels")
 
   @@index([ownerId])
 }
@@ -88,6 +91,78 @@ model CollaboratorInvite {
 
   @@index([userId])
   @@index([ownerId])
+}
+
+// Chave de integração do owner: credencial de MÁQUINA (servidor a servidor).
+//
+// Guarda apenas o sha256 do valor bruto — que só existe na resposta que o
+// emitiu. Determinístico e `@unique` (não argon2, como `Session`) porque a
+// chave chega SOZINHA no header `Authorization`, sem identificador ao lado: a
+// autenticação tem de ser um `findUnique` indexado, e não N `argon2.verify`.
+// Mesma decisão de `CollaboratorInvite.tokenHash`.
+//
+// Genérico de propósito: o que a chave pode fazer está em `scopes`, e escopo
+// novo (webhook de saída, API pública — Fase 19-B) entra sem tocar em nada
+// aqui. Este modelo NÃO conhece lead: a configuração de captação vive em
+// `LeadIntakeChannel`.
+model IntegrationKey {
+  id         String    @id @default(uuid())
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  /// Nome dado por quem criou ("Site institucional", "n8n").
+  name       String
+  keyHash    String    @unique // sha256 do valor bruto
+  /// Os 12 primeiros caracteres do valor bruto, em claro (`crm_` + 8 hex). É o
+  /// que a interface exibe para a pessoa reconhecer qual chave é qual — os
+  /// outros 224 bits de entropia continuam só no hash.
+  prefix     String
+  scopes     String[]  @default([])
+  /// Último uso BEM-SUCEDIDO (a transação da ingestão commitou).
+  lastUsedAt DateTime?
+  /// Revogada: continua no banco para a trilha e para a tela dizerem o que
+  /// aconteceu, mas não autentica mais nada.
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  leadIntakeChannel LeadIntakeChannel?
+
+  @@index([ownerId])
+}
+
+// Canal de captação de lead: uma origem externa que entrega lead ao CRM
+// ("Site institucional", "Landing agenda cheia", "n8n").
+//
+// Guarda a configuração de ROTEAMENTO — quem atende e como o lead é
+// classificado — e a chave que autentica a entrega. Um canal, uma chave:
+// revogar um canal não derruba os outros, que é o ponto de existirem N.
+//
+// Esta tabela é do domínio de lead e mora em `modules/leads`; a credencial em
+// si é genérica e mora em `modules/integracoes`. A dependência aponta
+// leads → integracoes, nunca o contrário.
+model LeadIntakeChannel {
+  id         String             @id @default(uuid())
+  ownerId    String
+  owner      User               @relation("OwnerLeadIntakeChannels", fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  /// Responsável de todo lead que entra por aqui. Opcional: sem ele o lead
+  /// nasce sem responsável e continua visível para a workspace inteira
+  /// (`shared/record-scope.ts:10-11`). `SetNull` porque apagar um usuário não
+  /// pode apagar a configuração do owner.
+  assigneeId String?
+  assignee   User?              @relation("AssignedLeadIntakeChannels", fields: [assigneeId], references: [id], onDelete: SetNull)
+  /// Fonte de lead gravada no cadastro. `Restrict` como `Client.sourceId`:
+  /// excluir uma fonte em uso não apaga a configuração.
+  sourceId   String?
+  source     LeadSourceCatalog? @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  /// A chave que autentica este canal. `SetNull` para o canal sobreviver ao
+  /// apagar da chave — sem chave ele existe, configurado e mudo.
+  keyId      String?            @unique
+  key        IntegrationKey?    @relation(fields: [keyId], references: [id], onDelete: SetNull)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+  @@index([sourceId])
 }
 
 enum OAuthProvider {
@@ -281,6 +356,7 @@ model LeadSourceCatalog {
   name    String
   active  Boolean  @default(true)
   clients Client[]
+  leadIntakeChannels LeadIntakeChannel[]
 
   @@unique([ownerId, name])
   @@index([ownerId])
@@ -691,6 +767,7 @@ enum AuditEntity {
   SUBSCRIPTION
   ACTIVITY   // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
   IMPORT     // ← Fase 14-A: a importação em massa, não o cliente/contato individual
+  INTEGRATION // ← Fase 17-A: emissão e rotação de chave de integração
 }
 
 /// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
@@ -717,6 +794,7 @@ enum AuditAction {
   EXPIRAR
   VENCER
   IMPORTAR   // ← Fase 14-A: importação de clientes/contatos em massa
+  ROTACIONAR // ← Fase 17-A: rotação de chave de integração
 }
 
 // --- notificações (Fase 9) ---
