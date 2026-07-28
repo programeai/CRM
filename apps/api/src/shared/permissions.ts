@@ -185,6 +185,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
     description: 'Ver e alterar o plano de assinatura do CRM',
     category: 'Organização',
   },
+  {
+    key: 'dados:importar',
+    label: 'Importar dados',
+    description:
+      'Subir planilha de clientes ou de contatos e gravar os registros em massa na base da workspace',
+    category: 'Organização',
+  },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];
