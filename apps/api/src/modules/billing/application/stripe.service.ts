@@ -32,4 +32,29 @@ export class StripeService {
     }
     return this.stripe;
   }
+
+  /**
+   * Marca a assinatura para NÃO renovar, preservando o acesso até o fim do ciclo
+   * pago. É o que o encerramento agendado precisa: ninguém é cobrado por um ciclo
+   * que não vai usar, e o `BillingGuard` continua liberando durante a carência.
+   *
+   * Idempotente: chamar de novo numa assinatura já marcada é no-op no Stripe.
+   */
+  async agendarCancelamento(stripeSubscriptionId: string): Promise<void> {
+    await this.client.subscriptions.update(stripeSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+  }
+
+  /**
+   * Cancela agora. Chamado no expurgo, quando a conta deixa de existir — sem
+   * isto o objeto remoto continuaria cobrando um cliente que já foi apagado, e o
+   * webhook viraria órfão (o `stripeCustomerId` some com o `User`).
+   *
+   * Assinatura já cancelada devolve `resource_missing`/estado final: tratado como
+   * sucesso por quem chama, porque o efeito desejado já vale.
+   */
+  async cancelarAgora(stripeSubscriptionId: string): Promise<void> {
+    await this.client.subscriptions.cancel(stripeSubscriptionId);
+  }
 }

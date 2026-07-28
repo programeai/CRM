@@ -72,6 +72,24 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
     });
   }
 
+  async getStripeSubscriptionId(ownerId: string): Promise<string | null> {
+    const sub = await this.prisma.db.subscription.findUnique({
+      where: { ownerId },
+      select: { stripeSubscriptionId: true },
+    });
+    return sub?.stripeSubscriptionId ?? null;
+  }
+
+  async getStripeSubscriptionIdForSystem(
+    ownerId: string,
+  ): Promise<string | null> {
+    const sub = await this.admin.subscription.findUnique({
+      where: { ownerId },
+      select: { stripeSubscriptionId: true },
+    });
+    return sub?.stripeSubscriptionId ?? null;
+  }
+
   // --- caminho webhook (sem owner; admin bypassa RLS) ---
 
   async upsertByStripeCustomerId(

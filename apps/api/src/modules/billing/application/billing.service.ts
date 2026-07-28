@@ -120,4 +120,32 @@ export class BillingService {
   private frontendBase(): string {
     return this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/$/, '');
   }
+
+  /**
+   * Marca a assinatura do owner para não renovar, no contexto do encerramento da
+   * conta. Tolerante por desenho: billing off (autohospedagem), owner sem
+   * assinatura ou sem `stripeSubscriptionId` (trial que nunca virou checkout) são
+   * no-op — o encerramento não pode depender de haver assinatura.
+   *
+   * **Quem chama é o cron, nunca o request.** A chamada é I/O de rede e o handler
+   * autenticado roda dentro da `$transaction` do `OwnerContextInterceptor`
+   * (`prisma.service.ts:69`: nada de I/O ali dentro). O `AccountPurgeJob` varre
+   * diariamente quem pediu encerramento e ainda tem assinatura renovável.
+   */
+  async agendarCancelamentoPorEncerramento(ownerId: string): Promise<boolean> {
+    if (!this.stripe.enabled) return false;
+    const id = await this.repo.getStripeSubscriptionIdForSystem(ownerId);
+    if (!id) return false;
+    await this.stripe.agendarCancelamento(id);
+    return true;
+  }
+
+  /** Cancela agora, no expurgo. Também no cron, também fora de transação. */
+  async cancelarAgoraPorExpurgo(ownerId: string): Promise<boolean> {
+    if (!this.stripe.enabled) return false;
+    const id = await this.repo.getStripeSubscriptionIdForSystem(ownerId);
+    if (!id) return false;
+    await this.stripe.cancelarAgora(id);
+    return true;
+  }
 }

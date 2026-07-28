@@ -22,7 +22,8 @@ import { PrismaSubscriptionRepository } from './infra/prisma-subscription.reposi
       useClass: PrismaSubscriptionRepository,
     },
   ],
-  // Exporta o que o BillingGuard global (Phase 4) precisa injetar.
-  exports: [StripeService, SubscriptionAccessService],
+  // Exporta o que o BillingGuard global precisa injetar, e o BillingService
+  // para o AccountModule (encerramento de conta — Fase 19-A).
+  exports: [StripeService, SubscriptionAccessService, BillingService],
 })
 export class BillingModule {}

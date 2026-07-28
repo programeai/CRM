@@ -48,6 +48,10 @@ export interface SubscriptionRepository {
     ownerId: string,
     stripeCustomerId: string,
   ): Promise<void>;
+  /** Id da assinatura no Stripe, sob RLS (caminho HTTP). `null` sem assinatura. */
+  getStripeSubscriptionId(ownerId: string): Promise<string | null>;
+  /** O mesmo, pelo client admin — para o cron, que roda sem `app.owner_id`. */
+  getStripeSubscriptionIdForSystem(ownerId: string): Promise<string | null>;
   /**
    * Upsert da assinatura resolvendo o owner pelo `stripeCustomerId` do evento.
    * Usado pelo webhook (sem contexto de owner) — via client admin (bypassa RLS).
