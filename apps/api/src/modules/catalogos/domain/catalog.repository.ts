@@ -20,8 +20,17 @@ export interface CatalogItem {
  * depende de o contexto da transação ter sido setado.
  */
 export interface CatalogRepository {
-  /** Ordenado por `name`. Só os vivos — item `active: false` foi excluído. */
-  findAll(kind: CatalogKind, ownerId: string): Promise<CatalogItem[]>;
+  /**
+   * Ordenado por `name`. Só os vivos por padrão — item `active: false` foi
+   * excluído. `incluirInativos` existe para a importação (Fase 14-A): casar a
+   * planilha com um item desativado é legítimo (o dado histórico do owner
+   * continua rotulado por ele), diferente de listar para exibição na UI.
+   */
+  findAll(
+    kind: CatalogKind,
+    ownerId: string,
+    incluirInativos?: boolean,
+  ): Promise<CatalogItem[]>;
   findById(
     kind: CatalogKind,
     id: string,
