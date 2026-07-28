@@ -24,8 +24,7 @@ import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProposal, useUpdateProposal } from './api/hooks';
 import { ItemsEditor } from './components/ItemsEditor';
 import type { Proposal, } from './api/types';
-import { useCatalogo } from '@/features/catalogos/api/hooks';
-import { comItemAtual } from '@/features/catalogos/lib/options';
+import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 
 const schema = z.object({
   clientId: z.string().uuid('Selecione um cliente.'),
@@ -86,8 +85,6 @@ interface Props {
 /** Cria/edita propostas (RHF+Zod) com editor de itens; edição só permitida em DRAFT. */
 export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClientId }: Props) {
   const isEdit = !!proposal;
-  const { data: servicos } = useCatalogo('servicos');
-  const servicosOptions = comItemAtual(servicos, proposal?.serviceType);
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal(proposal?.id ?? '');
 
@@ -247,19 +244,14 @@ export function ProposalFormDialog({ open, onOpenChange, proposal, defaultClient
                     control={control}
                     name="serviceTypeId"
                     render={({ field }) => (
-                      <Select<string>
+                      <CatalogSelect
+                        kind="servicos"
                         value={field.value}
-                        onValueChange={(v) => field.onChange(v ?? '')}
-                      >
-                        <SelectTrigger placeholder="Selecione o tipo de serviço" />
-                        <SelectContent>
-                          {servicosOptions.map((sv) => (
-                            <SelectItem key={sv.id} value={sv.id}>
-                              {sv.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(id) => field.onChange(id ?? '')}
+                        currentItem={proposal?.serviceType}
+                        placeholder="Selecione o tipo de serviço"
+                        aria-invalid={!!errors.serviceTypeId}
+                      />
                     )}
                   />
                   {errors.serviceTypeId && (

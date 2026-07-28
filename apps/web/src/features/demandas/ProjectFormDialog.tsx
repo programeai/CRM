@@ -24,8 +24,7 @@ import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProject, useUpdateProject } from './api/hooks';
 import type { Project, ProjectStatus, } from './api/types';
-import { useCatalogo } from '@/features/catalogos/api/hooks';
-import { comItemAtual } from '@/features/catalogos/lib/options';
+import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 
 const schema = z.object({
   name: z.string().min(2, 'O nome deve ter no mínimo 2 caracteres.'),
@@ -46,8 +45,6 @@ interface Props {
 
 export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId }: Props) {
   const isEdit = !!project;
-  const { data: servicos } = useCatalogo('servicos');
-  const servicosOptions = comItemAtual(servicos, project?.serviceType);
   const createProject = useCreateProject();
   const updateProject = useUpdateProject(project?.id ?? '');
 
@@ -202,19 +199,14 @@ export function ProjectFormDialog({ open, onOpenChange, project, defaultClientId
                 control={control}
                 name="serviceTypeId"
                 render={({ field }) => (
-                  <Select<string>
+                  <CatalogSelect
+                    kind="servicos"
                     value={field.value}
-                    onValueChange={(v) => field.onChange(v ?? '')}
-                  >
-                    <SelectTrigger placeholder="Selecione o tipo de serviço" />
-                    <SelectContent>
-                      {servicosOptions.map((sv) => (
-                        <SelectItem key={sv.id} value={sv.id}>
-                          {sv.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(id) => field.onChange(id ?? '')}
+                    currentItem={project?.serviceType}
+                    placeholder="Selecione o tipo de serviço"
+                    aria-invalid={!!errors.serviceTypeId}
+                  />
                 )}
               />
               {errors.serviceTypeId && (

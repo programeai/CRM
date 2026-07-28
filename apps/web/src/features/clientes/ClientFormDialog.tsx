@@ -34,8 +34,7 @@ import {
 import { AssigneeSelect } from '@/components/ui/assignee-select';
 import { maskCep, maskDocument, maskPhone, onlyDigits } from '@/lib/format';
 import { extractApiMessage } from '@/lib/api-error';
-import { useCatalogo } from '@/features/catalogos/api/hooks';
-import { comItemAtual } from '@/features/catalogos/lib/options';
+import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 import { useCreateClient, useUpdateClient } from './api/hooks';
 import { TagDeleteDialog, TagSelect } from './components/TagSelect';
 import type { Client, ClientStatus } from './api/types';
@@ -156,8 +155,6 @@ export function ClientFormDialog({
   const isEdit = !!client;
   const createClient = useCreateClient();
   const updateClient = useUpdateClient(client?.id ?? '');
-  const { data: fontes } = useCatalogo('fontes-de-lead');
-  const fontesOptions = comItemAtual(fontes, client?.source);
   const [cepLoading, setCepLoading] = useState(false);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   /** Último CNPJ consultado, para não repetir a busca a cada tecla. */
@@ -419,20 +416,14 @@ export function ClientFormDialog({
                 control={control}
                 name="sourceId"
                 render={({ field }) => (
-                  <Select<string>
-                    value={field.value ?? ''}
-                    onValueChange={(v) => field.onChange(v || undefined)}
-                  >
-                    <SelectTrigger />
-                    <SelectContent>
-                      <SelectItem value="">Não informada</SelectItem>
-                      {fontesOptions.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CatalogSelect
+                    kind="fontes-de-lead"
+                    value={field.value ?? null}
+                    onChange={(id) => field.onChange(id ?? undefined)}
+                    currentItem={client?.source}
+                    placeholder="Não informada"
+                    clearLabel="Não informada"
+                  />
                 )}
               />
             </Field>
