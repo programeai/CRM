@@ -27,7 +27,7 @@ export function ExportButton({
   const { exportar, baixando } = useExport();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" disabled={baixando} />}>
+      <DropdownMenuTrigger render={<Button variant="outline" disabled={baixando} />}>
         {baixando ? <Spinner data-icon="inline-start" /> : <Download data-icon="inline-start" />}
         Exportar
       </DropdownMenuTrigger>
