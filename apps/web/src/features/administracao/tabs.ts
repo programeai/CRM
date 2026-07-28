@@ -33,6 +33,11 @@ export const ADMIN_TABS: SectionTabItem[] = [
     permission: ['catalogo:gerenciar'],
   },
   {
+    label: 'Importação',
+    to: '/administracao/importacao',
+    permission: ['dados:importar'],
+  },
+  {
     label: 'Auditoria',
     to: '/administracao/auditoria',
     permission: ['auditoria:ver'],

@@ -38,6 +38,7 @@ import PapeisPage from '@/features/organizacao/PapeisPage';
 import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
 import TiposDeAtividadePage from '@/features/catalogos/TiposDeAtividadePage';
+import ImportacaoPage from '@/features/dados/ImportacaoPage';
 import AdministracaoLayout, {
   AdministracaoIndex,
 } from '@/features/administracao/AdministracaoLayout';
@@ -190,6 +191,12 @@ export const router = createBrowserRouter([
                         path: 'tipos-de-atividade',
                         element: <TiposDeAtividadePage />,
                       },
+                    ],
+                  },
+                  {
+                    element: <PermissionRoute permission={['dados:importar']} />,
+                    children: [
+                      { path: 'importacao', element: <ImportacaoPage /> },
                     ],
                   },
                   {
