@@ -9,12 +9,23 @@
 #
 # Uso (na VPS, pelo cron do host — ver docs/deploy.md):
 #   BACKUP_DIR=/var/backups/crm scripts/backup-postgres.sh
+#
+# Na autohospedagem (docs/autohospedagem.md), aponte o COMPOSE_FILE:
+#   BACKUP_DIR=/var/backups/crm COMPOSE_FILE=docker-compose.selfhost.yml \
+#     scripts/backup-postgres.sh
 set -euo pipefail
 
 DEPLOY_DIR="${DEPLOY_DIR:-$(pwd)}"
 BACKUP_DIR="${BACKUP_DIR:?defina BACKUP_DIR}"
 RETENCAO_DIAS="${RETENCAO_DIAS:-30}"
-COMPOSE="docker compose -f ${DEPLOY_DIR}/docker-compose.prod.yml"
+# Default no compose do mantenedor; a autohospedagem passa o selfhost.
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+COMPOSE="docker compose -f ${DEPLOY_DIR}/${COMPOSE_FILE}"
+# Os mesmos defaults do .env.selfhost.example, para o cron da autohospedagem não
+# precisar exportar nada além de BACKUP_DIR e COMPOSE_FILE. Quem define essas
+# variáveis no ambiente (o deploy do mantenedor) continua mandando.
+POSTGRES_USER="${POSTGRES_USER:-crm_user}"
+POSTGRES_DB="${POSTGRES_DB:-crm_db}"
 
 mkdir -p "$BACKUP_DIR"
 ARQUIVO="${BACKUP_DIR}/crm-$(date +%F-%H%M).dump"
