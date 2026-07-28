@@ -3,10 +3,35 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useStackedModal } from "@/components/ui/modal-stack"
 import { XIcon } from "lucide-react"
 
-function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+/**
+ * Participa da pilha global de modais, com a mesma semântica do `Dialog` (ver
+ * `dialog.tsx` e `modal-stack.tsx`): um Sheet é um modal, então um Dialog que
+ * abra por cima dele o soterra em vez de empilhar — é a regra "nunca um modal
+ * sobre outro". Sem isso, editar a oportunidade a partir do drawer do funil
+ * deixaria o drawer visível atrás do formulário.
+ */
+function Sheet({ open, onOpenChange, ...props }: SheetPrimitive.Root.Props) {
+  const { visible } = useStackedModal(open)
+  return (
+    <SheetPrimitive.Root
+      data-slot="sheet"
+      open={open === undefined ? undefined : open && visible}
+      onOpenChange={
+        onOpenChange
+          ? (nextOpen, eventDetails) => {
+              // Enquanto soterrado, o Sheet não deve emitir fechamento — evita
+              // que a suspensão de visibilidade seja confundida com um "fechar".
+              if (!visible) return
+              onOpenChange(nextOpen, eventDetails)
+            }
+          : undefined
+      }
+      {...props}
+    />
+  )
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {
