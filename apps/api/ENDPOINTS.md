@@ -300,6 +300,18 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 
 ---
 
+## Leads (ingestão externa)
+
+### POST /leads/intake
+- **Propósito:** Receber um lead capturado FORA do CRM (site institucional, landing page) e materializá-lo como `Client` de status `LEAD` + `Contact` principal, notificando o owner na hora (`LEAD_RECEIVED`). Não cria oportunidade: o tipo de serviço só se conhece na conversa de diagnóstico. Telefone que já existe na workspace **não** abre segundo cadastro — a nota nova é empilhada no cliente existente e a resposta vem com `status: 'atualizado'`.
+- **Auth:** Pública (`@Public()`) fechada pelo `LeadIntakeTokenGuard`: header `Authorization: Bearer <LEAD_INTAKE_TOKEN>`. A workspace de destino **não** vem no corpo, vem de `LEAD_INTAKE_OWNER_EMAIL`. Rate limit: 30 req/min por IP.
+- **Body:** `{ nome: string (2–120), whatsapp: string (10–11 dígitos, DDD + número, sem o 55), telefone?: string (E.164), email?: string, empresa?: string, cidade?: string, mensagem?: string (≤2000), origem: string (≤60), pagina?: string, recebidoEm?: string (ISO 8601), qualificacao?: object, resumo?: string (≤4000), cenario?: string (≤160) }` — campo não declarado responde `400` (o `ValidationPipe` global roda com `forbidNonWhitelisted`); `null` é aceito em qualquer opcional.
+- **Resposta:** `200 { status: 'criado' | 'atualizado', clientId: string }`.
+- **Erros:** `400` (validação), `401 Token de ingestão inválido.`, `503 A ingestão de leads não está configurada nesta instância.` (falta `LEAD_INTAKE_TOKEN` ou `LEAD_INTAKE_OWNER_EMAIL`), `503 A conta que recebe os leads não existe nesta instância.` (e-mail configurado sem owner correspondente), `429` (rate limit).
+- **Handler:** `modules/leads/api/leads-intake.controller.ts` → `LeadsIntakeController.receber`
+
+---
+
 ## Activities
 
 ### GET /activities
