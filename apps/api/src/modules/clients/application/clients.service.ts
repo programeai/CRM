@@ -111,6 +111,19 @@ export class ClientsService {
     return client;
   }
 
+  /**
+   * Cliente do owner por telefone. Existe para a ingestão externa de lead
+   * (`modules/leads`) reconhecer quem já está cadastrado antes de criar: é a
+   * fronteira pública do módulo para esse caso, no lugar de outro módulo
+   * consultar `Client` direto.
+   */
+  findByPhoneDigits(
+    ownerId: string,
+    digitos: string,
+  ): Promise<ClientWithAssignee | null> {
+    return this.repo.findByPhoneDigits(ownerId, digitos);
+  }
+
   async update(
     ownerId: string,
     id: string,

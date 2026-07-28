@@ -94,6 +94,20 @@ export class PrismaClientRepository implements ClientRepository {
   }
 
   /**
+   * Sem `scope`: a ingestão externa não tem sessão, logo não tem recorte por
+   * responsável — e um lead repetido tem de ser reconhecido mesmo que o cadastro
+   * esteja com outra pessoa, senão a deduplicação vira duplicata.
+   * O mais recente primeiro: se houver mais de um, é nele que a conversa está.
+   */
+  findByPhoneDigits(ownerId: string, digitos: string) {
+    return this.prisma.db.client.findFirst({
+      where: { ownerId, archivedAt: null, phone: { contains: digitos } },
+      orderBy: { createdAt: 'desc' },
+      include: withAssignee,
+    });
+  }
+
+  /**
    * Conta os vínculos que bloqueiam o expurgo: TODAS as FKs de filho para
    * `Client` são RESTRICT (ver specs/research/2026-07-21-fase-1-clientes.md:140).
    * A contagem soma os seis e a descrição cita o que sobrou, senão o usuário

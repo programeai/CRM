@@ -59,6 +59,17 @@ export interface ClientRepository {
   delete(id: string): Promise<void>;
   /** Conta os vínculos (FKs RESTRICT) que impedem o expurgo. */
   countChildren(id: string): Promise<ClientChildrenCount>;
+  /**
+   * Cliente ativo do owner cujo telefone CONTÉM os dígitos informados — a
+   * ingestão externa usa isto para não abrir um segundo cadastro do mesmo
+   * número. `contains` e não igualdade porque telefone é texto livre: o mesmo
+   * contato pode estar gravado como `+5584999398021` pela integração e como
+   * `(84) 99939-8021` por quem digitou na mão.
+   */
+  findByPhoneDigits(
+    ownerId: string,
+    digitos: string,
+  ): Promise<ClientWithAssignee | null>;
   /** Existe cliente com este documento (mesmo owner), excluindo opcionalmente um id? */
   existsByDocument(
     ownerId: string,

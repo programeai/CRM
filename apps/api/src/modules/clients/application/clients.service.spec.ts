@@ -29,6 +29,7 @@ describe('ClientsService', () => {
       restore: jest.fn(),
       delete: jest.fn(),
       countChildren: jest.fn(),
+      findByPhoneDigits: jest.fn(),
       existsByDocument: jest.fn(),
       listOwnerTags: jest.fn(),
       findByTag: jest.fn(),
