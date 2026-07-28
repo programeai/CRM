@@ -6,7 +6,7 @@
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
 > **P2** evolução de produto · **P3** plataforma e governança.
 >
-> **Última atualização:** 2026-07-27
+> **Última atualização:** 2026-07-28
 
 ## Visão
 
@@ -31,14 +31,14 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 | 9 | Notificações e lembretes (**P1**) | ✅ concluída | [plan](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md) |
 | 10 | Relatórios e metas (**P1**) | ⏸️ adiada | a definir |
 | 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
-| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada · **4º na trilha** | a definir |
-| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | 🔜 **13-A é a próxima** · 13-B adiada | a definir |
-| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ⬜ **14-A é o 2º** · 14-B 5º · 14-C adiada | a definir |
+| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada · **2º na trilha** | a definir |
+| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ✅ **13-A concluída** · 13-B adiada | [plan 13-A](specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md) |
+| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ✅ **14-A concluída** · 14-B 3º · 14-C adiada | [plan 14-A](specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md) |
 | 15 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
 | 16 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
-| 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ⬜ não iniciada | a definir |
+| 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ✅ **17-A concluída** · 17-B/17-C não iniciadas | [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) · [plan 17-A](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md) |
 | 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
-| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ⬜ **19-A é o 3º** · 19-B P3 | a definir |
+| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | 🔜 **19-A é a próxima** · 19-B P3 | a definir |
 
 Cada fase termina com o sistema **utilizável de ponta a ponta**.
 
@@ -62,11 +62,18 @@ para depois. Os números das fases não mudaram — as specs e os links continua
 
 | Ordem | Recorte | Fase | Por quê |
 |---|---|---|---|
-| 1 | Catálogo de serviços, fontes de lead e motivos de perda por owner | **13-A** | único bloqueio absoluto: `ServiceType` é enum fechado no nosso mix de serviço |
-| 2 | Importação CSV/XLSX de clientes e contatos + exportação das listagens | **14-A** | onboarding de base existente e fechamento de mês fora da tela |
-| 3 | LGPD mínimo: excluir a própria conta, exportar meus dados | **19-A** | risco legal com dado de terceiro, não feature |
-| 4 | Anexos e documentos | **12** | primeira infra externa (S3/MinIO); desbloqueia o logo da Fase 11 |
-| 5 | Busca global + detecção de duplicidade | **14-B** | conveniência: cada listagem já tem `?search=` |
+| ~~1~~ ✅ | Catálogo de serviços, fontes de lead e motivos de perda por owner | **13-A** | único bloqueio absoluto: `ServiceType` era enum fechado no nosso mix de serviço |
+| ~~2~~ ✅ | Importação CSV/XLSX de clientes e contatos + exportação das listagens | **14-A** | onboarding de base existente e fechamento de mês fora da tela |
+| **1** | LGPD mínimo: excluir a própria conta, exportar meus dados | **19-A** | risco legal com dado de terceiro, não feature |
+| 2 | Anexos e documentos | **12** | primeira infra externa (S3/MinIO); desbloqueia o logo da Fase 11 |
+| 3 | Busca global + detecção de duplicidade | **14-B** | conveniência: cada listagem já tem `?search=` |
+
+> **Entrou fora da trilha:** a **17-A** (entrada de lead por integração) foi feita em 2026-07-28,
+> antes da 19-A. O motivo não é ordem de valor, é que a ingestão de lead **já rodava em produção** e
+> era single-tenant por construção — o segredo era um token de instância e a conta de destino vinha de
+> um e-mail no ambiente. Com o autocadastro aberto, isso deixou de ser "estágio do produto" e passou a
+> ser defeito: qualquer owner novo que quisesse captar lead não tinha como. Ver
+> [Fase 17](#fase-17--entrada-de-lead-e-comunicação--17-a-concluída--p2).
 
 **Adiado explicitamente:** campos customizados (**13-B**), mesclagem de clientes e unicidade de
 `document` (**14-C**), Fase 10 inteira (relatório é de quem já tem meses de dado) e o resto da Fase 19
@@ -84,7 +91,12 @@ para depois. Os números das fases não mudaram — as specs e os links continua
 **O que já está de pé e não é gargalo:** deploy com Traefik ([docs/deploy.md](docs/deploy.md)), backup
 com `pg_dump` documentado, billing Stripe ([docs/billing-stripe.md](docs/billing-stripe.md)),
 observabilidade ([docs/observabilidade.md](docs/observabilidade.md)), auditoria, sessões múltiplas e
-lixeira. O gargalo é o **domínio ser fechado no nosso mix de serviço**.
+lixeira.
+
+> **O gargalo original caiu.** "O domínio ser fechado no nosso mix de serviço" era o gargalo desta
+> revisão, e a 13-A o resolveu: as quatro listas do domínio são configuráveis por owner. Com a 14-A a
+> base entra e sai por planilha, e com a 17-A o lead entra por integração em qualquer workspace. O que
+> resta de bloqueio de produção é **jurídico, não funcional** — a 19-A.
 
 ---
 
@@ -381,7 +393,7 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 12 — Anexos e documentos ⬜ **P1** · 4º na trilha de produção
+## Fase 12 — Anexos e documentos ⬜ **P1** · 2º na trilha de produção
 
 - [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
 - [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
@@ -391,11 +403,11 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > **Por quê:** não existe upload em nenhum ponto do sistema — contrato assinado, briefing, arte e
 > comprovante de pagamento continuam no Drive/WhatsApp.
 
-> **Posição na trilha (4º), não recortada.** A fase entra inteira — o recorte aqui não ajudaria, porque
-> o custo é a infra, e ela é indivisível: sem bucket não há upload nenhum. Fica depois de 13-A/14-A/19-A
-> porque a ausência de anexo **não impede o uso** (o arquivo continua no Drive, como hoje), e porque é a
-> primeira fase a exigir credencial e mudança de deploy — o que se quer evitar na janela de
-> estabilização. Sobe de prioridade junto com a Fase 11, que precisa do logo do owner.
+> **Posição na trilha (2º), não recortada.** A fase entra inteira — o recorte aqui não ajudaria, porque
+> o custo é a infra, e ela é indivisível: sem bucket não há upload nenhum. Fica depois da 19-A (com a
+> 13-A e a 14-A já entregues) porque a ausência de anexo **não impede o uso** (o arquivo continua no
+> Drive, como hoje), e porque é a primeira fase a exigir credencial e mudança de deploy — o que se quer
+> evitar na janela de estabilização. Sobe de prioridade junto com a Fase 11, que precisa do logo do owner.
 
 > **Complexidade:** primeira fase com **infra externa** — bucket S3-compatível (ou MinIO na
 > autohospedagem) significa env, credencial e mudança de deploy, não só código. Soma-se uma
@@ -404,11 +416,13 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 13 — Extensibilidade do domínio ⬜ **P1** · recortada
+## Fase 13 — Extensibilidade do domínio ✅ **13-A concluída** · **P1** · recortada
 
 > **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
 
 **Frente A — Domínio configurável pelo owner** ✅ **concluída**
+
+Plano: [`specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md`](specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md)
 
 - [x] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
       (`SOFTWARE | WEBSITE | PAID_TRAFFIC`), com migration de dados
@@ -425,7 +439,7 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > deixou de ser literal: virou a coluna de regra `ActivityTypeCatalog.isFollowUp`, e os três
 > predicados divergentes de "follow-up pendente" convergiram para ela.
 
-> **Por que é o 1º:** é o **único bloqueio absoluto** do roadmap. `ServiceType` não é um detalhe de
+> **Por que era o 1º:** era o **único bloqueio absoluto** do roadmap. `ServiceType` não é um detalhe de
 > exibição — é obrigatório em `Deal`, `Proposal` e `Project`, e aparece em 18 arquivos entre DTOs,
 > tipos do front, formulários e [`labels.ts`](apps/web/src/lib/labels.ts). Quem se cadastra e não é
 > agência com o nosso mix trava no primeiro formulário de oportunidade, sem contorno na UI.
@@ -444,11 +458,12 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > **Adiada na revisão de 2026-07-27.** É o item estruturalmente mais difícil do roadmap — valor dinâmico
 > por tipo, validação em runtime, e todo formulário, filtro e exportação passando a se montar a partir de
 > definição, não de código. E não bloqueia ninguém: sem campo customizado o CRM funciona, sem serviço
-> configurável não. Depende da Frente A e, para a exportação, de 14-A.
+> configurável não. Depende da Frente A e, para a exportação, de 14-A — as duas já entregues, então o
+> que falta é só o trabalho dela.
 
 ---
 
-## Fase 14 — Dados: importação, exportação, busca e duplicidade ⬜ **P1** · recortada
+## Fase 14 — Dados: importação, exportação, busca e duplicidade ✅ **14-A concluída** · **P1** · recortada
 
 > **Por quê:** sem import, o onboarding de um cliente real morre no primeiro dia; sem export, o
 > financeiro não fecha o mês fora da tela.
@@ -459,17 +474,26 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > **mesclagem de clientes**: religar FKs de contatos, oportunidades, propostas, contratos, cobranças e
 > timeline num só `$transaction`, sem volta. Daí o recorte em três: só a Frente A é bloqueio de produção.
 
-**Frente A — Entrada e saída de dados** 🔜 **2º na trilha de produção**
+**Frente A — Entrada e saída de dados** ✅ **concluída**
 
-- [ ] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
-- [ ] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
+Plano: [`specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md`](specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md)
 
-> **Por que é o 2º:** são as duas pontas do onboarding. Nenhum owner migra a base à mão, e hoje **não
-> existe nenhum endpoint de exportação** em todo o `ENDPOINTS.md` — o dado entra e não sai. Ambas são
-> autocontidas: nenhum modelo novo de negócio, nada irreversível (import falho não corrompe, só não
-> importa), e a exportação reaproveita os filtros e as permissões que cada listagem já aplica.
+- [x] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
+- [x] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
 
-**Frente B — Busca global e duplicidade** ⬜ 5º na trilha
+> **Como ficou:** um módulo `data` com `ExportService` genérico (a listagem passa as colunas, não o
+> formato) e `ImportService` com prévia antes de gravar. A exportação reusa o **mesmo** `filter` +
+> `scope` da listagem — é o que garante que a planilha respeite o recorte por responsável, que o banco
+> não protege. A importação casa fonte de lead por nome pelo `CatalogResolver`, e criar item novo dali
+> exige `catalogo:gerenciar`. Permissão `dados:importar`; a trilha registra `IMPORT`/`IMPORTAR`.
+
+> **Por que era o 2º:** são as duas pontas do onboarding. Nenhum owner migra a base à mão, e antes
+> desta frente **não existia nenhum endpoint de exportação** em todo o `ENDPOINTS.md` — o dado entrava
+> e não saía. Ambas eram autocontidas: nenhum modelo novo de negócio, nada irreversível (import falho
+> não corrompe, só não importa), e a exportação reaproveita os filtros e as permissões que cada
+> listagem já aplica.
+
+**Frente B — Busca global e duplicidade** ⬜ 3º na trilha
 
 - [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
 - [ ] Detecção de duplicidade por documento/e-mail/telefone na criação
@@ -520,27 +544,73 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 > **Complexidade:** zero integração externa e tudo determinístico/testável, mas o motor de regras
 > configurável (evento → condição → ação, persistido e editável na UI) é desenho de arquitetura, não
-> CRUD. **Depende de** Fase 9 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço).
+> CRUD. **Depende de** Fase 9 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço) —
+> as duas já entregues, então nada mais a esperar.
 
 ---
 
-## Fase 17 — Entrada de lead e comunicação ⬜ **P2**
-
-- [ ] Formulário público de captação + endpoint de entrada de lead (site, landing page)
-- [ ] Webhook de entrada para Meta Ads / Google Ads / n8n, com deduplicação
-- [ ] Roteamento do lead novo para um responsável (depende da Fase 7)
-- [ ] Envio de e-mail ao cliente pelo CRM, com a mensagem registrada na timeline
-- [ ] WhatsApp: registro da conversa na timeline e envio de mensagem/template
-- [ ] Vínculo automático da resposta do cliente ao registro correspondente
+## Fase 17 — Entrada de lead e comunicação ✅ **17-A concluída** · **P2**
 
 > **Por quê:** vendemos tráfego pago — lead precisa entrar por integração, não por digitação. E o
 > valor de e-mail/WhatsApp está em **registrar** a interação, não só em disparar: timeline
 > alimentada à mão é timeline abandonada.
 
-> **Complexidade:** a metade "entrada de lead" é barata (rota pública já é padrão do projeto, e o
-> roteamento vem de graça com a Fase 7). O custo está na comunicação: WhatsApp Cloud API exige
-> verificação de negócio, templates aprovados e respeito à janela de 24h, e o vínculo automático da
-> resposta ao registro é heurística de correspondência, não FK.
+**Frente A — Entrada de lead por integração** ✅ **concluída**
+
+Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
+[plan](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md)
+
+- [x] Endpoint de entrada de lead multi-owner, com deduplicação por telefone
+      (`POST /leads/intake` — serve site, landing page, Meta/Google Ads e n8n pelo mesmo contrato)
+- [x] **Chave de integração por owner** com hash no banco, escopos, exibição única e rotação,
+      substituindo o token de instância no ambiente (`20260811100000_integration_key`)
+- [x] Canal de captação com roteamento: responsável e fonte de lead do catálogo por canal
+      (`20260812100000_lead_intake_channel`)
+- [x] Roteamento do lead novo para um responsável (dependia da Fase 7)
+- [x] Fonte de lead vinda do `LeadSourceCatalog` em vez de tag crua (dependia da 13-A)
+- [x] Tela `/administracao/captacao`: cria, edita, rotaciona e revoga
+
+> **Como ficou:** a ingestão já rodava em produção, mas era single-tenant por construção — o segredo
+> era `LEAD_INTAKE_TOKEN` e a conta de destino vinha de `LEAD_INTAKE_OWNER_EMAIL`. Agora a chave
+> apresentada descobre **três** coisas que não existiam: qual workspace recebe, quem é o responsável e
+> qual fonte de lead classifica. O `ownerId` sai da credencial e nunca do corpo.
+>
+> A **máquina de segredo-por-registro que a 19-B reservava nasceu aqui**, já genérica e com escopos —
+> ver a nota da [Fase 19](#fase-19--plataforma-api-pública-2fa-e-lgpd--19-a-é-a-próxima--p3--recortada).
+> Ela vive em `modules/integracoes`, que não conhece lead; o que é do domínio de lead (responsável,
+> fonte, nome do canal) vive em `LeadIntakeChannel`, no módulo `leads`. A dependência aponta
+> **leads → integracoes**, nunca o contrário.
+>
+> Lead reincidente não muda de mão: assume o responsável do canal só quando o cadastro está sem
+> ninguém. `LEAD_RECEIVED` passa a ir ao responsável roteado — consequência assumida: o owner deixa de
+> receber aviso de todo lead quando o canal roteia.
+
+> **O formulário público saiu do escopo** por decisão de produto: nesta frente o lead entra apenas
+> servidor-a-servidor. Nada no desenho impede acrescentá-lo — o canal é o registro que um formulário
+> usaria. O obstáculo mapeado na pesquisa continua valendo: CORS aceita uma origem só (`FRONTEND_URL`)
+> e o front responde `X-Frame-Options: DENY`, então a variante gratuita é hospedar o formulário numa
+> rota pública do próprio `apps/web`.
+
+> **O token de ambiente continua aceito**, como caminho legado explícito e observável
+> (`lead.token_legado_aceito`, em `warn`). Ele existe porque o emissor (`site-v2`) vive em outro
+> repositório: cortar sem coordenar os dois deploys perderia lead sem erro visível no site. Remover
+> `LEAD_INTAKE_TOKEN` e `LEAD_INTAKE_OWNER_EMAIL` é um PR próprio, depois que o site migrar — a
+> consulta `{stack="crm"} | evento="lead.token_legado_aceito"` diz quando é seguro.
+
+**Frente B — E-mail pelo CRM** ⬜ não iniciada
+
+- [ ] Envio de e-mail ao cliente pelo CRM, com a mensagem registrada na timeline
+- [ ] Vínculo automático da resposta do cliente ao registro correspondente
+
+**Frente C — WhatsApp** ⬜ não iniciada
+
+- [ ] WhatsApp: registro da conversa na timeline e envio de mensagem/template
+
+> **Por que B e C ficaram para depois:** era onde estava o custo desta fase desde o começo. A entrada
+> de lead era barata (rota pública já é padrão do projeto, e o roteamento veio da Fase 7). WhatsApp
+> Cloud API exige verificação de negócio, templates aprovados e respeito à janela de 24h — é a única
+> dependência externa da fase —, e o vínculo automático da resposta ao registro é heurística de
+> correspondência, não FK.
 
 ---
 
@@ -561,14 +631,14 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ---
 
-## Fase 19 — Plataforma: API pública, 2FA e LGPD ⬜ **P3** · recortada
+## Fase 19 — Plataforma: API pública, 2FA e LGPD 🔜 **19-A é a próxima** · **P3** · recortada
 
-**Frente A — LGPD mínimo** 🔜 **3º na trilha de produção** (promovida de P3 para bloqueio de produção)
+**Frente A — LGPD mínimo** 🔜 **1º na trilha de produção** (promovida de P3 para bloqueio de produção)
 
 - [ ] Excluir a própria conta (owner), com o efeito em cascata explícito e irreversível
 - [ ] Exportar meus dados — dump da workspace num formato legível pelo titular
 
-> **Por que sobe de P3 para o 3º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
+> **Por que sobe de P3 para o 1º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
 > governança futura. Com autocadastro aberto, estranhos passam a guardar **dado de terceiros** (clientes
 > deles, CPF/CNPJ, telefone) na nossa instância — e não existe **nenhum** endpoint de exclusão de conta
 > ou de exportação de dados em todo o `ENDPOINTS.md`. A
@@ -576,25 +646,44 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 > cumpre. Isso é exposição legal, não feature — e é o recorte mais barato dos três primeiros.
 
 > **Escopo mínimo de propósito:** só as duas operações do titular. Consentimento, política de retenção
-> e opt-out ficam na Frente B. A exportação pode reaproveitar a egressão de 14-A.
+> e opt-out ficam na Frente B. A exportação **pode reaproveitar a egressão de 14-A**, que já está de
+> pé: `ExportService` é genérico (a listagem passa as colunas) e serve a um dump da workspace inteira.
 
 **Frente B — Plataforma aberta** ⬜ **P3**
 
-- [ ] API key por owner, com escopos e rotação
+- [x] ~~A máquina de segredo-por-registro~~ — **antecipada para a 17-A**, já genérica e com escopos
+- [ ] API key por owner, com escopos e rotação — **escopo novo em cima da máquina que já existe**
 - [ ] Webhooks de saída (eventos de negócio) para n8n/Zapier
 - [ ] 2FA/MFA no login (TOTP), com códigos de recuperação
 - [ ] LGPD completo: consentimento e política de retenção
 - [ ] Rastreio de consentimento de comunicação (opt-out de e-mail/WhatsApp)
 
+> **A parte cara desta frente já foi paga.** O que encarecia a 19-B não era assinar nem expor rota: era
+> a máquina de segredo-por-registro. Ela nasceu na **17-A** ([`modules/integracoes`](apps/api/src/modules/integracoes/)),
+> genérica de propósito e **sem conhecer lead** — geração de 32 bytes com prefixo reconhecível, hash
+> sha256 indexável, exibição única, mascaramento na fronteira HTTP, rotação na mesma linha, ausência em
+> log e em `CAMPOS_OMITIDOS` do diff da auditoria, e `scopes[]` no próprio registro.
+>
+> O que sobra para a 19-B é **acrescentar escopo**, não construir infraestrutura: o catálogo é
+> [`domain/integration-scope.ts`](apps/api/src/modules/integracoes/domain/integration-scope.ts), hoje
+> com um item (`lead:receber`). Uma chave de API pública ou de webhook de saída entra ali sem tocar em
+> captação. A permissão `integracao:gerenciar` e a tela de gestão também já existem.
+>
+> **Recuperar chave perdida não vai existir**, e não é omissão: o banco guarda hash determinístico.
+> Quem perde rotaciona — decisão tomada na 17-A.
+
 > **Não confundir com o `WebhookChannel` da Fase 9.** O que já existe é destino **do usuário**: cada
 > pessoa aponta as *próprias* notificações para um n8n ou Slack pessoal, com a URL funcionando como
 > credencial (ver `apps/api/ENDPOINTS.md` → Notificações). O que falta aqui é o webhook **do owner**:
-> evento de negócio da workspace saindo para um sistema externo, com API key, escopos, assinatura e
-> rotação. São duas features distintas — tratar uma como a outra vira retrabalho.
+> evento de negócio da workspace **saindo** para um sistema externo. São duas features distintas —
+> tratar uma como a outra vira retrabalho.
+>
+> Note que a 17-A resolveu o sentido **oposto**: chave de integração é credencial de quem escreve
+> *dentro* da workspace (lead entrando). O webhook de saída reusa a mesma tabela `IntegrationKey` e o
+> mesmo service, com escopo próprio — a direção do dado muda, a máquina não.
 
-> **A assinatura HMAC das notificações entra aqui**, não na Fase 9: o custo não é assinar, é a máquina
-> de segredo-por-registro (geração, exibição única, mascaramento, ausência em log e no diff da
-> auditoria, rotação, recuperação) — a mesma que a API key por owner precisa. Desenho a usar:
+> **A assinatura HMAC das notificações entra aqui**, não na Fase 9 — e agora custa só o que é assinar,
+> porque a máquina de segredo já existe (ver a nota acima). Desenho a usar:
 > `HMAC-SHA256` sobre `<timestamp>.<body>` com o corpo cru **exatamente como enviado** (serializar uma
 > vez, assinar e postar a mesma string — reserializar entre assinar e enviar é o bug clássico que
 > invalida a verificação do outro lado), em `X-CRM-Signature: sha256=<hex>`. Acrescentar cabeçalho
