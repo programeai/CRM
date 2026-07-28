@@ -5,6 +5,7 @@ import {
 import { DealsService } from './deals.service';
 import type { DealRepository } from '../domain/deal.repository';
 import type { ClientsService } from '../../clients/application/clients.service';
+import type { ActivitiesService } from '../../activities/application/activities.service';
 import type { PipelineStagesService } from './pipeline-stages.service';
 import type { ProjectsService } from '../../projects/application/projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
@@ -15,6 +16,7 @@ import type { CatalogosService } from '../../catalogos/application/catalogos.ser
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
   let clients: { findOne: jest.Mock };
+  let activities: { proximaPorDeal: jest.Mock };
   let stages: { findOne: jest.Mock; firstStage: jest.Mock };
   let projects: { createFromDeal: jest.Mock };
   let members: { assertMember: jest.Mock };
@@ -37,6 +39,7 @@ describe('DealsService', () => {
       restore: jest.fn(),
     };
     clients = { findOne: jest.fn() };
+    activities = { proximaPorDeal: jest.fn().mockResolvedValue(new Map()) };
     stages = { findOne: jest.fn(), firstStage: jest.fn() };
     projects = { createFromDeal: jest.fn() };
     members = { assertMember: jest.fn().mockResolvedValue(undefined) };
@@ -48,6 +51,7 @@ describe('DealsService', () => {
     service = new DealsService(
       repo,
       clients as unknown as ClientsService,
+      activities as unknown as ActivitiesService,
       stages as unknown as PipelineStagesService,
       projects as unknown as ProjectsService,
       members as unknown as WorkspaceMembersService,
@@ -71,6 +75,53 @@ describe('DealsService', () => {
     expect(stages.firstStage).toHaveBeenCalledWith('owner');
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({ stageId: 'stage-0', position: 3 }),
+    );
+  });
+
+  it('anexa nextActivityAt a cada card do quadro, null quando não há follow-up', async () => {
+    const proxima = new Date('2026-08-03T13:00:00.000Z');
+    repo.findAllForBoard.mockResolvedValue([
+      { id: 'd1', title: 'Com follow-up' },
+      { id: 'd2', title: 'Sem follow-up' },
+    ] as never);
+    activities.proximaPorDeal.mockResolvedValue(new Map([['d1', proxima]]));
+
+    const cards = await service.board('owner');
+
+    expect(cards).toEqual([
+      { id: 'd1', title: 'Com follow-up', nextActivityAt: proxima },
+      { id: 'd2', title: 'Sem follow-up', nextActivityAt: null },
+    ]);
+    // Uma consulta agregada para o quadro inteiro — não uma por card.
+    expect(activities.proximaPorDeal).toHaveBeenCalledTimes(1);
+    expect(activities.proximaPorDeal).toHaveBeenCalledWith(
+      'owner',
+      ['d1', 'd2'],
+      { kind: 'all' },
+    );
+  });
+
+  it('recorta o nextActivityAt pelo escopo de atividade, não pelo de oportunidade', async () => {
+    repo.findAllForBoard.mockResolvedValue([{ id: 'd1' }] as never);
+    const escopoOportunidade = { kind: 'all' } as const;
+    const escopoAtividade = { kind: 'mine', userId: 'u1' } as const;
+
+    await service.board(
+      'owner',
+      escopoOportunidade,
+      undefined,
+      escopoAtividade,
+    );
+
+    expect(repo.findAllForBoard).toHaveBeenCalledWith(
+      'owner',
+      escopoOportunidade,
+      undefined,
+    );
+    expect(activities.proximaPorDeal).toHaveBeenCalledWith(
+      'owner',
+      ['d1'],
+      escopoAtividade,
     );
   });
 

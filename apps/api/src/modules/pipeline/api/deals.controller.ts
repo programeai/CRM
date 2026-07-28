@@ -48,6 +48,9 @@ export class DealsController {
       access.ownerId,
       resolveAssigneeScope(access, 'oportunidade:ver_todas'),
       query.assigneeId,
+      // O `nextActivityAt` do card é dado de ATIVIDADE: recorta pela chave de
+      // cliente, não pela de oportunidade.
+      resolveAssigneeScope(access, 'cliente:ver_todos'),
     );
   }
 

@@ -10,6 +10,7 @@ import {
   type DealWithClient,
 } from '../domain/deal.repository';
 import { ClientsService } from '../../clients/application/clients.service';
+import { ActivitiesService } from '../../activities/application/activities.service';
 import { PipelineStagesService } from './pipeline-stages.service';
 import { ProjectsService } from '../../projects/application/projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
@@ -25,11 +26,15 @@ import type { UpdateDealDto } from '../api/dto/update-deal.dto';
 import type { ListDealsQueryDto } from '../api/dto/list-deals-query.dto';
 import type { MoveDealDto } from '../api/dto/move-deal.dto';
 
+/** Card do quadro: o deal mais o sinal do próximo passo. Ver `board`. */
+export type DealBoardCard = DealWithClient & { nextActivityAt: Date | null };
+
 @Injectable()
 export class DealsService {
   constructor(
     @Inject(DEAL_REPOSITORY) private readonly repo: DealRepository,
     private readonly clients: ClientsService,
+    private readonly activities: ActivitiesService,
     private readonly stages: PipelineStagesService,
     private readonly projects: ProjectsService,
     private readonly members: WorkspaceMembersService,
@@ -58,12 +63,33 @@ export class DealsService {
     return paginated(data, total, page, limit);
   }
 
-  board(
+  /**
+   * Quadro do funil. Cada card leva `nextActivityAt` — o próximo follow-up
+   * pendente da oportunidade, ou `null` quando não há nenhum agendado. É esse
+   * campo que faz o quadro responder "o que eu faço agora", e não só "quanto
+   * vale": sem ele o card só alerta inércia de estágio (`stageMovedAt`).
+   *
+   * `atividadeScope` é o recorte de ATIVIDADE (`cliente:ver_todos`), separado do
+   * `scope` de oportunidade (`oportunidade:ver_todas`) — as duas chaves são
+   * independentes e um colaborador pode ter uma sem a outra.
+   */
+  async board(
     ownerId: string,
     scope: AssigneeScope = ALL_RECORDS,
     assigneeId?: string,
-  ): Promise<DealWithClient[]> {
-    return this.repo.findAllForBoard(ownerId, scope, assigneeId);
+    atividadeScope: AssigneeScope = ALL_RECORDS,
+  ): Promise<DealBoardCard[]> {
+    const deals = await this.repo.findAllForBoard(ownerId, scope, assigneeId);
+    // Uma consulta agregada para o quadro inteiro, não uma por card.
+    const proximas = await this.activities.proximaPorDeal(
+      ownerId,
+      deals.map((d) => d.id),
+      atividadeScope,
+    );
+    return deals.map((deal) => ({
+      ...deal,
+      nextActivityAt: proximas.get(deal.id) ?? null,
+    }));
   }
 
   async findOne(
