@@ -11,6 +11,7 @@ import { IS_PUBLIC_KEY } from '../auth/public.decorator';
 import { permissionMeta, type PermissionKey } from '../../shared/permissions';
 import { AccessService } from './application/access.service';
 import { REQUIRE_PERMISSION_KEY } from './require-permission.decorator';
+import { OWNER_ONLY_KEY } from './owner-only.decorator';
 import {
   ACCESS_CONTEXT,
   type AuthenticatedRequest,
@@ -60,6 +61,16 @@ export class AccessGuard implements CanActivate {
     // Também no CLS: é daqui que o AuditService descobre o autor, sem que
     // nenhum service da camada `application` precise receber o `userId`.
     this.cls.set(ACCESS_CONTEXT, access);
+
+    // Portão indelegável: só o dono da workspace. Vem ANTES do
+    // @RequirePermission() porque não é permissão — não existe chave que o
+    // conceda a um colaborador.
+    if (
+      this.reflector.getAllAndOverride<boolean>(OWNER_ONLY_KEY, targets) &&
+      !access.isOwner
+    ) {
+      throw new ForbiddenException('Esta ação é exclusiva do dono da conta.');
+    }
 
     const required = this.reflector.getAllAndOverride<PermissionKey[]>(
       REQUIRE_PERMISSION_KEY,
