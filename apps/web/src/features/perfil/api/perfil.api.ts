@@ -14,6 +14,10 @@ export type Me = {
    * verdade do gating na interface — ver `useCan`.
    */
   permissions: string[];
+  /** `false` na conta criada só por login social — não há senha a reconfirmar. */
+  hasPassword: boolean;
+  /** Encerramento agendado da workspace; `null` quando não há. */
+  deletion: { requestedAt: string; scheduledFor: string } | null;
 };
 
 export type UpdateProfileBody = {

@@ -30,6 +30,7 @@ import ContratoDetalhePage from '@/features/financeiro/ContratoDetalhePage';
 import ContratosDoClienteTab from '@/features/financeiro/ContratosDoClienteTab';
 import PaywallPage from '@/features/billing/PaywallPage';
 import ConfiguracoesLayout from '@/features/configuracoes/ConfiguracoesLayout';
+import ContaTab from '@/features/conta/ContaTab';
 import PerfilTab from '@/features/perfil/PerfilTab';
 import { SessoesAtivas } from '@/features/perfil/SessoesAtivas';
 import { PreferenciasDeNotificacao } from '@/features/notificacoes/PreferenciasDeNotificacao';
@@ -106,6 +107,7 @@ export const router = createBrowserRouter([
               { index: true, element: <PerfilTab /> },
               { path: 'dispositivos', element: <SessoesAtivas /> },
               { path: 'notificacoes', element: <PreferenciasDeNotificacao /> },
+              { path: 'conta', element: <ContaTab /> },
             ],
           },
           {

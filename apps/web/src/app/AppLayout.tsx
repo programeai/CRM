@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTheme } from "next-themes";
-import { CreditCard, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { CreditCard, LogOut, Moon, Settings, Sun, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -37,6 +37,7 @@ import { useMe } from "@/features/perfil/api/hooks";
 import { SinoDeNotificacoes } from "@/features/notificacoes/SinoDeNotificacoes";
 import { useSubscription } from "@/features/billing/useSubscription";
 import { useCan } from "@/hooks/use-can";
+import { formatDate } from "@/lib/format";
 import { NAV_GROUPS } from "./nav";
 
 export default function AppLayout() {
@@ -59,7 +60,7 @@ export default function AppLayout() {
   // Navegação por permissão: o item só aparece com uma das chaves exigidas, e
   // grupo que ficou sem item nenhum não é renderizado (ex.: Organização para
   // colaborador comum). O backend continua sendo a autoridade — isto é UI.
-  const { can, canAny } = useCan();
+  const { can, canAny, isOwner } = useCan();
   const navGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => canAny(item.permission ?? [])),
@@ -113,6 +114,27 @@ export default function AppLayout() {
       </Sidebar>
 
       <SidebarInset>
+        {/* Encerramento agendado: acima do banner de trial — é a informação
+            mais importante da tela, e vale para owner e colaborador. */}
+        {me?.deletion && (
+          <div className="flex w-full items-center justify-center gap-2 border-b bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            <TriangleAlert className="size-4 shrink-0" />
+            <span>
+              Esta conta será encerrada em {formatDate(me.deletion.scheduledFor)}
+              . Todos os dados serão apagados e não será possível recuperá-los.
+            </span>
+            {isOwner && (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-destructive underline"
+                onClick={() => navigate("/configuracoes/conta")}
+              >
+                Cancelar o encerramento
+              </Button>
+            )}
+          </div>
+        )}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="size-9 [&_svg]:size-6 [&_svg]:stroke-[1.5]" />
           <div className="ml-auto flex items-center gap-1">

@@ -1,11 +1,13 @@
 import { Outlet } from 'react-router';
 import { SectionTabs, type SectionTabItem } from '@/components/ui/section-tabs';
+import { useCan } from '@/hooks/use-can';
 
 /**
- * Abas da própria conta: nenhuma declara `permission`. Todo mundo — owner ou
- * colaborador — edita o próprio perfil, vê os próprios dispositivos e escolhe
- * onde ser avisado. Assinatura fica de fora: é `/assinatura`, a tela que
- * explica um bloqueio e o destino de retorno do Stripe.
+ * Abas da própria conta. As três primeiras não declaram permissão: todo mundo —
+ * owner ou colaborador — edita o próprio perfil, vê os próprios dispositivos e
+ * escolhe onde ser avisado. "Conta" é a exceção e o primeiro gate por `isOwner`
+ * da interface: exportar a workspace e encerrá-la não são "própria conta" no
+ * sentido do colaborador. Assinatura fica de fora: é `/assinatura`.
  */
 const TABS: SectionTabItem[] = [
   { label: 'Perfil', to: '/configuracoes', end: true },
@@ -13,7 +15,15 @@ const TABS: SectionTabItem[] = [
   { label: 'Notificações', to: '/configuracoes/notificacoes' },
 ];
 
+const TAB_DA_CONTA: SectionTabItem = {
+  label: 'Conta',
+  to: '/configuracoes/conta',
+};
+
 export default function ConfiguracoesLayout() {
+  const { isOwner } = useCan();
+  const tabs = isOwner ? [...TABS, TAB_DA_CONTA] : TABS;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -25,7 +35,7 @@ export default function ConfiguracoesLayout() {
       </div>
 
       <div className="border-b-2">
-        <SectionTabs items={TABS} />
+        <SectionTabs items={tabs} />
       </div>
 
       <Outlet />
