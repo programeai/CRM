@@ -388,4 +388,61 @@ describe('ClientsService', () => {
       }),
     );
   });
+
+  /*
+    A opção existe para a ingestão externa de lead (Fase 17-A): rota `@Public()`
+    sem `AccessContext` no CLS, onde `notificar` cairia no early-return
+    `notificacao.sem_contexto` a cada lead. O aviso de quem recebeu o lead é o
+    `LEAD_RECEIVED`, emitido pelo caminho de sistema. O default preserva o
+    comportamento de todos os outros chamadores.
+  */
+  describe('avisarResponsavel: false', () => {
+    it('não notifica no create, e ainda assim grava a atribuição', async () => {
+      repo.existsByDocument.mockResolvedValue(false);
+      repo.create.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+      await service.create(
+        'owner-1',
+        { name: 'Acme', assigneeId: 'u2' },
+        { avisarResponsavel: false },
+      );
+
+      expect(notifications.notificar).not.toHaveBeenCalled();
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ assigneeId: 'u2' }),
+      );
+    });
+
+    it('não notifica no update, e ainda assim grava a atribuição', async () => {
+      repo.findById.mockResolvedValue({
+        id: 'c1',
+        personType: 'COMPANY',
+        assigneeId: null,
+      } as never);
+      repo.update.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+      await service.update(
+        'owner-1',
+        'c1',
+        { assigneeId: 'u2' },
+        { avisarResponsavel: false },
+      );
+
+      expect(notifications.notificar).not.toHaveBeenCalled();
+      expect(repo.update).toHaveBeenCalledWith(
+        'c1',
+        'owner-1',
+        expect.objectContaining({ assigneeId: 'u2' }),
+      );
+    });
+
+    it('o default continua notificando (nenhum outro chamador muda)', async () => {
+      repo.existsByDocument.mockResolvedValue(false);
+      repo.create.mockResolvedValue({ id: 'c1', name: 'Acme' } as never);
+
+      await service.create('owner-1', { name: 'Acme', assigneeId: 'u2' });
+
+      expect(notifications.notificar).toHaveBeenCalled();
+    });
+  });
 });
