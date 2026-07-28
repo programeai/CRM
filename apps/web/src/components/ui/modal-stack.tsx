@@ -20,13 +20,25 @@ import {
  * que chama `useStackedModal` — nenhum consumidor precisa se preocupar com isso.
  */
 
-interface ModalStackContextValue {
+interface ModalStackActions {
   push: (id: string) => void
   remove: (id: string) => void
-  topId: string | null
 }
 
-const ModalStackContext = createContext<ModalStackContextValue | null>(null)
+/**
+ * As AÇÕES e o TOPO vivem em contextos separados de propósito, e essa separação é
+ * a correção de um bug real, não estilo.
+ *
+ * Num único contexto, `{ push, remove, topId }` é um objeto novo a cada mutação da
+ * pilha. O efeito de `useStackedModal` depende dele, então: abrir um modal empurra
+ * o id → a pilha vira outro array → o contexto vira outro objeto → o efeito roda
+ * de novo → o cleanup remove o id e o setup o empurra de volta → a pilha vira
+ * outro array... e o React roda até estourar em "Maximum update depth exceeded".
+ * Com as ações num contexto de identidade ESTÁVEL (memo sem dependências), o
+ * efeito passa a rodar só quando `open` muda de verdade.
+ */
+const ModalStackActionsContext = createContext<ModalStackActions | null>(null)
+const ModalStackTopContext = createContext<string | null>(null)
 
 export function ModalStackProvider({ children }: { children: React.ReactNode }) {
   const [stack, setStack] = useState<string[]>([])
@@ -39,15 +51,16 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
     setStack((s) => s.filter((x) => x !== id))
   }, [])
 
-  const value = useMemo<ModalStackContextValue>(
-    () => ({ push, remove, topId: stack.length ? stack[stack.length - 1] : null }),
-    [push, remove, stack],
-  )
+  // Sem dependências além dos dois callbacks estáveis: esta identidade nunca muda.
+  const actions = useMemo<ModalStackActions>(() => ({ push, remove }), [push, remove])
+  const topId = stack.length ? stack[stack.length - 1] : null
 
   return (
-    <ModalStackContext.Provider value={value}>
-      {children}
-    </ModalStackContext.Provider>
+    <ModalStackActionsContext.Provider value={actions}>
+      <ModalStackTopContext.Provider value={topId}>
+        {children}
+      </ModalStackTopContext.Provider>
+    </ModalStackActionsContext.Provider>
   )
 }
 
@@ -59,16 +72,21 @@ export function ModalStackProvider({ children }: { children: React.ReactNode }) 
  * Sem provider (fallback), o modal é sempre visível — nada quebra.
  */
 export function useStackedModal(open: boolean | undefined): { visible: boolean } {
-  const ctx = useContext(ModalStackContext)
+  const actions = useContext(ModalStackActionsContext)
+  const topId = useContext(ModalStackTopContext)
   const id = useId()
 
   useEffect(() => {
-    if (!ctx || !open) return
-    ctx.push(id)
-    return () => ctx.remove(id)
-  }, [open, id, ctx])
+    if (!actions || !open) return
+    actions.push(id)
+    return () => actions.remove(id)
+  }, [open, id, actions])
 
   // `open === undefined` → Dialog não controlado: não participa da pilha.
-  const visible = !ctx || open === undefined ? true : ctx.topId === id
+  // `topId === null` cobre o primeiro render de um modal que abre: o `push` só
+  // acontece no efeito, e sem isso o primitivo receberia `open=false` no render
+  // em que deveria abrir.
+  const visible =
+    !actions || open === undefined ? true : topId === null || topId === id
   return { visible }
 }
