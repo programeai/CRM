@@ -1,20 +1,27 @@
-import {
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ClientsService } from '../../clients/application/clients.service';
 import { ContactsService } from '../../contacts/application/contacts.service';
+import { IntegrationKeysService } from '../../integracoes/application/integration-keys.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
+import { LeadIntakeChannelsService } from './lead-intake-channels.service';
 import { empilharNota, montarNotaDeLead } from './nota-de-lead';
 import type { IntakeLeadDto } from '../api/dto/intake-lead.dto';
+import type { ContextoDeIntegracao } from '../api/intake-context';
+import type { LeadIntakeChannelRecord } from '../domain/lead-intake-channel.repository';
 
 /** `criado` abriu cadastro novo; `atualizado` reencontrou um contato existente. */
 export interface ResultadoDeIngestao {
   status: 'criado' | 'atualizado';
   clientId: string;
+}
+
+/** O que a gravação decidiu — inclui o que o aviso e o log precisam saber. */
+interface Gravacao extends ResultadoDeIngestao {
+  /** Quem ficou responsável, se alguém. É o destinatário do aviso. */
+  responsavelId: string | null;
+  canalId: string | null;
 }
 
 /**
@@ -30,8 +37,15 @@ export interface ResultadoDeIngestao {
  *     mesmo número que preencheu duas vezes é a mesma pessoa, e o lead novo
  *     entra como nota empilhada no cadastro que já existe. Duplicata em CRM é
  *     dívida silenciosa — dois históricos, duas pessoas ligando.
- *  3. **A conta que recebe vem do ambiente**, nunca do corpo. Ver
- *     `resolverOwner`.
+ *  3. **A conta que recebe vem da chave apresentada**, nunca do corpo. Quem a
+ *     descobre é o `LeadIntakeKeyGuard`, e ele entrega o `ownerId` já resolvido
+ *     no `ContextoDeIntegracao`: aceitar owner pelo corpo seria deixar qualquer
+ *     um escrever na conta de qualquer outro.
+ *  4. **O roteamento é fixo por canal, e determinístico** — sem round-robin. A
+ *     chave leva ao canal, e o canal diz quem atende e qual fonte de lead
+ *     classifica. Rotear **esconde** o lead de quem só vê os próprios registros
+ *     (`shared/record-scope.ts`), e é por isso que a tela avisa isso ao
+ *     configurar. Lead reincidente nunca muda de mão.
  *
  * A escrita roda sob o contexto de RLS do owner (`executarComoOwner`) porque a
  * rota é pública e não passa pelo `OwnerContextInterceptor`. O aviso sai DEPOIS
@@ -44,29 +58,39 @@ export class LeadsIntakeService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
     private readonly clients: ClientsService,
     private readonly contacts: ContactsService,
+    private readonly keys: IntegrationKeysService,
+    private readonly canais: LeadIntakeChannelsService,
+    private readonly members: WorkspaceMembersService,
     private readonly notifications: NotificationsService,
   ) {}
 
-  async receber(dto: IntakeLeadDto): Promise<ResultadoDeIngestao> {
-    const ownerId = await this.resolverOwner();
+  async receber(
+    dto: IntakeLeadDto,
+    contexto: ContextoDeIntegracao,
+  ): Promise<ResultadoDeIngestao> {
+    const { ownerId } = contexto;
 
     const gravado = await this.prisma.executarComoOwner(ownerId, () =>
-      this.gravar(ownerId, dto),
+      this.gravar(ownerId, contexto, dto),
     );
 
     /*
-      `notificarPeloSistema` e não `notificar`: não há ator humano nesta rota, e
-      a regra "ninguém é notificado da própria ação" do caminho autenticado
-      descartaria justamente este aviso (destinatário e owner são a mesma pessoa).
-      O destinatário é o OWNER porque lead que acabou de chegar ainda não tem
-      responsável a quem endereçar.
+      O destinatário é o RESPONSÁVEL roteado; sem roteamento, o owner — como
+      antes desta fase. Quem configurou o canal escolheu quem atende, e é essa
+      pessoa que precisa do aviso em minutos. Continua `notificarPeloSistema`
+      (não `notificar`) porque não há ator humano nesta rota: `notificar`
+      exigiria `AccessContext` no CLS e descartaria o aviso.
+
+      Consequência assumida: com um canal roteado, o owner deixa de receber
+      `LEAD_RECEIVED` de todo lead. É o efeito pretendido de configurar
+      responsável no canal — quem quiser tudo deixa o canal sem responsável. A
+      alternativa (avisar os dois) dobraria a notificação de cada lead.
     */
     await this.notifications.notificarPeloSistema({
       ownerId,
-      userId: ownerId,
+      userId: gravado.responsavelId ?? ownerId,
       evento: {
         tipo: 'LEAD_RECEIVED',
         entityId: gravado.clientId,
@@ -84,16 +108,36 @@ export class LeadsIntakeService {
       clienteId: gravado.clientId,
       origem: dto.origem,
       qualificado: Boolean(dto.cenario),
+      canalId: gravado.canalId,
+      roteado: Boolean(gravado.responsavelId),
     });
 
-    return gravado;
+    return { status: gravado.status, clientId: gravado.clientId };
   }
 
   /** Roda dentro da transação com `app.owner_id` setado. */
   private async gravar(
     ownerId: string,
+    contexto: ContextoDeIntegracao,
     dto: IntakeLeadDto,
-  ): Promise<ResultadoDeIngestao> {
+  ): Promise<Gravacao> {
+    /*
+      O uso é marcado DENTRO da transação: rollback não deve registrar uso. Vem
+      antes dos dois caminhos de propósito — lead reincidente também é uso
+      bem-sucedido da chave, e `lastUsedAt` responde "esta credencial ainda está
+      viva?", não "quantos cadastros ela abriu?".
+    */
+    if (contexto.keyId) {
+      await this.keys.registrarUso(ownerId, contexto.keyId);
+    }
+
+    // Caminho legado (`keyId` nulo): não há canal, então não há roteamento nem
+    // fonte de lead — exatamente o comportamento anterior a esta fase.
+    const canal = contexto.keyId
+      ? await this.canais.findByKeyId(ownerId, contexto.keyId)
+      : null;
+    const responsavelId = await this.resolverResponsavel(ownerId, canal);
+
     const telefone = dto.telefone?.trim() || `+55${dto.whatsapp}`;
     const nota = montarNotaDeLead({
       origem: dto.origem,
@@ -111,10 +155,30 @@ export class LeadsIntakeService {
       dto.whatsapp,
     );
     if (existente) {
-      await this.clients.update(ownerId, existente.id, {
-        notes: empilharNota(existente.notes, nota),
-      });
-      return { status: 'atualizado', clientId: existente.id };
+      /*
+        Lead que volta NÃO muda de mão: quem já cuida do cadastro continua
+        cuidando, mesmo que o canal aponte para outra pessoa. O responsável do
+        canal só entra quando não há ninguém — que é o caso em que o roteamento
+        tem algo a resolver. Origem, tags e fonte do cadastro existente também
+        ficam como estão: elas contam de onde ele veio na PRIMEIRA vez, e
+        reescrever isso apagaria histórico.
+      */
+      const assumir = Boolean(responsavelId) && !existente.assigneeId;
+      await this.clients.update(
+        ownerId,
+        existente.id,
+        {
+          notes: empilharNota(existente.notes, nota),
+          ...(assumir ? { assigneeId: responsavelId } : {}),
+        },
+        { avisarResponsavel: false },
+      );
+      return {
+        status: 'atualizado',
+        clientId: existente.id,
+        responsavelId: existente.assigneeId ?? (assumir ? responsavelId : null),
+        canalId: canal?.id ?? null,
+      };
     }
 
     /*
@@ -125,18 +189,28 @@ export class LeadsIntakeService {
       mudar o contrato de `CreateClientDto`, que de propósito só deduz tipo de
       pessoa a partir do documento.
     */
-    const criado = await this.clients.create(ownerId, {
-      name: dto.empresa?.trim() || dto.nome,
-      status: 'LEAD',
-      // Tag em vez de fonte de lead: `LeadSourceCatalog` é do owner e pode não
-      // ter um item correspondente. Tag preserva a atribuição sem inventar
-      // catálogo na conta de ninguém.
-      tags: [dto.origem],
-      notes: nota,
-      phone: telefone,
-      ...(dto.email ? { email: dto.email } : {}),
-      ...(dto.cidade ? { city: dto.cidade } : {}),
-    });
+    const criado = await this.clients.create(
+      ownerId,
+      {
+        name: dto.empresa?.trim() || dto.nome,
+        status: 'LEAD',
+        /*
+          A tag PERMANECE junto da fonte de lead, e não é redundância: `origem`
+          é o rótulo cru de quem capturou ("site-institucional", "/agenda-cheia"
+          na página) e distingue duas entregas do MESMO canal; `sourceId` é a
+          classificação do owner, que alimenta relatório. Perder a tag apagaria
+          a granularidade que a captação manda de graça.
+        */
+        tags: [dto.origem],
+        ...(canal?.sourceId ? { sourceId: canal.sourceId } : {}),
+        ...(responsavelId ? { assigneeId: responsavelId } : {}),
+        notes: nota,
+        phone: telefone,
+        ...(dto.email ? { email: dto.email } : {}),
+        ...(dto.cidade ? { city: dto.cidade } : {}),
+      },
+      { avisarResponsavel: false },
+    );
 
     await this.contacts.create(ownerId, criado.id, {
       name: dto.nome,
@@ -145,52 +219,36 @@ export class LeadsIntakeService {
       ...(dto.email ? { email: dto.email } : {}),
     });
 
-    return { status: 'criado', clientId: criado.id };
+    return {
+      status: 'criado',
+      clientId: criado.id,
+      responsavelId,
+      canalId: canal?.id ?? null,
+    };
   }
 
   /**
-   * A conta que recebe os leads, resolvida pelo e-mail do owner no ambiente.
+   * O responsável do canal, se ele ainda for gente da workspace. Configuração
+   * velha (a pessoa saiu, foi desativada) NÃO pode fazer a captação falhar: o
+   * lead entra sem responsável — visível para todos, que é o estado seguro —
+   * e o log registra o descarte para alguém corrigir o canal.
    *
-   * Duas coisas explicam a escolha. A primeira é segurança: o corpo da
-   * requisição não pode escolher em qual workspace grava, e o token não carrega
-   * essa informação. A segunda é o estágio do produto: a instância é
-   * single-tenant na prática (uma implantação por assinante), então uma variável
-   * de ambiente basta e não exige tela nenhuma.
-   *
-   * Quando a multiempresa entrar, o caminho é uma chave de integração POR owner
-   * (hash no banco, gerada na tela de configurações) e este método sai daqui —
-   * o owner passa a vir da chave apresentada, não do ambiente.
-   *
-   * `prisma.db` fora de transação alcança `User` porque essa tabela não tem RLS
-   * (é o que já permite login e registro rodarem em rota pública).
+   * `assertMember` (que lança 422) não serve aqui: perderia o lead por uma
+   * configuração velha, e do outro lado é um site que não mostra o erro.
    */
-  private async resolverOwner(): Promise<string> {
-    const email = this.config.get<string>('LEAD_INTAKE_OWNER_EMAIL') ?? '';
-    if (!email) {
-      this.logger.error({
-        evento: 'lead.owner_nao_configurado',
-        msg: 'LEAD_INTAKE_OWNER_EMAIL ausente: ingestão de lead sem conta de destino.',
-      });
-      throw new ServiceUnavailableException(
-        'A ingestão de leads não está configurada nesta instância.',
-      );
+  private async resolverResponsavel(
+    ownerId: string,
+    canal: LeadIntakeChannelRecord | null,
+  ): Promise<string | null> {
+    if (!canal?.assigneeId) return null;
+    if (await this.members.ehMembro(ownerId, canal.assigneeId)) {
+      return canal.assigneeId;
     }
-
-    const owner = await this.prisma.db.user.findFirst({
-      // `ownerId: null` = é owner de workspace, não colaborador. Colaborador não
-      // tem workspace própria, e gravar "na conta dele" não significa nada.
-      where: { email, ownerId: null },
-      select: { id: true },
+    this.logger.warn({
+      evento: 'lead.responsavel_ignorado',
+      msg: 'Responsável do canal não é mais membro da workspace: lead entrou sem responsável.',
+      canalId: canal.id,
     });
-    if (!owner) {
-      this.logger.error({
-        evento: 'lead.owner_nao_encontrado',
-        msg: 'Nenhum owner com o e-mail de LEAD_INTAKE_OWNER_EMAIL nesta instância.',
-      });
-      throw new ServiceUnavailableException(
-        'A conta que recebe os leads não existe nesta instância.',
-      );
-    }
-    return owner.id;
+    return null;
   }
 }
