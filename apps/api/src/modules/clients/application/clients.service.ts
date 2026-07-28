@@ -39,6 +39,18 @@ import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
 import type { ExportClientsQueryDto } from '../api/dto/export-clients-query.dto';
 import { COLUNAS_DE_CLIENTE } from './client-export-columns';
 
+/** Opções de escrita de quem chama de fora do caminho de requisição humana. */
+export interface OpcoesDeEscritaDeCliente {
+  /**
+   * `false` desliga o `RECORD_ASSIGNED` da atribuição. Só a ingestão externa
+   * de lead usa: ela não tem `AccessContext` (a rota é `@Public()`), então
+   * `notificar` cairia no early-return `notificacao.sem_contexto` a cada lead
+   * — e o aviso de quem recebeu o lead é o `LEAD_RECEIVED`, que a própria
+   * ingestão emite pelo caminho de sistema.
+   */
+  avisarResponsavel?: boolean;
+}
+
 @Injectable()
 export class ClientsService {
   constructor(
@@ -53,6 +65,7 @@ export class ClientsService {
   async create(
     ownerId: string,
     dto: CreateClientDto,
+    opcoes: OpcoesDeEscritaDeCliente = {},
   ): Promise<ClientWithAssignee> {
     // `assigneeId` entra pelo spread do DTO — sem esta linha, iria ao banco sem validação.
     await this.members.assertMember(ownerId, dto.assigneeId);
@@ -78,7 +91,7 @@ export class ClientsService {
       ownerId,
     });
     // Gatilho (f). Auto-atribuição é descartada dentro do `notificar`.
-    if (dto.assigneeId) {
+    if (dto.assigneeId && opcoes.avisarResponsavel !== false) {
       await this.notifications.notificar({
         userId: dto.assigneeId,
         evento: {
@@ -143,6 +156,7 @@ export class ClientsService {
     ownerId: string,
     id: string,
     dto: UpdateClientDto,
+    opcoes: OpcoesDeEscritaDeCliente = {},
   ): Promise<ClientWithAssignee> {
     await this.members.assertMember(ownerId, dto.assigneeId);
     if (dto.sourceId) {
@@ -165,7 +179,10 @@ export class ClientsService {
       if (resolvido.personType) data.personType = resolvido.personType;
     }
     const atualizado = await this.repo.update(id, ownerId, data);
-    if (assigneeMudou(dto.assigneeId, existing.assigneeId)) {
+    if (
+      assigneeMudou(dto.assigneeId, existing.assigneeId) &&
+      opcoes.avisarResponsavel !== false
+    ) {
       await this.notifications.notificar({
         userId: dto.assigneeId,
         evento: {
