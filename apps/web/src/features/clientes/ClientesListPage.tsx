@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Globe, MessageCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
 import { SearchInput } from '@/components/ui/search-input';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { Badge } from '@/components/ui/badge';
@@ -136,13 +137,12 @@ export default function ClientesListPage() {
     if (debounced !== values.search) set({ search: debounced, page: 1 });
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = useClients({
-    page,
-    limit: LIMIT,
+  const params = {
     search: values.search || undefined,
     status: status === 'ALL' ? undefined : status,
     sourceId: source === 'ALL' ? undefined : source,
-  });
+  };
+  const { data, isLoading } = useClients({ page, limit: LIMIT, ...params });
 
   // Catálogo de fontes, para o filtro de coluna e a tradução na tabela — não
   // há mais allowlist compilada: o catálogo é dado do owner.
@@ -167,6 +167,13 @@ export default function ClientesListPage() {
           placeholder="Buscar por nome ou documento…"
           value={search}
           onValueChange={setSearch}
+        />
+        <ExportButton
+          caminho="/clients/export"
+          params={params}
+          nomeBase="clientes"
+          // `page`/`limit` de propósito fora: a exportação leva o filtro inteiro,
+          // não a página que está na tela.
         />
       </div>
 
