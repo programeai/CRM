@@ -246,4 +246,73 @@ describe('Auth (e2e)', () => {
       'Seu acesso ao CRM foi desativado. Fale com o responsável pela conta.',
     );
   });
+
+  describe('registro de acesso (Marco Civil art. 15)', () => {
+    it('login bem-sucedido grava uma linha AccessRecord com kind=LOGIN e o ip preenchido', async () => {
+      const owner = await criarOwner('owner@teste.local');
+      await http()
+        .post('/api/v1/auth/login')
+        .send({ email: 'owner@teste.local', password: SENHA_PADRAO })
+        .expect(201);
+
+      const registros = await clientAdmin().accessRecord.findMany({
+        where: { userId: owner.id },
+      });
+      expect(registros).toHaveLength(1);
+      expect(registros[0].kind).toBe('LOGIN');
+      expect(registros[0].ip).not.toBeNull();
+    });
+
+    it('login com senha errada grava zero linhas', async () => {
+      const owner = await criarOwner('owner@teste.local');
+      await http()
+        .post('/api/v1/auth/login')
+        .send({ email: 'owner@teste.local', password: 'errada' })
+        .expect(401);
+
+      const registros = await clientAdmin().accessRecord.findMany({
+        where: { userId: owner.id },
+      });
+      expect(registros).toHaveLength(0);
+    });
+
+    it('refresh grava zero linhas — não é um acesso novo, é a mesma sessão', async () => {
+      const owner = await criarOwner('owner@teste.local');
+      const login = await http()
+        .post('/api/v1/auth/login')
+        .send({ email: 'owner@teste.local', password: SENHA_PADRAO });
+      const cookie: string[] = login.headers['set-cookie'];
+
+      await http()
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', cookie)
+        .expect(201);
+
+      const registros = await clientAdmin().accessRecord.findMany({
+        where: { userId: owner.id },
+      });
+      expect(registros).toHaveLength(1); // só o LOGIN, o refresh não soma
+      expect(registros[0].kind).toBe('LOGIN');
+    });
+
+    it('logout grava uma linha kind=LOGOUT', async () => {
+      const owner = await criarOwner('owner@teste.local');
+      const login = await http()
+        .post('/api/v1/auth/login')
+        .send({ email: 'owner@teste.local', password: SENHA_PADRAO });
+      const { accessToken }: RespostaToken = login.body;
+      const cookie: string[] = login.headers['set-cookie'];
+
+      await http()
+        .post('/api/v1/auth/logout')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .set('Cookie', cookie)
+        .expect(201);
+
+      const registros = await clientAdmin().accessRecord.findMany({
+        where: { userId: owner.id, kind: 'LOGOUT' },
+      });
+      expect(registros).toHaveLength(1);
+    });
+  });
 });

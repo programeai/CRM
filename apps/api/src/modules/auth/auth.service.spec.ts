@@ -8,6 +8,7 @@ import type { Session } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
 import { SessionsService } from './sessions.service';
+import { AccessRecordsService } from './access-records.service';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
 import { JwtService } from '@nestjs/jwt';
@@ -39,6 +40,7 @@ describe('AuthService', () => {
   >;
   let jwt: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let mail: jest.Mocked<Pick<MailService, 'sendPasswordReset'>>;
+  let accessRecords: jest.Mocked<Pick<AccessRecordsService, 'registrar'>>;
   // Valores de config por chave; o que não estiver aqui devolve 'x', como antes.
   let valoresDeConfig: Record<string, unknown>;
 
@@ -65,6 +67,7 @@ describe('AuthService', () => {
     };
     jwt = { signAsync: jest.fn().mockResolvedValue('token') };
     mail = { sendPasswordReset: jest.fn().mockResolvedValue(undefined) };
+    accessRecords = { registrar: jest.fn().mockResolvedValue(undefined) };
     valoresDeConfig = {};
     const config = {
       get: jest.fn((chave: string) =>
@@ -77,6 +80,7 @@ describe('AuthService', () => {
       jwt as unknown as JwtService,
       config,
       mail as unknown as MailService,
+      accessRecords as unknown as AccessRecordsService,
     );
   });
 

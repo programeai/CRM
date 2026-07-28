@@ -30,4 +30,36 @@ describe('StripeService', () => {
     expect(svc.enabled).toBe(true);
     expect(svc.client).toBeDefined();
   });
+
+  describe('agendarCancelamento', () => {
+    it('marca cancel_at_period_end na assinatura', async () => {
+      const svc = new StripeService(
+        config({ BILLING_ENABLED: true, STRIPE_SECRET_KEY: 'sk_test_x' }),
+      );
+      const update = jest
+        .spyOn(svc.client.subscriptions, 'update')
+        .mockResolvedValue({} as never);
+
+      await svc.agendarCancelamento('sub_123');
+
+      expect(update).toHaveBeenCalledWith('sub_123', {
+        cancel_at_period_end: true,
+      });
+    });
+  });
+
+  describe('cancelarAgora', () => {
+    it('cancela a assinatura imediatamente', async () => {
+      const svc = new StripeService(
+        config({ BILLING_ENABLED: true, STRIPE_SECRET_KEY: 'sk_test_x' }),
+      );
+      const cancel = jest
+        .spyOn(svc.client.subscriptions, 'cancel')
+        .mockResolvedValue({} as never);
+
+      await svc.cancelarAgora('sub_123');
+
+      expect(cancel).toHaveBeenCalledWith('sub_123');
+    });
+  });
 });
