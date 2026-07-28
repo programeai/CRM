@@ -690,6 +690,7 @@ enum AuditEntity {
   USER
   SUBSCRIPTION
   ACTIVITY   // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
+  IMPORT     // ← Fase 14-A: a importação em massa, não o cliente/contato individual
 }
 
 /// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
@@ -715,6 +716,7 @@ enum AuditAction {
   ALTERAR_PAPEL
   EXPIRAR
   VENCER
+  IMPORTAR   // ← Fase 14-A: importação de clientes/contatos em massa
 }
 
 // --- notificações (Fase 9) ---
