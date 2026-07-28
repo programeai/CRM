@@ -206,6 +206,14 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400 Tag inválida.` (tag vazia), `401`.
 - **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.deleteTag`
 
+### GET /clients/export
+- **Propósito:** Exportar a listagem de clientes em CSV ou XLSX, com **os mesmos filtros, permissões e recorte por responsável** de `GET /clients`. Arquivados ficam de fora, como na listagem.
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Body:** — (query: `formato: 'csv' | 'xlsx'` obrigatório, `search?`, `status?`, `sourceId?: uuid`, `assigneeId?: uuid`; `page`/`limit` são aceitos e ignorados).
+- **Resposta:** `200` arquivo (`Content-Disposition: attachment; filename="clientes-AAAA-MM-DD.csv"`). CSV usa `;` e BOM UTF-8 (abre direto no Excel pt-BR); XLSX traz data e número com tipo real.
+- **Erros:** `400 Formato inválido: use csv ou xlsx.` (ou query inválida), `422 A exportação está limitada a 5.000 linhas e o filtro atual seleciona N. Refine os filtros e tente de novo.`, `401`, `403`.
+- **Handler:** `modules/clients/api/clients.controller.ts` → `ClientsController.export`
+
 ### GET /clients/:id
 - **Propósito:** Buscar um cliente do usuário autenticado pelo id. Sem `cliente:ver_todos`, devolve apenas os registros do usuário e os sem responsável.
 - **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
@@ -794,6 +802,14 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.`, `401`.
 - **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.create`
 
+### GET /contracts/export
+- **Propósito:** Exportar a listagem de contratos em CSV ou XLSX, com os mesmos filtros e permissão de `GET /contracts`. `Contract` não tem `assigneeId` — não há recorte por responsável.
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
+- **Body:** — (query: `formato: 'csv' | 'xlsx'` obrigatório, `clientId?`, `status?`, `billingType?`; `page`/`limit` são aceitos e ignorados).
+- **Resposta:** `200` arquivo (`Content-Disposition: attachment; filename="contratos-AAAA-MM-DD.csv"`). CSV usa `;` e BOM UTF-8; XLSX traz data e número com tipo real.
+- **Erros:** `400 Formato inválido: use csv ou xlsx.` (ou query inválida), `404 Cliente não encontrado.` (se `clientId` não for do dono), `422 A exportação está limitada a 5.000 linhas e o filtro atual seleciona N. Refine os filtros e tente de novo.`, `401`, `403`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.export`
+
 ### GET /contracts/:id
 - **Propósito:** Buscar um contrato, validando que o cliente pertence ao usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
@@ -854,6 +870,14 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.summary`
 
+### GET /payments/export
+- **Propósito:** Exportar a listagem de cobranças em CSV ou XLSX, com os mesmos filtros e permissão de `GET /payments`. `Payment` não tem `assigneeId` — não há recorte por responsável.
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
+- **Body:** — (query: `formato: 'csv' | 'xlsx'` obrigatório, `search?`, `clientId?`, `contractId?`, `status?`, `billingType?`, `dueFrom?`, `dueTo?`, `sortBy?`, `sortDir?`; `page`/`limit` são aceitos e ignorados).
+- **Resposta:** `200` arquivo (`Content-Disposition: attachment; filename="recebimentos-AAAA-MM-DD.csv"`). CSV usa `;` e BOM UTF-8; XLSX traz data e número com tipo real.
+- **Erros:** `400 Formato inválido: use csv ou xlsx.` (ou query inválida), `404 Cliente não encontrado.` (se `clientId` não for do dono), `422 A exportação está limitada a 5.000 linhas e o filtro atual seleciona N. Refine os filtros e tente de novo.`, `401`, `403`.
+- **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.export`
+
 ### PATCH /payments/:id
 - **Propósito:** Editar uma cobrança (descrição, valor, vencimento), permitido apenas enquanto `PENDING`.
 - **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
@@ -885,6 +909,30 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Resposta:** `200 Payment` (`status: CANCELED`).
 - **Erros:** `404 Cobrança não encontrada.`, `422 Transição de status inválida.`, `401`.
 - **Handler:** `modules/finance/api/payments.controller.ts` → `PaymentsController.cancel`
+
+---
+
+## Dados
+
+Módulo transversal de importação e exportação (Fase 14-A). A exportação de cada listagem
+vive na sua própria seção (`GET /clients/export`, `GET /contracts/export`, `GET
+/payments/export`); aqui só a importação de clientes e contatos.
+
+### POST /data/import/previa
+- **Propósito:** Prévia da importação de uma planilha (CSV ou XLSX) de clientes ou contatos. **Não grava nada** — devolve as colunas detectadas, o mapeamento sugerido (ou o informado), uma amostra de até 10 linhas já mapeadas, as origens de lead que não existem no catálogo do owner e os erros linha a linha.
+- **Auth:** Bearer (access token). Permissão: `dados:importar`.
+- **Body:** `multipart/form-data` — `arquivo` (CSV ou XLSX, até 5 MB), `tipo: 'clientes' | 'contatos'`, `mapeamento?` (JSON de `{ "Coluna da planilha": "chaveDoCampo" | null }`; ausente = o servidor sugere).
+- **Resposta:** `200 { tipo, totalDeLinhas, colunas, campos, mapeamento, amostra, origensDesconhecidas, erros, validas }`.
+- **Erros:** `400 Envie um arquivo CSV ou XLSX.` / `400 Tipo de importação inválido: use clientes ou contatos.` / `400 O mapeamento de colunas está mal formado.` / `400 Mapeie a coluna do campo obrigatório "…".` (ou a mensagem equivalente para `contatos` sem coluna de identificação do cliente), `422` (planilha vazia, sem cabeçalho, cabeçalho com coluna vazia ou repetida, ou acima de 500 linhas — mensagem cita o teto e o total), `401`, `403`.
+- **Handler:** `modules/data/api/import.controller.ts` → `ImportController.previa`
+
+### POST /data/import
+- **Propósito:** Commit da importação de clientes ou contatos. Reprocessa a planilha do zero (a prévia não persiste), grava dentro da transação do request e registra **um** evento de auditoria agregado (`entity: IMPORT`, `action: IMPORTAR`) — tudo ou nada: qualquer linha com erro cancela a importação inteira, sem gravar nenhuma.
+- **Auth:** Bearer (access token). Permissão: `dados:importar`.
+- **Body:** `multipart/form-data` — `arquivo` (CSV ou XLSX, até 5 MB), `tipo: 'clientes' | 'contatos'`, `mapeamento` (JSON de `{ "Coluna da planilha": "chaveDoCampo" | null }`, obrigatório), `origens?` (JSON de `{ valor: string, acao: 'criar' | 'usar' | 'ignorar', itemId?: uuid }[]` — a decisão sobre cada origem de lead desconhecida). Criar uma origem nova exige `catalogo:gerenciar`; sem ela, `acao: 'criar'` responde `403` (escolha `usar` ou `ignorar`).
+- **Resposta:** `201 { tipo, totalDeLinhas, criados, origensCriadas, origensIgnoradas, erros: [] }`.
+- **Erros:** `400 Envie um arquivo CSV ou XLSX.` / `400 Mapeie a coluna do campo obrigatório "…".` (ou a mensagem equivalente para `contatos`) / `400` (mapeamento ou origens mal formados), `403 Criar uma fonte de lead nova exige a permissão de gerenciar catálogos. Escolha uma fonte existente ou deixe em branco.`, `404` (origem de `acao: 'usar'` que não é do owner), `422 A importação foi cancelada: N linha(s) têm erro. Nenhum registro foi gravado. Corrija a planilha e envie de novo.` (corpo traz `erros: LinhaComErro[]`) / `422` (planilha vazia, sem cabeçalho, ou acima de 500 linhas), `401`.
+- **Handler:** `modules/data/api/import.controller.ts` → `ImportController.importar`
 
 ---
 
