@@ -107,8 +107,15 @@ e-mail e Stripe. Para o adapter em si, o mock testa o mock.
 Além disso, todo seam de infraestrutura tem cobertura e2e (`test/*.e2e-spec.ts`,
 `pnpm --filter api test:e2e`): as rotas públicas de auth e o isolamento por
 `ownerId`. Rota nova que rode FORA da transação do `OwnerContextInterceptor`
-(ou seja, marcada com `@Public()`) entra no `auth.e2e-spec.ts` no mesmo PR —
-é o caminho que já quebrou uma vez com a suíte inteira verde.
+(ou seja, marcada com `@Public()`) entra num e2e no mesmo PR — no
+`auth.e2e-spec.ts` quando for rota de sessão, num spec próprio quando não for
+(é o caso de `lead-intake.e2e-spec.ts`, a ingestão externa de lead) — porque é
+o caminho que já quebrou uma vez com a suíte inteira verde.
+
+Rota pública que **escreve** em tabela com RLS depende de `app.owner_id` setado
+à mão (`PrismaService.executarComoOwner`), e o e2e dela precisa afirmar que a
+linha está no banco depois da chamada: sem contexto, o RLS não estoura — ele
+grava zero linha e a rota responde sucesso.
 
 ## Migration é validada com dado dentro (obrigatório)
 
