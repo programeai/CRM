@@ -53,4 +53,43 @@ export class PrismaService
   get db(): PrismaTx | PrismaClient {
     return this.cls.get<PrismaTx>(PRISMA_TX) ?? this.base;
   }
+
+  /**
+   * Roda `fn` sob o contexto de RLS de um owner, na mão. É o gêmeo do
+   * `OwnerContextInterceptor` para a rota que **não tem `req.user`** e ainda
+   * assim escreve em tabela com RLS: hoje só a ingestão externa de lead
+   * (`POST /leads/intake`, autenticada por token de integração).
+   *
+   * Mesma mecânica do interceptor — transação, `set_config` como primeira
+   * statement, `tx` no CLS — e as mesmas duas obrigações de quem chama:
+   *
+   *  1. O `ownerId` vem de onde a ROTA autenticou (o token da integração),
+   *     **nunca** do corpo da requisição. Aceitar owner pelo corpo transforma
+   *     uma rota pública em "escreva na conta de quem você quiser".
+   *  2. Nada de I/O de rede aqui dentro: a transação usa o timeout default do
+   *     Prisma (5s), e a entrega de e-mail/webhook acontece depois do commit
+   *     (ver `NotificationsDispatchJob`).
+   *
+   * Não use isto para contornar o interceptor em rota autenticada.
+   */
+  async executarComoOwner<T>(
+    ownerId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const anterior = this.cls.get<PrismaTx>(PRISMA_TX);
+    try {
+      return await this.base.$transaction(async (tx) => {
+        // set_config seguro: valor via bound param (nunca concatenar/interpolar).
+        await tx.$executeRaw`SELECT set_config('app.owner_id', ${ownerId}, true)`;
+        this.cls.set(PRISMA_TX, tx);
+        return fn();
+      });
+    } finally {
+      // Devolve o CLS ao que era. Sem isto, o `tx` JÁ FECHADO continuaria no
+      // contexto e a próxima consulta do mesmo request estouraria — diferente do
+      // interceptor, aqui a requisição costuma seguir depois do commit (é onde a
+      // notificação sai, de propósito: só se avisa o que já está gravado).
+      this.cls.set(PRISMA_TX, anterior);
+    }
+  }
 }
