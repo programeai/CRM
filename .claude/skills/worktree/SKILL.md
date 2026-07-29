@@ -11,12 +11,15 @@ metadata:
 
 Cria e gerencia **git worktrees** para trabalhar em correções paralelas, cada uma numa branch e pasta próprias, permitindo abrir uma sessão do Claude Code por worktree sem conflito de working tree.
 
-O repositório principal fica em `/home/alencar/WorkSpace/CRM`. Os worktrees são criados **ao lado** dele (nunca dentro), no padrão `../CRM-<slug>`.
+Descubra a raiz do repositório principal com `git rev-parse --show-toplevel` e use esse
+caminho onde este documento escreve `<repo>`. Os worktrees são criados **ao lado** dele
+(nunca dentro), no padrão `<repo>-<slug>` — ou seja, `../CRM-<slug>` quando a pasta se
+chama `CRM`.
 
 ## Hard rules
 
-- **NUNCA** crie o worktree dentro de `/home/alencar/WorkSpace/CRM` (poluiria a working tree e o `.gitignore`). Sempre em `../CRM-<slug>`.
-- **NUNCA** rode `prisma migrate dev`, `prisma migrate reset` ou qualquer comando que altere o schema do banco a partir de um worktree sem avisar explicitamente o usuário — o Postgres (`localhost:5432`) é **único e compartilhado** por todos os worktrees. Ver seção "Banco compartilhado".
+- **NUNCA** crie o worktree dentro de `<repo>` (poluiria a working tree e o `.gitignore`). Sempre irmão dele.
+- **NUNCA** rode `prisma migrate dev`, `prisma migrate reset` ou qualquer comando que altere o schema do banco a partir de um worktree sem avisar explicitamente o usuário — o Postgres (`localhost:5435`) é **único e compartilhado** por todos os worktrees. Ver seção "Banco compartilhado".
 - **NUNCA** use `--all`/`.` em git; opere só nos worktrees que a skill gerencia.
 - **SEMPRE** siga a convenção de branch do repo: `tipo/escopo-descricao` (ex.: `fix/demandas-badge`, `feat/tags-contraste`, `refactor/sidebar-header`). O `tipo` casa com os tipos de commit usados no repo (`feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `perf`).
 
@@ -42,7 +45,7 @@ A partir da descrição do usuário, derive:
 
 Monte:
 - **branch** = `<tipo>/<slug>`
-- **pasta** = `../CRM-<slug>`
+- **pasta** = `<repo>-<slug>` (irmã da raiz do repositório)
 
 Confirme com o usuário o nome da branch e da pasta em uma linha antes de criar (a menos que ele já tenha dado o nome pronto).
 
@@ -50,17 +53,17 @@ Confirme com o usuário o nome da branch e da pasta em uma linha antes de criar 
 
 Execute em paralelo (um único bloco):
 
-- `git -C /home/alencar/WorkSpace/CRM worktree list` — evita duplicar worktree/pasta existente.
-- `git -C /home/alencar/WorkSpace/CRM branch --list <tipo>/<slug>` — a branch já existe?
+- `git -C <repo> worktree list` — evita duplicar worktree/pasta existente.
+- `git -C <repo> branch --list <tipo>/<slug>` — a branch já existe?
 
-Se a pasta `../CRM-<slug>` já existir ou a branch já existir, avise e proponha outro slug (ou usar a branch existente com `git worktree add <pasta> <branch>` sem `-b`).
+Se a pasta `<repo>-<slug>` já existir ou a branch já existir, avise e proponha outro slug (ou usar a branch existente com `git worktree add <pasta> <branch>` sem `-b`).
 
 ### Passo 3: Criar o worktree
 
 Branch nova a partir de `main` atualizada:
 
 ```bash
-git -C /home/alencar/WorkSpace/CRM worktree add /home/alencar/WorkSpace/CRM-<slug> -b <tipo>/<slug> main
+git -C <repo> worktree add <repo>-<slug> -b <tipo>/<slug> main
 ```
 
 Se o usuário pediu para partir de outra base (ex.: da branch atual), ajuste o último argumento.
@@ -70,10 +73,10 @@ Se o usuário pediu para partir de outra base (ex.: da branch atual), ajuste o �
 Cada worktree tem `node_modules` próprio. Instale as dependências:
 
 ```bash
-pnpm --dir /home/alencar/WorkSpace/CRM-<slug> install
+pnpm --dir <repo>-<slug> install
 ```
 
-> `.env`, `docker-compose` e afins não são versionados/são compartilhados via banco único — não é preciso recriar. Se o worktree precisar de `.env` local que não está no git, avise o usuário para copiar de `/home/alencar/WorkSpace/CRM/apps/api/.env` (não copie segredos automaticamente sem confirmação).
+> `.env`, `docker-compose` e afins não são versionados/são compartilhados via banco único — não é preciso recriar. Se o worktree precisar de `.env` local que não está no git, avise o usuário para copiar de `<repo>/apps/api/.env` (não copie segredos automaticamente sem confirmação).
 
 ### Passo 5: Entregar instruções
 
@@ -86,7 +89,7 @@ Ao final, mostre ao usuário, de forma curta:
 
 ## Banco compartilhado — aviso obrigatório
 
-Todos os worktrees apontam para o **mesmo Postgres** em `localhost:5432` (subido por `docker compose` no repo principal). Portanto, ao criar um worktree, sempre inclua no resumo final:
+Todos os worktrees apontam para o **mesmo Postgres** em `localhost:5435` (subido por `docker compose` no repo principal). Portanto, ao criar um worktree, sempre inclua no resumo final:
 
 - Editar código e rodar testes de unidade em paralelo: **ok**.
 - Rodar `pnpm --filter api start:dev` em mais de um worktree ao mesmo tempo: conflito de porta (ajuste `PORT`) e escrevem no **mesmo banco**.
@@ -95,7 +98,7 @@ Todos os worktrees apontam para o **mesmo Postgres** em `localhost:5432` (subido
 ## Processo — listar
 
 ```bash
-git -C /home/alencar/WorkSpace/CRM worktree list
+git -C <repo> worktree list
 ```
 
 Apresente cada worktree com sua branch e destaque o repo principal.
@@ -105,16 +108,16 @@ Apresente cada worktree com sua branch e destaque o repo principal.
 1. Confirme com o usuário (a remoção descarta a working tree daquele worktree; mudanças não commitadas se perdem).
 2. Verifique se há trabalho pendente:
    ```bash
-   git -C /home/alencar/WorkSpace/CRM-<slug> status --short
+   git -C <repo>-<slug> status --short
    ```
    Se houver mudanças não commitadas, **pare e avise** — não remova sem confirmação explícita.
 3. Remova:
    ```bash
-   git -C /home/alencar/WorkSpace/CRM worktree remove /home/alencar/WorkSpace/CRM-<slug>
+   git -C <repo> worktree remove <repo>-<slug>
    ```
 4. Opcional (se o usuário quiser apagar a branch também e ela já foi mesclada):
    ```bash
-   git -C /home/alencar/WorkSpace/CRM branch -d <tipo>/<slug>
+   git -C <repo> branch -d <tipo>/<slug>
    ```
    Use `-D` (forçado) apenas se o usuário confirmar que a branch pode ser descartada mesmo sem merge.
-5. Rode `git -C /home/alencar/WorkSpace/CRM worktree prune` para limpar referências órfãs.
+5. Rode `git -C <repo> worktree prune` para limpar referências órfãs.
