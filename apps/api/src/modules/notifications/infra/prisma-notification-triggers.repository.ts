@@ -150,4 +150,43 @@ export class PrismaNotificationTriggersRepository implements NotificationTrigger
       dataAlvo: t.dueDate!,
     }));
   }
+
+  /** (f) Oportunidade viva parada há mais tempo do que o limite, fora de ganho/perda. */
+  async oportunidadesEsfriando(limite: Date): Promise<AlvoDeLembrete[]> {
+    // Cron cross-owner (sem contexto de request) → client admin (bypassa RLS),
+    // e isso vale também para PipelineStage no filtro relacional abaixo.
+    //
+    // Estágio terminal fica fora: negócio ganho ou perdido não "esfria", ele
+    // acabou. O filtro é pelas MARCAS (`isWon`/`isLost`), nunca pelo nome — o
+    // funil é por owner desde a 20260726120000 e "Ganhou" pode se chamar
+    // qualquer coisa. Mesmo par de marcas que o `apps/web` usa para decidir se
+    // pinta o selo, e é o que mantém aviso e selo dizendo a mesma coisa.
+    const alvos = await this.admin.deal.findMany({
+      where: {
+        stageMovedAt: { lt: limite },
+        stage: { isWon: false, isLost: false },
+        // `Deal` tem soft delete: sem este filtro o cron cobraria movimento de
+        // oportunidade que está na lixeira.
+        ...ATIVO,
+      },
+      select: {
+        id: true,
+        ownerId: true,
+        title: true,
+        stageMovedAt: true,
+        assigneeId: true,
+        stage: { select: { name: true } },
+        client: { select: { name: true } },
+      },
+    });
+    return alvos.map((d) => ({
+      ownerId: d.ownerId,
+      userId: d.assigneeId ?? d.ownerId,
+      entityId: d.id,
+      label: d.title,
+      clienteNome: d.client.name,
+      dataAlvo: d.stageMovedAt,
+      estagio: d.stage.name,
+    }));
+  }
 }

@@ -20,6 +20,13 @@ import type { EventoDeNotificacao } from './notification-content';
  */
 const DIAS_PROPOSTA = 3;
 const DIAS_COBRANCA = 3;
+/**
+ * Dias parados no mesmo estágio até a oportunidade contar como esfriando.
+ * **Espelha `COOLING_DAYS` de `apps/web/src/features/pipeline/lib/deal-format.ts`**:
+ * o selo no card e este aviso têm de concordar, senão a pessoa recebe e-mail de
+ * um card que não está marcado (ou o contrário). Mudar um exige mudar o outro.
+ */
+const DIAS_ESFRIANDO = 7;
 
 /** Começo do dia local (00:00:00.000). */
 function inicioDoDia(agora: Date): Date {
@@ -42,6 +49,11 @@ function maisDias(agora: Date, n: number): Date {
   return d;
 }
 
+/** `agora - n` dias. */
+function menosDias(agora: Date, n: number): Date {
+  return maisDias(agora, -n);
+}
+
 @Injectable()
 export class NotificationsRemindersJob {
   private readonly logger = new Logger(NotificationsRemindersJob.name);
@@ -55,12 +67,13 @@ export class NotificationsRemindersJob {
   ) {}
 
   /**
-   * Gatilhos (a), (b), (c) e (e). Roda às 6h BRT, uma hora antes do digest, para
-   * que o resumo do dia já inclua o que este job emitiu.
+   * Gatilhos (a), (b), (c), (e) e (f). Roda às 6h BRT, uma hora antes do digest,
+   * para que o resumo do dia já inclua o que este job emitiu.
    *
-   * `name:` e `timeZone:` explícitos: os dois crons legados não declaram nenhum dos
-   * dois (`EVERY_DAY_AT_3AM` = 3h UTC = meia-noite BRT) e essa dívida fica onde
-   * está — mas nada novo nasce com ela.
+   * `name:` e `timeZone:` explícitos — hoje em todos os crons do projeto. Os
+   * legados rodavam sem os dois (`EVERY_DAY_AT_3AM` = 3h UTC = meia-noite BRT,
+   * três horas antes do que o nome anuncia); a dívida foi paga junto do gatilho
+   * (f), e nada novo nasce com ela.
    */
   @Cron('0 6 * * *', {
     name: 'notificacoes-lembretes',
@@ -90,6 +103,12 @@ export class NotificationsRemindersJob {
       (await this.emitir(
         'TASK_OVERDUE',
         await this.triggers.demandasAtrasadas(agora),
+      )) +
+      (await this.emitir(
+        'DEAL_STALE',
+        await this.triggers.oportunidadesEsfriando(
+          menosDias(agora, DIAS_ESFRIANDO),
+        ),
       ));
 
     if (emitidas > 0) {
@@ -206,6 +225,15 @@ export class NotificationsRemindersJob {
           entityId: alvo.entityId,
           titulo: alvo.label,
           clienteNome: alvo.clienteNome,
+          dataAlvo: alvo.dataAlvo,
+        };
+      case 'DEAL_STALE':
+        return {
+          tipo: 'DEAL_STALE',
+          entityId: alvo.entityId,
+          titulo: alvo.label,
+          clienteNome: alvo.clienteNome,
+          estagio: alvo.estagio!,
           dataAlvo: alvo.dataAlvo,
         };
       default:

@@ -31,6 +31,7 @@ describe('NotificationsRemindersJob', () => {
       propostasAExpirar: jest.fn().mockResolvedValue([]),
       cobrancasAVencer: jest.fn().mockResolvedValue([]),
       demandasAtrasadas: jest.fn().mockResolvedValue([]),
+      oportunidadesEsfriando: jest.fn().mockResolvedValue([]),
     };
     repo = { dedupeKeysExistentes: jest.fn().mockResolvedValue(new Set()) };
     notifications = {
@@ -43,13 +44,16 @@ describe('NotificationsRemindersJob', () => {
     );
   });
 
-  it('consulta os quatro gatilhos e emite um lembrete por alvo', async () => {
+  it('consulta os cinco gatilhos e emite um lembrete por alvo', async () => {
     triggers.followUpsDoDia.mockResolvedValue([alvo({ entityId: 'a1' })]);
     triggers.propostasAExpirar.mockResolvedValue([alvo({ entityId: 'p1' })]);
     triggers.cobrancasAVencer.mockResolvedValue([
       alvo({ entityId: 'pay1', valor: 800 }),
     ]);
     triggers.demandasAtrasadas.mockResolvedValue([alvo({ entityId: 't1' })]);
+    triggers.oportunidadesEsfriando.mockResolvedValue([
+      alvo({ entityId: 'd1', estagio: 'Negociação' }),
+    ]);
 
     await job.run();
 
@@ -57,7 +61,46 @@ describe('NotificationsRemindersJob', () => {
     expect(triggers.propostasAExpirar).toHaveBeenCalled();
     expect(triggers.cobrancasAVencer).toHaveBeenCalled();
     expect(triggers.demandasAtrasadas).toHaveBeenCalled();
-    expect(notifications.notificarPeloSistema).toHaveBeenCalledTimes(4);
+    expect(triggers.oportunidadesEsfriando).toHaveBeenCalled();
+    expect(notifications.notificarPeloSistema).toHaveBeenCalledTimes(5);
+  });
+
+  it('o gatilho de esfriando recebe o limite 7 dias ATRÁS de agora', async () => {
+    const antes = Date.now();
+    await job.run();
+
+    const [limite] = triggers.oportunidadesEsfriando.mock.calls[0];
+    // Mede a diferença, não a data — o mesmo estilo do teste da janela acima.
+    const dias = (antes - limite.getTime()) / 86_400_000;
+    expect(dias).toBeCloseTo(7, 1);
+  });
+
+  it('o aviso de esfriando leva o estágio e a data em que a oportunidade parou', async () => {
+    triggers.oportunidadesEsfriando.mockResolvedValue([
+      alvo({
+        entityId: 'd1',
+        label: 'Site institucional',
+        estagio: 'Negociação',
+      }),
+    ]);
+
+    await job.run();
+
+    expect(notifications.notificarPeloSistema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // A data-alvo é o `stageMovedAt`: enquanto a oportunidade não se move, a
+        // chave não muda e o aviso não repete no dia seguinte.
+        dedupeKey: 'DEAL_STALE:d1:2026-08-01',
+        evento: {
+          tipo: 'DEAL_STALE',
+          entityId: 'd1',
+          titulo: 'Site institucional',
+          clienteNome: 'Acme',
+          estagio: 'Negociação',
+          dataAlvo: new Date('2026-08-01T12:00:00.000Z'),
+        },
+      }),
+    );
   });
 
   it('a janela dos gatilhos com antecedência é recalculada a partir de agora', async () => {

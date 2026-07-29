@@ -180,6 +180,7 @@ export const translateTrashType = make(TRASH_TYPE_LABELS);
 
 export const NOTIFICATION_TYPE_LABELS = {
   FOLLOW_UP_DUE: 'Follow-up de hoje',
+  DEAL_STALE: 'Oportunidade esfriando',
   PROPOSAL_EXPIRING: 'Proposta a expirar',
   PAYMENT_DUE: 'Cobrança a vencer',
   PAYMENT_OVERDUE: 'Cobrança vencida',

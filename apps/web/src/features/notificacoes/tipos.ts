@@ -33,6 +33,8 @@ export function alternarTipo(
  */
 export const DESCRICAO_DO_TIPO: Record<NotificationType, string> = {
   FOLLOW_UP_DUE: 'Follow-up da timeline agendado para hoje.',
+  DEAL_STALE:
+    'Oportunidade parada no mesmo estágio — o mesmo limite do selo "Esfriando" no quadro.',
   PROPOSAL_EXPIRING: 'Alguns dias antes de uma proposta expirar.',
   PAYMENT_DUE: 'Alguns dias antes de uma cobrança vencer.',
   PAYMENT_OVERDUE: 'Cobrança que passou do vencimento sem baixa.',

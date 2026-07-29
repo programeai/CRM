@@ -6,6 +6,11 @@ export function formatDealAmount(amount?: string | null): string {
   return currency.format(Number(amount));
 }
 
+/**
+ * Dias parados no estágio até o card contar como esfriando. **Espelha
+ * `DIAS_ESFRIANDO`** de `apps/api/src/modules/notifications/application/notifications-reminders.job.ts`,
+ * que é o limite do aviso `DEAL_STALE`: selo e notificação têm de concordar.
+ */
 const COOLING_DAYS = 7;
 
 /** Dias parados no estágio atual (desde `stageMovedAt`). */

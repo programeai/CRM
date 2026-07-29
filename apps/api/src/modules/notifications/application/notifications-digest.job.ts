@@ -26,6 +26,7 @@ const JANELA_HORAS = 24;
  */
 const TIPO_LABEL: Record<NotificationType, string> = {
   FOLLOW_UP_DUE: 'Follow-up de hoje',
+  DEAL_STALE: 'Oportunidade esfriando',
   PROPOSAL_EXPIRING: 'Proposta a expirar',
   PAYMENT_DUE: 'Cobrança a vencer',
   PAYMENT_OVERDUE: 'Cobrança vencida',
@@ -48,10 +49,11 @@ export class NotificationsDigestJob {
   ) {}
 
   /**
-   * Digest diário. 7h no fuso de São Paulo, não 7h UTC: os crons legados usam
-   * `EVERY_DAY_AT_3AM` sem `timeZone`, o que em UTC dá meia-noite BRT — um "resumo
-   * do dia" à meia-noite estaria errado na prática. Não há `TZ` no compose nem no
-   * Dockerfile, então o container é UTC e o `timeZone:` é obrigatório.
+   * Digest diário. 7h no fuso de São Paulo, não 7h UTC: um "resumo do dia" no
+   * horário errado estaria errado na prática. Não há `TZ` no compose nem no
+   * Dockerfile, então o container é UTC e o `timeZone:` é obrigatório — hoje
+   * declarado em todos os crons do projeto (os legados rodavam sem ele, três
+   * horas antes do que o nome anunciava, até o gatilho (f) pagar a dívida).
    *
    * Roda uma hora depois do `NotificationsRemindersJob` (6h BRT), para que o
    * resumo já inclua os lembretes de prazo emitidos hoje.

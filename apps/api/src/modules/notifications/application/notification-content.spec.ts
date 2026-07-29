@@ -126,6 +126,43 @@ describe('montarConteudo', () => {
     );
   });
 
+  it('DEAL_STALE diz o estágio e desde quando, e abre o quadro', () => {
+    const conteudo = montarConteudo(
+      {
+        tipo: 'DEAL_STALE',
+        entityId: 'd1',
+        titulo: 'Site institucional',
+        clienteNome: 'Acme',
+        estagio: 'Negociação',
+        dataAlvo: new Date('2026-08-01T12:00:00.000Z'),
+      },
+      { autorNome: null },
+    );
+
+    expect(conteudo.title).toBe('Oportunidade esfriando');
+    expect(conteudo.body).toBe(
+      'A oportunidade Site institucional (Acme) está parada em Negociação desde 01/08/2026.',
+    );
+    expect(conteudo.entity).toBe('DEAL');
+    expect(conteudo.link).toBe('/pipeline');
+  });
+
+  it('DEAL_STALE não escreve número de dias no corpo (a janela é do backend)', () => {
+    const conteudo = montarConteudo(
+      {
+        tipo: 'DEAL_STALE',
+        entityId: 'd1',
+        titulo: 'Site institucional',
+        clienteNome: 'Acme',
+        estagio: 'Negociação',
+        dataAlvo: new Date('2026-08-01T12:00:00.000Z'),
+      },
+      { autorNome: null },
+    );
+
+    expect(conteudo.body).not.toMatch(/\d+\s*dias/);
+  });
+
   it('título e corpo são texto puro em pt-BR — nunca tag HTML', () => {
     const conteudo = montarConteudo(
       {

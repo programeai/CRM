@@ -25,6 +25,17 @@ export type EventoDeNotificacao =
       dataAlvo: Date;
     }
   | {
+      tipo: 'DEAL_STALE';
+      entityId: string;
+      /** Título da oportunidade ("Site institucional"). */
+      titulo: string;
+      clienteNome: string;
+      /** Nome do estágio em que ela empacou — o funil é por owner. */
+      estagio: string;
+      /** `stageMovedAt`: desde quando está parada. */
+      dataAlvo: Date;
+    }
+  | {
       tipo: 'PROPOSAL_EXPIRING';
       entityId: string;
       /** Número da proposta ("PROP-2026-0042"). */
@@ -182,6 +193,28 @@ export function montarConteudo(
         body: `Follow-up com ${evento.clienteNome}: ${evento.descricao}.`,
         link: linkDoRegistro('ACTIVITY', evento.entityId, evento.clientId),
         data: { clienteNome: evento.clienteNome },
+      };
+
+    /*
+      O corpo diz ESTÁGIO e DESDE QUANDO, não "há N dias": a janela é constante
+      do backend (`DIAS_ESFRIANDO`) e um número escrito no texto envelheceria
+      calado se ela mudasse — o mesmo motivo pelo qual `DESCRICAO_DO_TIPO`, no
+      front, não cita dias. A data também é o que a pessoa reconhece: ela lembra
+      da reunião do dia 12, não de "há 9 dias".
+    */
+    case 'DEAL_STALE':
+      return {
+        tipo: 'DEAL_STALE',
+        entity: 'DEAL',
+        entityId: evento.entityId,
+        title: 'Oportunidade esfriando',
+        body: `A oportunidade ${evento.titulo} (${evento.clienteNome}) está parada em ${evento.estagio} desde ${data(evento.dataAlvo)}.`,
+        link: linkDoRegistro('DEAL', evento.entityId),
+        data: {
+          titulo: evento.titulo,
+          clienteNome: evento.clienteNome,
+          estagio: evento.estagio,
+        },
       };
 
     case 'PROPOSAL_EXPIRING':

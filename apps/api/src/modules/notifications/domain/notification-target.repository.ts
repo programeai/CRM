@@ -21,6 +21,7 @@ export const NOTIFICATION_TARGET_REPOSITORY = Symbol(
  */
 export const TIPOS_PADRAO: NotificationType[] = [
   'FOLLOW_UP_DUE',
+  'DEAL_STALE',
   'PROPOSAL_EXPIRING',
   'PAYMENT_DUE',
   'PAYMENT_OVERDUE',
