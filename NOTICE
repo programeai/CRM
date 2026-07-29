@@ -13,6 +13,14 @@ Atenção ao artigo 13 da AGPL: se você modificar este programa e permitir que
 usuários interajam com ele remotamente através de uma rede, você é obrigado a
 oferecer a esses usuários o código-fonte correspondente da sua versão modificada.
 
+Material de terceiros
+---------------------
+`.agents/skills/shadcn/` é uma cópia da skill de agente publicada pelo projeto
+shadcn/ui (https://github.com/shadcn-ui/ui), distribuída sob a licença MIT.
+Copyright (c) shadcn. Esses arquivos são material de apoio ao desenvolvimento,
+não fazem parte do programa distribuído e mantêm a licença original — não são
+cobertos pela AGPL-3.0 deste repositório.
+
 Marca (não licenciada pela AGPL)
 --------------------------------
 "ProgrameAi" e "ProgrameAi CRM", o logo e a identidade visual (teal #0E7C7B)
