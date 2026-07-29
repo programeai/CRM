@@ -73,7 +73,14 @@ export default function AppLayout() {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-0">
-          <div className="flex h-14 items-center overflow-hidden border-b px-4 whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+          <div className="flex h-14 items-center gap-2 overflow-hidden border-b px-4 whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+            {/* Símbolo da marca: fica sozinho quando a sidebar está recolhida. */}
+            <img
+              src="/favicon.svg"
+              alt=""
+              aria-hidden
+              className="size-6 shrink-0 select-none"
+            />
             {/* Lockup do produto: marca ProgrameAi + selo "CRM" (o CRM oficial). */}
             <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
               <Wordmark tone="light" className="text-lg" />
@@ -81,11 +88,6 @@ export default function AppLayout() {
                 CRM
               </span>
             </div>
-            {/* Recolhido (modo ícone): monograma com o mesmo tratamento do wordmark. */}
-            <span className="hidden font-sans text-lg font-extrabold tracking-[-0.03em] select-none group-data-[collapsible=icon]:inline">
-              <span className="text-foreground">P</span>
-              <span className="text-primary">a</span>
-            </span>
           </div>
         </SidebarHeader>
         <SidebarContent>
