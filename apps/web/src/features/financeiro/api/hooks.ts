@@ -4,6 +4,7 @@ import { contractsApi } from './contracts.api';
 import { paymentsApi } from './payments.api';
 import type {
   CreateContractBody,
+  DeriveContractBody,
   ListContractsParams,
   ListPaymentsParams,
   PaymentSummaryParams,
@@ -59,6 +60,39 @@ export function useContractAction(action: 'pause' | 'resume' | 'cancel') {
   return useMutation({
     mutationFn: (id: string) => contractsApi[action](id),
     onSuccess: () => invalidateFinance(qc),
+  });
+}
+
+/**
+ * Prévia da derivação. É `useMutation` e não `useQuery` porque a rota é POST
+ * (recebe o plano em edição) — mas não escreve nada, e o resultado é
+ * descartável: cada ajuste no plano refaz a chamada.
+ */
+export function usePreviewContractFromProposal(proposalId: string) {
+  return useMutation({
+    mutationFn: (body: DeriveContractBody) =>
+      contractsApi.previewFromProposal(proposalId, body),
+  });
+}
+
+export function useContractsByProposal(proposalId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.contracts.byProposal(proposalId),
+    queryFn: () => contractsApi.listByProposal(proposalId),
+    enabled: enabled && !!proposalId,
+  });
+}
+
+/** Gerar contrato mexe nas duas pontas: invalida `contracts` E `proposals`. */
+export function useCreateContractFromProposal(proposalId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DeriveContractBody) =>
+      contractsApi.createFromProposal(proposalId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.contracts.all });
+      void qc.invalidateQueries({ queryKey: queryKeys.proposals.all });
+    },
   });
 }
 

@@ -141,8 +141,6 @@ interface Props {
   contract?: Contract;
   defaultClientId?: string;
   defaultDescription?: string;
-  defaultProposalId?: string;
-  suggestedAmount?: number;
 }
 
 /**
@@ -156,8 +154,6 @@ export function ContratoFormDialog({
   contract,
   defaultClientId,
   defaultDescription,
-  defaultProposalId,
-  suggestedAmount,
 }: Props) {
   const isEdit = !!contract;
   const createContract = useCreateContract();
@@ -185,9 +181,6 @@ export function ContratoFormDialog({
   });
 
   const billingType = watch('billingType');
-  const installments = watch('installments');
-  const installmentAmount = watch('installmentAmount');
-  const downPayment = watch('downPayment');
 
   useEffect(() => {
     if (!open) return;
@@ -202,16 +195,6 @@ export function ContratoFormDialog({
           },
     );
   }, [open, contract, defaultClientId, defaultDescription, reset]);
-
-  // Conveniência de UI: sugere o valor da parcela a partir do total da proposta.
-  useEffect(() => {
-    if (!open || isEdit || !suggestedAmount || billingType !== 'INSTALLMENTS') return;
-    if (installmentAmount) return; // usuário já editou; não sobrescreve
-    const n = installments && installments > 0 ? installments : 1;
-    const remaining = Math.max(0, suggestedAmount - (downPayment ?? 0));
-    setValue('installmentAmount', Math.round((remaining / n) * 100) / 100);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isEdit, suggestedAmount, billingType, installments, downPayment]);
 
   const clientChoices = [
     ...createdClients,
@@ -242,7 +225,6 @@ export function ContratoFormDialog({
           clientId: v.clientId,
           description: v.description,
           billingType: v.billingType,
-          proposalId: defaultProposalId,
           ...(v.billingType === 'RECURRING'
             ? {
                 monthlyAmount: v.monthlyAmount,

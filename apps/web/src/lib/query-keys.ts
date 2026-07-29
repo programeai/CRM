@@ -54,6 +54,7 @@ export const queryKeys = {
     list: (params: object) => ['contracts', 'list', params] as const,
     detail: (id: string) => ['contracts', 'detail', id] as const,
     byClient: (clientId: string) => ['contracts', 'client', clientId] as const,
+    byProposal: (proposalId: string) => ['contracts', 'proposal', proposalId] as const,
   },
   payments: {
     all: ['payments'] as const,

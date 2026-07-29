@@ -214,6 +214,17 @@ export default function ContratoDetalhePage() {
           <span className="text-sm">{translateBillingType(contract.billingType)}</span>
         </div>
 
+        {contract.proposal && (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Proposta de origem</span>
+            <span className="text-sm">
+              <TableLink to={`/propostas/${contract.proposal.id}`}>
+                {contract.proposal.number} · v{contract.proposal.version}
+              </TableLink>
+            </span>
+          </div>
+        )}
+
         {contract.billingType === 'RECURRING' && (
           <>
             <div className="flex flex-col gap-0.5">

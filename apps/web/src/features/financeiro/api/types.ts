@@ -33,6 +33,7 @@ export interface Contract {
   client: { id: string; name: string };
   projectId?: string | null;
   proposalId?: string | null;
+  proposal?: { id: string; number: string; version: number } | null;
   description: string;
   billingType: BillingType;
   status: ContractStatus;
@@ -74,6 +75,55 @@ export interface UpdateContractBody {
   monthlyAmount?: number;
   billingDay?: number;
   endDate?: string;
+}
+
+export interface BillingPlanBody {
+  billingType: BillingType;
+  startOffsetDays: number;
+  billingDay?: number;
+  durationMonths?: number;
+  downPaymentPercent?: number;
+  downPaymentAmount?: number;
+  downPaymentOffsetDays?: number;
+  installments?: number;
+}
+
+export interface DeriveContractBody {
+  description?: string;
+  projectId?: string;
+  /** Ausente = usar o plano gravado na proposta. */
+  plano?: BillingPlanBody;
+}
+
+/** Cobrança que ainda não existe no banco — a prévia da agenda. */
+export interface ScheduledCharge {
+  description: string;
+  amount: number;
+  dueDate: string;
+}
+
+export interface ContractPreview {
+  proposta: {
+    id: string; number: string; version: number; status: string;
+    total: string; decidedAt: string | null;
+    clientId: string; client: { id: string; name: string };
+  };
+  plano: (BillingPlanBody & { [k: string]: unknown }) | null;
+  derivado: {
+    billingType: BillingType;
+    monthlyAmount: number | null;
+    billingDay: number | null;
+    startDate: string | null;
+    endDate: string | null;
+    downPayment: number | null;
+    installments: number | null;
+    installmentAmount: number | null;
+    cobrancas: ScheduledCharge[];
+  } | null;
+  descricaoSugerida: string;
+  contratosExistentes: {
+    id: string; description: string; status: ContractStatus; proposalId: string | null;
+  }[];
 }
 
 export interface UpdatePaymentBody {
