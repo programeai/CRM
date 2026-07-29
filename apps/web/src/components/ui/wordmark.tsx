@@ -1,7 +1,11 @@
 import { cn } from '@/lib/utils';
 
-/* Teal da marca clareado o suficiente para contrastar sobre painel escuro. */
-const TEAL_ON_DARK = '#54c9c4';
+/**
+ * Teal da marca clareado o suficiente para contrastar sobre painel escuro.
+ * É o acento de `tone="dark"` em toda a marca (wordmark, símbolo e selo) —
+ * importe daqui em vez de repetir o hex.
+ */
+export const TEAL_ON_DARK = '#54c9c4';
 
 /**
  * Wordmark tipográfico ProgrameAi: sans peso 800 com o "Ai" no acento da marca.
