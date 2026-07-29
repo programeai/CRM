@@ -224,7 +224,10 @@ funcionalidade nova.
 
 1. Leia o **[CONTRIBUTING.md](./CONTRIBUTING.md)** e o
    **[Código de Conduta](./.github/CODE_OF_CONDUCT.md)**.
-2. Abra uma **issue** antes de mudanças grandes, para alinhar a abordagem —
+2. Escolha uma **[issue aberta](https://github.com/programeai/CRM/issues)** — as
+   marcadas **[`good first issue`](https://github.com/programeai/CRM/labels/good%20first%20issue)**
+   têm escopo fechado, os arquivos a mexer e o critério de pronto. Comente nela
+   antes de começar. Para algo que não está listado, abra uma issue primeiro —
    temos [templates de bug e de melhoria](./.github/ISSUE_TEMPLATE).
 3. Faça um fork, crie sua branch e mande o PR. O
    [template de PR](./.github/PULL_REQUEST_TEMPLATE.md) traz o checklist.

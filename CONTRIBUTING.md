@@ -44,12 +44,12 @@ Regra completa em [CLAUDE.md](./CLAUDE.md). Código, tabelas e endpoints ficam e
 
 ## Padrão de commits
 
-Mensagens em pt-BR no formato `tipo(escopo) descrição no imperativo` — por exemplo:
+Mensagens em pt-BR no formato `tipo(escopo): descrição no imperativo` — por exemplo:
 
 ```
-feat(clientes) adiciona filtro por status
-fix(auth) corrige refresh de token expirado
-docs(readme) documenta autohospedagem
+feat(clientes): adiciona filtro por status
+fix(auth): corrige refresh de token expirado
+docs(readme): documenta autohospedagem
 ```
 
 Tipos comuns: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`.

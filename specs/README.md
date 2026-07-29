@@ -18,7 +18,8 @@ Se você quer entender ou usar o sistema, o mapa é este:
 | As regras de negócio do domínio | [SPEC.md](SPEC.md) |
 | O modelo de dados (tabelas, campos, enums) | [apps/api/prisma/schema.prisma](../apps/api/prisma/schema.prisma) |
 | As rotas da API | [apps/api/ENDPOINTS.md](../apps/api/ENDPOINTS.md) |
-| O que já foi entregue e o que vem depois | [ROADMAP.md](../ROADMAP.md) |
+| A intenção do produto: o porquê e a ordem das frentes | [ROADMAP.md](../ROADMAP.md) |
+| O trabalho aberto, pronto para pegar | [issues](https://github.com/programeai/CRM/issues) |
 | Convenções obrigatórias de arquitetura | `CLAUDE.md` na raiz, em `apps/api/` e em `apps/web/` |
 | Como usar o CRM no dia a dia | [docs/uso/](../docs/uso/) |
 
