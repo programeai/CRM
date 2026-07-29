@@ -7,7 +7,12 @@
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
 > **P2** evolução de produto · **P3** plataforma e governança.
 >
-> **Última atualização:** 2026-07-28
+> **Última atualização:** 2026-07-29
+>
+> **Quer contribuir?** Este documento é o *porquê* e a ordem; o trabalho recortado em pedaços de um
+> PR está nas [issues abertas](https://github.com/programeai/CRM/issues) — comece pelas
+> [`good first issue`](https://github.com/programeai/CRM/labels/good%20first%20issue). Ver
+> [CONTRIBUTING.md](CONTRIBUTING.md#por-onde-começar).
 
 ## Visão
 
@@ -402,6 +407,10 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 ## Fase 12 — Anexos e documentos ⬜ **P1** · 2º na trilha de produção
 
+> **Aberta em issues:** [epic #31](https://github.com/programeai/CRM/issues/31) — a fase está
+> recortada em sete issues, na ordem de execução. Comece pela
+> [#14 (storage)](https://github.com/programeai/CRM/issues/14).
+
 - [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
 - [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
 - [ ] Limites de tamanho/tipo, antivírus opcional, URLs assinadas de curta duração
@@ -501,6 +510,11 @@ Plano: [`specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md`](specs/plan
 > listagem já aplica.
 
 **Frente B — Busca global e duplicidade** ⬜ 3º na trilha
+
+> **Aberta em issues:** [epic #32](https://github.com/programeai/CRM/issues/32) —
+> [#21](https://github.com/programeai/CRM/issues/21) (endpoint),
+> [#22](https://github.com/programeai/CRM/issues/22) (interface) e
+> [#23](https://github.com/programeai/CRM/issues/23) (duplicidade).
 
 - [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
 - [ ] Detecção de duplicidade por documento/e-mail/telefone na criação

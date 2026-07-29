@@ -12,6 +12,30 @@ Siga o [Setup de desenvolvimento](./README.md#setup-de-desenvolvimento) do READM
 Em resumo: `pnpm install`, `docker compose up -d`, copie os `.env.example`,
 rode as migrations/seed e `pnpm dev`.
 
+## Por onde começar
+
+As issues abertas saem do [ROADMAP.md](./ROADMAP.md), já recortadas em pedaços
+que cabem num PR. Cada uma diz o contexto, os arquivos a mexer e o que precisa
+estar pronto — você não precisa ler o roadmap inteiro para pegar uma.
+
+- **[`good first issue`](https://github.com/programeai/CRM/labels/good%20first%20issue)**
+  — escopo fechado e caminho já decidido. Comece por aqui.
+- **[`help wanted`](https://github.com/programeai/CRM/labels/help%20wanted)** —
+  maiores, mas com o desenho definido na issue.
+- **[`epic`](https://github.com/programeai/CRM/labels/epic)** — issue
+  guarda-chuva de uma fase. Não se pega uma delas; ela dá a ordem das filhas.
+- **[`precisa de decisão`](https://github.com/programeai/CRM/labels/precisa%20de%20decis%C3%A3o)**
+  — tem escolha de desenho em aberto. Comente a sua proposta na issue antes de
+  codar, para não jogar trabalho fora.
+
+As labels `área:` dizem onde a mudança cai (`api`, `web`, `banco`, `infra`,
+`docs`) e as `esforço:` dão o tamanho (`P` de poucas horas a `G` de mais de três
+dias ou decisão de arquitetura).
+
+**Comente na issue antes de começar**, para ninguém duplicar trabalho — e
+pergunte ali mesmo se algo não estiver claro. Se quiser trabalhar em algo que não
+está listado, abra uma issue antes do PR.
+
 ## Idioma das mensagens
 
 **Toda mensagem visível ao usuário deve estar em português do Brasil (pt-BR).**
