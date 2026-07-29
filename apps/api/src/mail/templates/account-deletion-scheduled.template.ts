@@ -26,7 +26,7 @@ export function accountDeletionScheduledEmail({
 
   const content = [
     paragraph(
-      `O encerramento da sua conta no CRM ProgrameAi foi agendado para <strong style="font-weight:600;">${data}</strong>. Até lá, o CRM continua funcionando normalmente.`,
+      `O encerramento da sua conta no ProgrameAi CRM foi agendado para <strong style="font-weight:600;">${data}</strong>. Até lá, o CRM continua funcionando normalmente.`,
       { top: '14px' },
     ),
     button(caminho, 'Cancelar o encerramento'),
@@ -39,9 +39,9 @@ export function accountDeletionScheduledEmail({
   ].join('\n                    ');
 
   return {
-    subject: 'Encerramento da sua conta no CRM ProgrameAi agendado',
+    subject: 'Encerramento da sua conta no ProgrameAi CRM agendado',
     text: [
-      'Encerramento de conta agendado — CRM ProgrameAi',
+      'Encerramento de conta agendado — ProgrameAi CRM',
       '',
       `O encerramento da sua conta foi agendado para ${data}. Até lá, o CRM continua funcionando normalmente.`,
       'Para cancelar, entre na conta e acesse Configurações → Conta:',
@@ -51,7 +51,7 @@ export function accountDeletionScheduledEmail({
       'Passada a data, a exclusão é definitiva e não pode ser desfeita.',
       '',
       '—',
-      `E-mail automático do CRM ProgrameAi · ${appUrl}`,
+      `E-mail automático do ProgrameAi CRM · ${appUrl}`,
     ].join('\n'),
     html: renderLayout({
       preheader: `Encerramento agendado para ${data} — cancele a qualquer momento antes disso.`,

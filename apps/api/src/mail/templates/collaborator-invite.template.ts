@@ -56,9 +56,9 @@ export function collaboratorInviteEmail({
   ].join('\n                    ');
 
   return {
-    subject: `${ownerName} te convidou para o CRM ProgrameAi`,
+    subject: `${ownerName} te convidou para o ProgrameAi CRM`,
     text: [
-      'Convite para colaborar — CRM ProgrameAi',
+      'Convite para colaborar — ProgrameAi CRM',
       '',
       `Olá, ${name}!`,
       `${ownerName} te convidou para colaborar no CRM, com o papel "${roleName}".`,
@@ -69,7 +69,7 @@ export function collaboratorInviteEmail({
       'Não esperava este convite? Pode ignorar este e-mail — nenhum acesso é criado até que alguém abra o link e cadastre uma senha.',
       '',
       '—',
-      `E-mail automático do CRM ProgrameAi · ${appUrl}`,
+      `E-mail automático do ProgrameAi CRM · ${appUrl}`,
     ].join('\n'),
     html: renderLayout({
       preheader: `${ownerName} te convidou para colaborar no CRM (link válido por ${VALIDADE}).`,

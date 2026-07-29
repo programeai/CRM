@@ -191,7 +191,7 @@ export function renderLayout({
               ${wordmark('14px')}
               <p class="e-muted" style="margin:6px 0 0;font-family:${BRAND.fontMono};font-size:11px;line-height:1.6;color:${BRAND.muted};">// crm comercial para agências</p>
               <p class="e-muted" style="margin:14px 0 0;font-family:${BRAND.fontSans};font-size:12px;line-height:1.6;color:${BRAND.muted};">
-                E-mail automático do CRM ProgrameAi — não é necessário responder.<br>
+                E-mail automático do ProgrameAi CRM — não é necessário responder.<br>
                 <a href="${escapeHtml(appUrl)}" class="e-accent" style="color:${BRAND.primary};text-decoration:none;">${escapeHtml(host)}</a> · ProgrameAi © ${year}
               </p>
             </td>

@@ -14,7 +14,7 @@ describe('digestEmail', () => {
     });
 
     expect(email.subject).toBe(
-      'Seu resumo do dia: 3 novidades — CRM ProgrameAi',
+      'Seu resumo do dia: 3 novidades — ProgrameAi CRM',
     );
     expect(email.html).toContain('Cobrança a vencer (2)');
     expect(email.html).toContain('Demanda atrasada (1)');
@@ -28,7 +28,7 @@ describe('digestEmail', () => {
     });
 
     expect(email.subject).toBe(
-      'Seu resumo do dia: 1 novidade — CRM ProgrameAi',
+      'Seu resumo do dia: 1 novidade — ProgrameAi CRM',
     );
     expect(email.html).toContain('1 novidade');
   });

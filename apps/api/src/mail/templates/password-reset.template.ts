@@ -48,9 +48,9 @@ export function passwordResetEmail({ resetUrl, appUrl }: Input): EmailContent {
   ].join('\n                    ');
 
   return {
-    subject: 'Redefinição de senha no CRM ProgrameAi',
+    subject: 'Redefinição de senha no ProgrameAi CRM',
     text: [
-      'Redefinir sua senha — CRM ProgrameAi',
+      'Redefinir sua senha — ProgrameAi CRM',
       '',
       'Recebemos um pedido para redefinir a senha da sua conta no CRM.',
       `Abra o endereço abaixo para cadastrar uma nova senha (o link expira em ${VALIDADE}):`,
@@ -60,7 +60,7 @@ export function passwordResetEmail({ resetUrl, appUrl }: Input): EmailContent {
       'Não foi você? Pode ignorar este e-mail — sua senha continua a mesma.',
       '',
       '—',
-      `E-mail automático do CRM ProgrameAi · ${appUrl}`,
+      `E-mail automático do ProgrameAi CRM · ${appUrl}`,
     ].join('\n'),
     html: renderLayout({
       preheader: `Seu link para cadastrar uma nova senha (válido por ${VALIDADE}).`,

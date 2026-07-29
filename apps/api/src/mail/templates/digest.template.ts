@@ -78,16 +78,16 @@ export function digestEmail({ itens, appUrl }: Input): EmailContent {
   return {
     subject:
       itens.length === 1
-        ? 'Seu resumo do dia: 1 novidade — CRM ProgrameAi'
-        : `Seu resumo do dia: ${itens.length} novidades — CRM ProgrameAi`,
+        ? 'Seu resumo do dia: 1 novidade — ProgrameAi CRM'
+        : `Seu resumo do dia: ${itens.length} novidades — ProgrameAi CRM`,
     text: [
-      'Seu resumo do dia — CRM ProgrameAi',
+      'Seu resumo do dia — ProgrameAi CRM',
       ...blocosTexto,
       '',
       appUrl,
       '',
       '—',
-      `E-mail automático do CRM ProgrameAi · ${appUrl}`,
+      `E-mail automático do ProgrameAi CRM · ${appUrl}`,
     ].join('\n'),
     html: renderLayout({
       preheader:

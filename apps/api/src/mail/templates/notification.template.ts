@@ -31,7 +31,7 @@ export function notificationEmail({ conteudo, appUrl }: Input): EmailContent {
   ].join('\n                    ');
 
   return {
-    subject: `${conteudo.titulo} — CRM ProgrameAi`,
+    subject: `${conteudo.titulo} — ProgrameAi CRM`,
     text: [
       conteudo.titulo,
       '',
@@ -39,7 +39,7 @@ export function notificationEmail({ conteudo, appUrl }: Input): EmailContent {
       ...(url ? ['', url] : []),
       '',
       '—',
-      `E-mail automático do CRM ProgrameAi · ${appUrl}`,
+      `E-mail automático do ProgrameAi CRM · ${appUrl}`,
     ].join('\n'),
     html: renderLayout({
       preheader: conteudo.corpo,

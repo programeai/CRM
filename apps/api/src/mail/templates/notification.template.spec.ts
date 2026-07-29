@@ -13,7 +13,7 @@ describe('notificationEmail', () => {
       appUrl,
     });
 
-    expect(email.subject).toBe('Cobrança a vencer — CRM ProgrameAi');
+    expect(email.subject).toBe('Cobrança a vencer — ProgrameAi CRM');
     expect(email.text).toContain('Mensalidade 08/2026 de Acme');
     expect(email.text).toContain(`${appUrl}/financeiro`);
     expect(email.html).toContain(`href="${appUrl}/financeiro"`);

@@ -9,7 +9,7 @@ describe('passwordResetEmail', () => {
   it('monta assunto, texto e HTML com o link de redefinição', () => {
     const email = passwordResetEmail(input);
 
-    expect(email.subject).toBe('Redefinição de senha no CRM ProgrameAi');
+    expect(email.subject).toBe('Redefinição de senha no ProgrameAi CRM');
     expect(email.text).toContain(input.resetUrl);
     expect(email.html).toContain(`href="${input.resetUrl}"`);
     expect(email.html).toContain('Redefinir senha');

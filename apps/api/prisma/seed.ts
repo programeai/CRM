@@ -11,7 +11,7 @@ import {
 const prisma = new PrismaClient();
 
 /**
- * Seed de demonstração do CRM ProgrameAi.
+ * Seed de demonstração do ProgrameAi CRM.
  *
  * Cria dois usuários (admin/demo), os estágios do pipeline e um dataset
  * realista de uma agência — clientes, contatos, oportunidades, propostas,
