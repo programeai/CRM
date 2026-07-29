@@ -386,3 +386,128 @@ BEGIN
     RAISE EXCEPTION 'Há % usuário(s) com senha e sem "passwordSetAt" — o backfill de 20260817100000_password_set_at não percorreu as linhas existentes.', sem_marca;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Plano de cobrança na proposta (20260818100000_proposal_billing_plan)
+-- ---------------------------------------------------------------------------
+-- As colunas nascem nulas e a migration é aditiva, então não há backfill a
+-- conferir. O que se afirma aqui é (a) a unicidade que a derivação usa como
+-- idempotência e (b) a REGRA do conjunto, que nenhuma constraint expressa: o
+-- plano é coerente com o próprio regime, e a entrada é percentual OU valor,
+-- nunca os dois. Plano meio-preenchido não estoura nada — ele deriva um
+-- contrato errado, com parcela a menos ou entrada dobrada, e isso vira
+-- cobrança emitida para o cliente do owner.
+DO $$
+DECLARE
+  indices       INT;
+  duplicadas    INT;
+  incoerentes   INT;
+  entrada_dupla INT;
+BEGIN
+  -- O índice tem de existir E ser único. Migration futura que recrie a tabela
+  -- Contract derrubaria a idempotência sem nada reclamar: dois cliques no botão
+  -- "Gerar contrato" passariam a gerar dois contratos.
+  SELECT count(*) INTO indices
+    FROM pg_index i
+    JOIN pg_class c ON c.oid = i.indrelid
+   WHERE c.relname = 'Contract'
+     AND i.indisunique
+     AND i.indnatts = 1
+     AND (SELECT a.attname FROM pg_attribute a
+           WHERE a.attrelid = c.oid AND a.attnum = i.indkey[0]) = 'proposalId';
+  IF indices = 0 THEN
+    RAISE EXCEPTION 'Não há índice UNIQUE em "Contract"("proposalId") — a idempotência da derivação de contrato caiu.';
+  END IF;
+
+  SELECT count(*) INTO duplicadas FROM (
+    SELECT "proposalId" FROM "Contract"
+     WHERE "proposalId" IS NOT NULL
+     GROUP BY "proposalId" HAVING count(*) > 1
+  ) t;
+  IF duplicadas > 0 THEN
+    RAISE EXCEPTION 'Há % proposta(s) com mais de um contrato — o índice único não está valendo.', duplicadas;
+  END IF;
+
+  -- Coerência por regime. `billingType IS NULL` (histórico) exige o plano
+  -- INTEIRO nulo: meio plano sem regime não deriva nada e só confunde a tela.
+  SELECT count(*) INTO incoerentes FROM "Proposal"
+   WHERE ("billingType" IS NULL AND (
+            "startOffsetDays" IS NOT NULL OR "billingDay" IS NOT NULL
+            OR "durationMonths" IS NOT NULL OR "installments" IS NOT NULL
+            OR "downPaymentPercent" IS NOT NULL OR "downPaymentAmount" IS NOT NULL
+            OR "downPaymentOffsetDays" IS NOT NULL))
+      OR ("billingType" IS NOT NULL AND "startOffsetDays" IS NULL)
+      OR ("billingType" = 'RECURRING' AND ("billingDay" IS NULL
+            OR "installments" IS NOT NULL OR "downPaymentPercent" IS NOT NULL
+            OR "downPaymentAmount" IS NOT NULL OR "downPaymentOffsetDays" IS NOT NULL))
+      OR ("billingType" = 'INSTALLMENTS' AND ("installments" IS NULL
+            OR "billingDay" IS NOT NULL OR "durationMonths" IS NOT NULL))
+      OR ("billingType" = 'ONE_TIME' AND ("billingDay" IS NOT NULL
+            OR "durationMonths" IS NOT NULL OR "installments" IS NOT NULL
+            OR "downPaymentPercent" IS NOT NULL OR "downPaymentAmount" IS NOT NULL
+            OR "downPaymentOffsetDays" IS NOT NULL));
+  IF incoerentes > 0 THEN
+    RAISE EXCEPTION 'Há % proposta(s) com plano de cobrança incoerente com o próprio regime.', incoerentes;
+  END IF;
+
+  -- Entrada é percentual OU valor. Os dois preenchidos derivariam entradas
+  -- diferentes dependendo de qual o código olhar primeiro.
+  SELECT count(*) INTO entrada_dupla FROM "Proposal"
+   WHERE "downPaymentPercent" IS NOT NULL AND "downPaymentAmount" IS NOT NULL;
+  IF entrada_dupla > 0 THEN
+    RAISE EXCEPTION 'Há % proposta(s) com entrada em percentual E em valor — só um dos dois pode estar preenchido.', entrada_dupla;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Versionamento de proposta (20260819100000_proposal_number_version_unique)
+-- ---------------------------------------------------------------------------
+-- O que se afirma aqui é a FORMA da unicidade, não o dado: `number` identifica
+-- a cadeia e `version` distingue a linha, então o único válido é o PAR. O
+-- `UNIQUE (number)` sozinho — que era o estado do init — torna o versionamento
+-- impossível: `newVersion` grava o mesmo número com `version + 1` e leva P2002,
+-- e `POST /proposals/:id/new-version` responde 500 em TODA proposta. Foi assim
+-- por várias fases sem ninguém notar, porque o spec do service mocka o
+-- repositório e o portão não conferia a forma do índice. Confere agora.
+DO $$
+DECLARE
+  par        INT;
+  so_number  INT;
+  duplicadas INT;
+BEGIN
+  -- O índice do PAR tem de existir e ser único.
+  SELECT count(*) INTO par
+    FROM pg_index i
+    JOIN pg_class c ON c.oid = i.indrelid
+   WHERE c.relname = 'Proposal'
+     AND i.indisunique
+     AND i.indnatts = 2
+     AND (SELECT array_agg(a.attname::text ORDER BY a.attnum)
+            FROM pg_attribute a
+           WHERE a.attrelid = c.oid
+             AND a.attnum = ANY (i.indkey::int[])) @> ARRAY['number', 'version']::text[];
+  IF par = 0 THEN
+    RAISE EXCEPTION 'Não há índice UNIQUE em "Proposal"("number","version") — duas versões da mesma proposta deixariam de ser distinguíveis.';
+  END IF;
+
+  -- E o unique SÓ em `number` não pode ter voltado: ele é a causa raiz do 500
+  -- no versionamento, e uma migration futura que o recrie reprova aqui.
+  SELECT count(*) INTO so_number
+    FROM pg_index i
+    JOIN pg_class c ON c.oid = i.indrelid
+   WHERE c.relname = 'Proposal'
+     AND i.indisunique
+     AND i.indnatts = 1
+     AND (SELECT a.attname FROM pg_attribute a
+           WHERE a.attrelid = c.oid AND a.attnum = i.indkey[0]) = 'number';
+  IF so_number > 0 THEN
+    RAISE EXCEPTION 'Voltou a existir UNIQUE só em "Proposal"("number") — isso quebra o versionamento (newVersion responde 500).';
+  END IF;
+
+  SELECT count(*) INTO duplicadas FROM (
+    SELECT number, version FROM "Proposal" GROUP BY number, version HAVING count(*) > 1
+  ) t;
+  IF duplicadas > 0 THEN
+    RAISE EXCEPTION 'Há % par(es) (número, versão) repetidos — o índice único não está valendo.', duplicadas;
+  END IF;
+END $$;
