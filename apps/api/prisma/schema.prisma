@@ -479,6 +479,10 @@ model Deal {
   @@index([ownerId, archivedAt])
   @@index([lostReasonId])
   @@index([serviceTypeId])
+  // Gatilho DEAL_STALE: o cron varre cross-owner por `archivedAt IS NULL` +
+  // `stageMovedAt` antigo. Igualdade antes da faixa, no molde de
+  // Task.[dueDate, status] — sem ele a rotina diária seria seq scan em Deal.
+  @@index([archivedAt, stageMovedAt])
 }
 
 model Proposal {
@@ -903,8 +907,11 @@ enum NotificationChannelKind {
 /// `LEAD_RECEIVED` é o sétimo e vem da ingestão externa (`POST /leads/intake`):
 /// é o único emitido por quem não tem sessão, e o único cuja utilidade depende de
 /// chegar em MINUTOS — lead que espera o dono abrir o CRM já falou com outro.
+/// `DEAL_STALE` é o oitavo: o selo "Esfriando" do quadro existia só como pintura
+/// no card, e quem não abria o Pipeline nunca soube que o negócio parou.
 enum NotificationType {
   FOLLOW_UP_DUE
+  DEAL_STALE
   PROPOSAL_EXPIRING
   PAYMENT_DUE
   PAYMENT_OVERDUE
