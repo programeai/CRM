@@ -12,7 +12,7 @@ import type { CatalogosService } from '../../catalogos/application/catalogos.ser
 
 describe('ProposalsService', () => {
   let repo: jest.Mocked<ProposalRepository>;
-  let clients: { findOne: jest.Mock };
+  let clients: { findOne: jest.Mock; promoverParaAtivo: jest.Mock };
   let deals: { findOne: jest.Mock; move: jest.Mock; board: jest.Mock };
   let stages: { wonStage: jest.Mock };
   let audit: { registrar: jest.Mock };
@@ -31,7 +31,10 @@ describe('ProposalsService', () => {
       findVersionsByNumber: jest.fn(),
       expireOverdue: jest.fn(),
     };
-    clients = { findOne: jest.fn() };
+    clients = {
+      findOne: jest.fn(),
+      promoverParaAtivo: jest.fn().mockResolvedValue(undefined),
+    };
     deals = { findOne: jest.fn(), move: jest.fn(), board: jest.fn() };
     stages = { wonStage: jest.fn() };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
@@ -133,6 +136,39 @@ describe('ProposalsService', () => {
       stageId: 'won',
       position: 0,
     });
+  });
+
+  it('aceite promove o cliente a ativo mesmo SEM oportunidade vinculada', async () => {
+    // Sem `dealId` nada passa por `DealsService.move`, que é o outro ponto de
+    // promoção — é justamente o caso que o caminho do deal não cobre.
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      clientId: 'cli',
+      status: 'SENT',
+      dealId: null,
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'p1', status: 'ACCEPTED' } as never);
+
+    await service.accept('owner', 'p1');
+
+    expect(deals.move).not.toHaveBeenCalled();
+    expect(clients.promoverParaAtivo).toHaveBeenCalledWith('owner', 'cli');
+  });
+
+  it('recusar não promove o cliente', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      clientId: 'cli',
+      status: 'SENT',
+      dealId: null,
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'p1', status: 'REJECTED' } as never);
+
+    await service.reject('owner', 'p1');
+
+    expect(clients.promoverParaAtivo).not.toHaveBeenCalled();
   });
 
   it('envia de DRAFT setando sentAt; enviar de novo é transição inválida', async () => {

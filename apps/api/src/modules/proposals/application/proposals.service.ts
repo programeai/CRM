@@ -227,6 +227,10 @@ export class ProposalsService {
     });
     // Move o deal vinculado para o estágio "Ganhou" (isWon), se houver.
     if (proposal.dealId) await this.moveDealToWon(ownerId, proposal.dealId);
+    // Proposta aceita promove o cliente a ativo. Não é redundante com o caminho
+    // do deal: proposta SEM oportunidade (e workspace sem estágio isWon) não
+    // passa por `DealsService.move` nenhuma vez. Idempotente nos dois casos.
+    await this.clients.promoverParaAtivo(ownerId, proposal.clientId);
     // Um registro só: o movimento do deal é consequência do aceite, não uma
     // ação independente do usuário.
     await this.audit.registrar({

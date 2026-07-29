@@ -74,6 +74,70 @@ describe('ClientsService', () => {
     );
   });
 
+  describe('promoverParaAtivo', () => {
+    it('lead vira ativo e a mudança entra na trilha com antes/depois', async () => {
+      repo.findById.mockResolvedValue({
+        id: 'c1',
+        name: 'Acme',
+        status: 'LEAD',
+      } as never);
+      repo.update.mockResolvedValue({ id: 'c1' } as never);
+
+      await service.promoverParaAtivo('owner-1', 'c1');
+
+      expect(repo.update).toHaveBeenCalledWith('c1', 'owner-1', {
+        status: 'ACTIVE',
+      });
+      expect(audit.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity: 'CLIENT',
+          action: 'ATUALIZAR',
+          entityId: 'c1',
+          entityLabel: 'Acme',
+          antes: { status: 'LEAD' },
+          depois: { status: 'ACTIVE' },
+        }),
+      );
+    });
+
+    it('quem já é ativo não é reescrito — idempotente e sem trilha', async () => {
+      repo.findById.mockResolvedValue({
+        id: 'c1',
+        name: 'Acme',
+        status: 'ACTIVE',
+      } as never);
+
+      await service.promoverParaAtivo('owner-1', 'c1');
+
+      expect(repo.update).not.toHaveBeenCalled();
+      expect(audit.registrar).not.toHaveBeenCalled();
+    });
+
+    it.each(['INACTIVE', 'LOST'])(
+      'não reativa cliente %s — reativar é decisão de pessoa',
+      async (status) => {
+        repo.findById.mockResolvedValue({
+          id: 'c1',
+          name: 'Acme',
+          status,
+        } as never);
+
+        await service.promoverParaAtivo('owner-1', 'c1');
+
+        expect(repo.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it('cliente de outro owner não é promovido (404 do findOne)', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.promoverParaAtivo('owner-1', 'c1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
+
   it('cria cliente derivando ownerId e limpando o documento', async () => {
     repo.existsByDocument.mockResolvedValue(false);
     repo.create.mockResolvedValue({ id: 'c1' } as never);

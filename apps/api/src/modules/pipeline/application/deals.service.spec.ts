@@ -15,7 +15,7 @@ import type { CatalogosService } from '../../catalogos/application/catalogos.ser
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
-  let clients: { findOne: jest.Mock };
+  let clients: { findOne: jest.Mock; promoverParaAtivo: jest.Mock };
   let activities: { proximaPorDeal: jest.Mock };
   let stages: { findOne: jest.Mock; firstStage: jest.Mock };
   let projects: { createFromDeal: jest.Mock };
@@ -38,7 +38,10 @@ describe('DealsService', () => {
       archive: jest.fn(),
       restore: jest.fn(),
     };
-    clients = { findOne: jest.fn() };
+    clients = {
+      findOne: jest.fn(),
+      promoverParaAtivo: jest.fn().mockResolvedValue(undefined),
+    };
     activities = { proximaPorDeal: jest.fn().mockResolvedValue(new Map()) };
     stages = { findOne: jest.fn(), firstStage: jest.fn() };
     projects = { createFromDeal: jest.fn() };
@@ -234,6 +237,48 @@ describe('DealsService', () => {
       id: 'd1',
       stageId: 'won',
     });
+  });
+
+  it('ganhar promove o cliente a ativo, no mesmo gatilho do projeto', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 's1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({ id: 'won', isWon: true, isLost: false });
+    repo.move.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 'won',
+    } as never);
+
+    await service.move('owner', 'd1', { stageId: 'won', position: 0 });
+
+    expect(clients.promoverParaAtivo).toHaveBeenCalledWith('owner', 'cli');
+  });
+
+  it('perder NÃO mexe no status do cliente — ele pode ter outros negócios', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'd1',
+      clientId: 'cli',
+      stageId: 's1',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    stages.findOne.mockResolvedValue({
+      id: 'lost',
+      isWon: false,
+      isLost: true,
+    });
+    repo.move.mockResolvedValue({ id: 'd1', clientId: 'cli' } as never);
+
+    await service.move('owner', 'd1', {
+      stageId: 'lost',
+      position: 0,
+      lostReasonId: 'motivo-1',
+    });
+
+    expect(clients.promoverParaAtivo).not.toHaveBeenCalled();
   });
 
   it('valida o responsável antes de gravar', async () => {

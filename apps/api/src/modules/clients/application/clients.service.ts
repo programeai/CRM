@@ -196,6 +196,36 @@ export class ClientsService {
     return atualizado;
   }
 
+  /**
+   * Promove o cliente de `LEAD` para `ACTIVE` — fronteira pública do módulo para
+   * quem ganha o negócio (`DealsService.move` ao entrar em estágio `isWon` e
+   * `ProposalsService.accept`, que cobre a proposta sem oportunidade).
+   *
+   * Por que um método próprio, e não `update({ status: 'ACTIVE' })`: aqui a
+   * regra é do MÓDULO DE CLIENTES, não de quem chama — só promove quem ainda é
+   * lead, e nunca rebaixa. Cliente já `ACTIVE` não é reescrito (o `updatedAt`
+   * mentiria), e `INACTIVE`/`LOST` **não** são tocados: reativar quem foi
+   * marcado como perdido é decisão de pessoa, com contexto que o CRM não tem.
+   * Por isso é idempotente e silencioso — mover o card para dentro e para fora
+   * do ganho não gera duas linhas de trilha.
+   *
+   * Perder o negócio não tem simétrico de propósito: um deal perdido não faz o
+   * cliente virar `LOST` (ele pode ter outros três em aberto).
+   */
+  async promoverParaAtivo(ownerId: string, id: string): Promise<void> {
+    const client = await this.findOne(ownerId, id);
+    if (client.status !== 'LEAD') return;
+    await this.repo.update(id, ownerId, { status: 'ACTIVE' });
+    await this.audit.registrar({
+      entity: 'CLIENT',
+      entityId: id,
+      entityLabel: client.name,
+      action: 'ATUALIZAR',
+      antes: { status: 'LEAD' },
+      depois: { status: 'ACTIVE' },
+    });
+  }
+
   async archive(ownerId: string, id: string): Promise<ClientWithAssignee> {
     const client = await this.findOne(ownerId, id);
     const arquivado = await this.repo.archive(id, ownerId);

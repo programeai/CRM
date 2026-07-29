@@ -217,6 +217,10 @@ export class DealsService {
     // Criar-ao-ganhar: ao entrar num estágio isWon, semeia um Project (idempotente).
     if (targetStage.isWon && stageChanged) {
       await this.projects.createFromDeal(moved);
+      // E o cliente deixa de ser lead: quem fecha negócio é cliente ativo. Mesmo
+      // gatilho, porque é o mesmo fato — e idempotente do lado de lá, então
+      // mover para dentro e para fora do ganho não repete nada.
+      await this.clients.promoverParaAtivo(ownerId, moved.clientId);
     }
     return moved;
   }
