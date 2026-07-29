@@ -1,7 +1,7 @@
 {
   "name": "web",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

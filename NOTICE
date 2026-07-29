@@ -1,9 +1,21 @@
 ProgrameAi CRM
-Copyright 2026 ProgrameAi
+Copyright (C) 2026 ProgrameAi
 
-Este produto inclui software desenvolvido pela comunidade ProgrameAi.
+Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os
+termos da GNU Affero General Public License, versão 3, publicada pela Free
+Software Foundation. Ver LICENSE.
 
-"ProgrameAi" e "ProgrameAi CRM" são marcas do mantenedor do projeto.
-O uso da marca é regido pela seção "Marca (Trademark)" do README e NÃO é
-licenciado pela Apache License 2.0. Forks e versões derivadas devem adotar
-um nome e identidade visual próprios.
+Este programa é distribuído na esperança de ser útil, mas SEM NENHUMA GARANTIA;
+sem sequer a garantia implícita de COMERCIABILIDADE ou ADEQUAÇÃO A UM DETERMINADO
+FIM. Consulte a GNU Affero General Public License para mais detalhes.
+
+Atenção ao artigo 13 da AGPL: se você modificar este programa e permitir que
+usuários interajam com ele remotamente através de uma rede, você é obrigado a
+oferecer a esses usuários o código-fonte correspondente da sua versão modificada.
+
+Marca (não licenciada pela AGPL)
+--------------------------------
+"ProgrameAi" e "ProgrameAi CRM", o logo e a identidade visual (teal #0E7C7B)
+são marcas do mantenedor do projeto e NÃO são licenciados pela AGPL-3.0 — que
+cobre o código, não a marca. Forks e versões derivadas devem adotar nome e
+identidade visual próprios e não podem sugerir afiliação ou endosso oficial.
