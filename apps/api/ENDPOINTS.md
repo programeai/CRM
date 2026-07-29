@@ -1331,7 +1331,7 @@ Cada usuário tem N **destinos** (`UserNotificationTarget`), e o opt-in é uma m
 ### POST /notifications/targets
 - **Propósito:** Criar um destino de e-mail para o usuário logado. Nasce verificado (o endereço é do próprio usuário) e ativo.
 - **Auth:** Bearer (access token). Sem permissão específica.
-- **Body:** `{ label: string, email: string, types?: NotificationType[] }` (sem `types`, assina os seis tipos).
+- **Body:** `{ label: string, email: string, types?: NotificationType[] }` (sem `types`, assina o catálogo inteiro — `TIPOS_PADRAO` em `notifications/domain/notification-target.repository.ts`).
 - **Resposta:** `201 DestinoNaApi`.
 - **Erros:** `400` (validação — rótulo vazio, e-mail inválido, tipo fora do enum), `401`.
 - **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.createTarget`
@@ -1339,7 +1339,7 @@ Cada usuário tem N **destinos** (`UserNotificationTarget`), e o opt-in é uma m
 ### POST /notifications/targets/integrations
 - **Propósito:** Criar um destino de integração (`WEBHOOK`, `SLACK`, `DISCORD` ou `TELEGRAM`). Nasce **não verificado e inativo**: nenhuma entrega sai antes do ping de `POST /notifications/targets/:id/verify`.
 - **Auth:** Bearer (access token). Permissão: `notificacao:integrar` (só esta rota e a de verificação são gateadas — as demais da seção são livres, porque a caixa é do próprio usuário).
-- **Body:** `{ label: string, kind: 'WEBHOOK' | 'SLACK' | 'DISCORD' | 'TELEGRAM', url: string, types?: NotificationType[] }`. O `kind` declara o **formato do payload**, não o domínio de destino — nenhum deles exige um host específico. No `TELEGRAM` a `url` é o `sendMessage` da Bot API com o `chat_id` na query (`https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<ID>`), montada pelo front a partir dos dois campos que o usuário preenche; o adapter move o `chat_id` para o corpo JSON. Sem `types`, o destino nasce com os seis tipos.
+- **Body:** `{ label: string, kind: 'WEBHOOK' | 'SLACK' | 'DISCORD' | 'TELEGRAM', url: string, types?: NotificationType[] }`. O `kind` declara o **formato do payload**, não o domínio de destino — nenhum deles exige um host específico. No `TELEGRAM` a `url` é o `sendMessage` da Bot API com o `chat_id` na query (`https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<ID>`), montada pelo front a partir dos dois campos que o usuário preenche; o adapter move o `chat_id` para o corpo JSON. Sem `types`, o destino nasce com o catálogo inteiro (`TIPOS_PADRAO`).
 - **Resposta:** `201 DestinoNaApi` (com `verified: false`, `active: false` e `configResumo` = só o host).
 - **Erros:** `400` (validação de formato), `422 O endereço precisa usar HTTPS.` / `422 O endereço precisa usar a porta padrão do HTTPS (443).` / `422 Este endereço aponta para a rede interna e não pode ser usado.` (bloqueio de SSRF: loopback, link-local — inclusive `169.254.169.254` do metadata de cloud —, privada e CGNAT, em IPv4 e IPv6) / `422 Não foi possível resolver este endereço. Confira o domínio.`, `403 Você não tem permissão para integrar notificações.`, `401`.
 - **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.createIntegration`

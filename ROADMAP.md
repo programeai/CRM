@@ -337,8 +337,13 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 - [x] Preferências por usuário: matriz **tipo × destino** no Perfil, com N destinos por pessoa
 - [x] Gatilhos: follow-up agendado vencendo, proposta a expirar, cobrança a vencer e vencida,
       demanda atrasada, registro atribuído a você
+- [x] Gatilho **oportunidade esfriando** (29/07/2026): o indicador da Fase 2 era só visual, e quem não
+      abria o Pipeline nunca soube que o negócio parou. Mesmo limite do selo (7 dias), avisando uma vez
+      por parada — o `dedupeKey` carrega o `stageMovedAt`. Fecha a promessa de "alerta de oportunidade
+      esfriando" que o README já anunciava
 - [x] Digest diário por e-mail (resumo do dia, 7h BRT)
 - [x] Os crons existentes ([`FinanceBillingJob`](apps/api/src/modules/finance/application/finance-billing.job.ts), [`ProposalsExpirationJob`](apps/api/src/modules/proposals/application/proposals-expiration.job.ts)) passam a notificar, não só mudar status
+- [x] Todos os crons declaram `timeZone: 'America/Sao_Paulo'` (29/07/2026) — os legados rodavam 3h UTC, ou seja meia-noite BRT, três horas antes do que o nome anunciava
 - [x] Quatro canais plugáveis (`IN_APP`, `EMAIL`, `WEBHOOK`, `SLACK`) num registry — canal novo é 1 arquivo + 1 linha
 
 > **Por quê:** hoje o sistema só informa quem já está olhando a tela.

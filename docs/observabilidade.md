@@ -79,8 +79,8 @@ longo do tempo. Os que existem hoje:
 | `app.iniciada` / `app.falhou_ao_iniciar` | bootstrap (o segundo também vem do `entrypoint.sh`, antes do Nest existir) | `info` / `error` |
 | `app.migracao_falhou` | `prisma migrate deploy` falhou no start do container — a API não sobe até resolver | `error` |
 | `email.envio_falhou` / `email.smtp_desabilitado` | envio de e-mail | `error` / `warn` |
-| `financeiro.mensalidades_geradas` / `financeiro.cobrancas_vencidas` | rotina diária das 3h | `info` |
-| `propostas.expiradas` | rotina diária das 3h | `info` |
+| `financeiro.mensalidades_geradas` / `financeiro.cobrancas_vencidas` | rotina diária das 3h BRT | `info` |
+| `propostas.expiradas` | rotina diária das 3h BRT | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |
 | `catalogo.item_criado` / `catalogo.item_atualizado` / `catalogo.item_excluido` | manutenção dos catálogos do owner | `info` |
@@ -93,7 +93,7 @@ longo do tempo. Os que existem hoje:
 | `papel.criado` / `papel.atualizado` / `papel.excluido` | manutenção de papéis e permissões | `info` |
 | `sessao.revogada` | uma sessão encerrada pelo próprio usuário | `info` |
 | `sessao.substituida` | login novo derrubou a sessão anterior do mesmo dispositivo | `info` |
-| `sessoes.expurgadas` | rotina diária das 3h — apaga sessão vencida há mais de 30 dias | `info` |
+| `sessoes.expurgadas` | rotina diária das 3h BRT — apaga sessão vencida há mais de 30 dias | `info` |
 | `sessoes.revogadas` | encerramento em massa (outras sessões, desativação de colaborador) | `info` |
 | `auditoria.sem_contexto` | `AuditService.registrar` chamado fora de requisição autenticada (bug de instrumentação) | `warn` |
 | `auditoria.registro_falhou` | falha ao gravar trilha de ação do sistema (cron/webhook) — o lote continua | `error` |
@@ -118,7 +118,14 @@ longo do tempo. Os que existem hoje:
 | `conta.assinatura_marcada_para_nao_renovar` | rotina diária das 5h — `cancel_at_period_end` marcado no Stripe | `info` |
 | `conta.cancelamento_de_assinatura_falhou` | rotina diária das 5h — falha ao marcar `cancel_at_period_end`; tenta de novo amanhã | `error` |
 | `conta.expurgo_adiado` | rotina diária das 5h — falha ao cancelar a assinatura no Stripe; o owner é pulado sem apagar nada | `error` |
-| `conta.expurgada` | rotina diária das 5h — conta e workspace apagadas em definitivo; **`warn`** de propósito, é irreversível | `warn` |
+| `conta.expurgada` | rotina diária das 5h BRT — conta e workspace apagadas em definitivo; **`warn`** de propósito, é irreversível | `warn` |
+
+> **Todo horário de rotina nesta tabela é BRT.** O container roda em UTC (não há
+> `TZ` no compose nem no Dockerfile), então cada `@Cron` declara
+> `timeZone: 'America/Sao_Paulo'`. Até 29/07/2026 os crons legados não o
+> declaravam e rodavam três horas antes do que o nome anunciava — as rotinas
+> "das 3h" saíam à meia-noite BRT. Se você estiver caçando um evento pelo horário
+> em log antigo, é isso.
 
 > **Aposentado:** `lead.ingestao_desconfigurada` existia quando a ausência de
 > `LEAD_INTAKE_TOKEN` fechava a rota com 503. Desde a Fase 17-A a ingestão

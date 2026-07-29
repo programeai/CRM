@@ -102,9 +102,11 @@ Kanban de oportunidades comerciais, da captação ao fechamento.
 - Estágio atual, motivo da perda (obrigatório ao mover para "Perdeu")
 
 **Regras:**
-- Mover para "Ganhou" sugere criar um **Projeto** a partir da oportunidade.
+- Mover para "Ganhou" cria um **Projeto** a partir da oportunidade e promove o cliente de Lead a Ativo.
 - Drag & drop entre colunas; ordenação manual dentro da coluna.
-- Oportunidade parada há mais de X dias (config, default 7) ganha indicador visual de "esfriando".
+- Oportunidade parada há mais de 7 dias em estágio não terminal ganha indicador visual de "esfriando"
+  **e** notifica o responsável (uma vez por parada). O limite é constante nas duas pontas
+  (`DIAS_ESFRIANDO` na API, `COOLING_DAYS` no front); torná-lo configurável por owner segue pendente.
 
 ### 3.3 Propostas
 Documento comercial vinculado a um cliente (e opcionalmente a uma oportunidade).
