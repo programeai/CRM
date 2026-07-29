@@ -18,6 +18,7 @@ export class PrismaAccountRepository implements AccountRepository {
         name: true,
         email: true,
         passwordHash: true,
+        passwordSetAt: true,
         deletionRequestedAt: true,
         deletionScheduledFor: true,
       },

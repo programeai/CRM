@@ -41,8 +41,10 @@ export class PrismaAccountDumpRepository implements AccountDumpRepository {
         ownerId: true,
         role: { select: { name: true } },
         oauthAccounts: { select: { provider: true, createdAt: true } },
-        // `passwordHash` NUNCA entra no select — só o fato de existir.
-        passwordHash: true,
+        // O hash NUNCA entra no dump. E o que interessa ao titular não é sequer
+        // "existe hash" — desde a senha aleatória do OAuth isso é sempre `true`
+        // —, e sim se ELE escolheu uma senha. Daí `passwordSetAt` no lugar.
+        passwordSetAt: true,
       },
     });
     const dono = pessoas.find((p) => p.id === ownerId)!;
@@ -285,7 +287,7 @@ export class PrismaAccountDumpRepository implements AccountDumpRepository {
         nome: dono.name,
         email: dono.email,
         criadaEm: dono.createdAt,
-        temSenha: dono.passwordHash !== null,
+        temSenha: dono.passwordSetAt !== null,
         loginSocial: dono.oauthAccounts.map((c) => ({
           provedor: c.provider,
           vinculadoEm: c.createdAt,

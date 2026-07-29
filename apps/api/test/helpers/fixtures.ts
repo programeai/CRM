@@ -11,6 +11,7 @@ export async function criarOwner(email: string) {
       name: `Owner ${email}`,
       passwordHash: await argon2.hash(SENHA_PADRAO),
       acceptedAt: new Date(),
+      passwordSetAt: new Date(),
     },
   });
 }
@@ -27,6 +28,7 @@ export async function criarColaborador(
       name: `Colab ${email}`,
       passwordHash: await argon2.hash(SENHA_PADRAO),
       acceptedAt: new Date(),
+      passwordSetAt: new Date(),
       ownerId,
       roleId,
     },

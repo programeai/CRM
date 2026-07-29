@@ -108,11 +108,16 @@ export class AccountDeletionService {
 
   /**
    * Reautenticação (OWASP ASVS 3.7.1: transação sensível exige reconfirmação).
-   * Dois caminhos porque `passwordHash` é nullable: owner criado por OAuth não
-   * tem senha, e negar-lhe o direito de encerrar seria pior do que aceitar a
-   * confirmação por digitação do e-mail — que é o que GitHub e Notion fazem. A
-   * proteção real contra sequestro, nos dois casos, é a carência de 30 dias
-   * somada ao e-mail de aviso.
+   * Dois caminhos porque o owner criado por OAuth não sabe senha nenhuma (a
+   * dele é aleatória, gerada no cadastro), e negar-lhe o direito de encerrar
+   * seria pior do que aceitar a confirmação por digitação do e-mail — que é o
+   * que GitHub e Notion fazem. A proteção real contra sequestro, nos dois
+   * casos, é a carência de 30 dias somada ao e-mail de aviso.
+   *
+   * O ramo é escolhido por `passwordSetAt`, NUNCA por `passwordHash`: desde a
+   * senha aleatória do OAuth o hash existe sempre, e usá-lo aqui pediria ao
+   * titular uma senha que ele não tem como digitar — trancando-o para fora do
+   * encerramento da própria conta.
    *
    * `ForbiddenException`, nunca `UnauthorizedException`: um 401 em rota
    * autenticada dispara o refresh/logout do cliente HTTP, e uma senha errada no
@@ -122,7 +127,7 @@ export class AccountDeletionService {
     conta: ContaDoTitular,
     confirmacao: { password?: string; email?: string },
   ): Promise<void> {
-    if (conta.passwordHash) {
+    if (conta.passwordSetAt && conta.passwordHash) {
       if (
         !confirmacao.password ||
         !(await argon2.verify(conta.passwordHash, confirmacao.password))

@@ -8,6 +8,12 @@ export interface ContaDoTitular {
   name: string;
   email: string;
   passwordHash: string | null;
+  /**
+   * NULL = o titular nunca escolheu senha (conta de login social). O hash pode
+   * existir mesmo assim — é a senha aleatória do cadastro por OAuth —, então é
+   * este campo que decide se dá para pedir senha na reautenticação.
+   */
+  passwordSetAt: Date | null;
   deletionRequestedAt: Date | null;
   deletionScheduledFor: Date | null;
 }

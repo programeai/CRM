@@ -17,6 +17,7 @@ function conta(overrides: Partial<ContaDoTitular> = {}): ContaDoTitular {
     name: 'Fulana',
     email: 'fulana@teste.local',
     passwordHash: null,
+    passwordSetAt: null,
     deletionRequestedAt: null,
     deletionScheduledFor: null,
     ...overrides,
@@ -38,7 +39,9 @@ describe('AccountDeletionService', () => {
     repo = {
       findById: jest
         .fn()
-        .mockResolvedValue(conta({ passwordHash: hashDaSenha })),
+        .mockResolvedValue(
+          conta({ passwordHash: hashDaSenha, passwordSetAt: new Date() }),
+        ),
       agendarEncerramento: jest.fn().mockResolvedValue(undefined),
       cancelarEncerramento: jest.fn().mockResolvedValue(undefined),
     };
@@ -88,9 +91,15 @@ describe('AccountDeletionService', () => {
     });
   });
 
-  describe('solicitar — conta sem senha (OAuth)', () => {
+  describe('solicitar — conta de login social (senha aleatória)', () => {
     beforeEach(() => {
-      repo.findById.mockResolvedValue(conta({ passwordHash: null }));
+      // A conta criada por OAuth TEM hash — o da senha aleatória do cadastro —
+      // e mesmo assim confirma por e-mail, porque `passwordSetAt` é nulo. É o
+      // ramo que trancaria o titular para fora se alguém voltasse a decidir
+      // pelo `passwordHash`.
+      repo.findById.mockResolvedValue(
+        conta({ passwordHash: hashDaSenha, passwordSetAt: null }),
+      );
     });
 
     it('e-mail exato agenda o encerramento', async () => {
@@ -110,9 +119,11 @@ describe('AccountDeletionService', () => {
       expect(repo.agendarEncerramento).not.toHaveBeenCalled();
     });
 
-    it('senha enviada numa conta sem senha não substitui o e-mail', async () => {
+    it('senha enviada numa conta de login social não substitui o e-mail', async () => {
+      // `SENHA` casa com o hash guardado: se o ramo olhasse `passwordHash`,
+      // este encerramento passaria. Tem de reprovar mesmo assim.
       await expect(
-        service.solicitar(OWNER, { password: 'qualquer' }),
+        service.solicitar(OWNER, { password: SENHA }),
       ).rejects.toThrow(ForbiddenException);
       expect(repo.agendarEncerramento).not.toHaveBeenCalled();
     });
@@ -120,7 +131,11 @@ describe('AccountDeletionService', () => {
 
   it('segundo pedido com agendamento vigente responde 409', async () => {
     repo.findById.mockResolvedValue(
-      conta({ passwordHash: hashDaSenha, deletionScheduledFor: new Date() }),
+      conta({
+        passwordHash: hashDaSenha,
+        passwordSetAt: new Date(),
+        deletionScheduledFor: new Date(),
+      }),
     );
     await expect(service.solicitar(OWNER, { password: SENHA })).rejects.toThrow(
       ConflictException,
