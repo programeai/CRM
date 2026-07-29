@@ -30,7 +30,12 @@ export class AccountPurgeJob {
     private readonly audit: AuditService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_5AM, { name: 'conta-expurgo' })
+  // `timeZone` explícito (container em UTC): o expurgo é por data de corte, e a
+  // conta não deve morrer três horas antes do dia local que a carência prometeu.
+  @Cron(CronExpression.EVERY_DAY_AT_5AM, {
+    name: 'conta-expurgo',
+    timeZone: 'America/Sao_Paulo',
+  })
   async run(): Promise<void> {
     await this.marcarCancelamentos();
     await this.expurgarVencidos();

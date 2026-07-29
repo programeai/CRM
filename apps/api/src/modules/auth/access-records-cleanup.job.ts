@@ -15,7 +15,11 @@ export class AccessRecordsCleanupJob {
 
   constructor(private readonly registros: AccessRecordsService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_4AM, { name: 'acessos-faxina' })
+  // `timeZone` explícito (container em UTC) para o horário ser o que o nome diz.
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, {
+    name: 'acessos-faxina',
+    timeZone: 'America/Sao_Paulo',
+  })
   async run(): Promise<void> {
     const cutoff = new Date(
       Date.now() - RETENCAO_REGISTRO_DE_ACESSO_DIAS * 24 * 60 * 60 * 1000,

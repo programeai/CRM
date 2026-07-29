@@ -20,7 +20,11 @@ export class SessionsCleanupJob {
 
   constructor(private readonly sessions: SessionsService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'sessoes-faxina' })
+  // `timeZone` explícito (container em UTC) para o horário ser o que o nome diz.
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: 'sessoes-faxina',
+    timeZone: 'America/Sao_Paulo',
+  })
   async run(): Promise<void> {
     const cutoff = new Date(
       Date.now() - RETENCAO_SESSAO_VENCIDA_DIAS * 24 * 60 * 60 * 1000,

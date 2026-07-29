@@ -26,7 +26,20 @@ export class FinanceBillingJob {
     private readonly notifications: NotificationsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  /**
+   * Rotina financeira diária: gera a mensalidade do mês e vence o que passou do
+   * prazo.
+   *
+   * `timeZone` explícito porque o container roda em UTC (não há `TZ` no compose
+   * nem no Dockerfile): `EVERY_DAY_AT_3AM` sozinho é 3h UTC = meia-noite BRT, e
+   * uma rotina que decide vencimento POR DATA não deve rodar na virada do dia
+   * local — é a hora em que "hoje" é mais ambíguo. Agora roda 3h BRT, como o
+   * nome sempre anunciou.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: 'financeiro-cobrancas',
+    timeZone: 'America/Sao_Paulo',
+  })
   async run(): Promise<void> {
     const now = new Date();
     const generated = await this.generateMonthly(now);

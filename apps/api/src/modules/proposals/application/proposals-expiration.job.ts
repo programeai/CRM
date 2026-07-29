@@ -20,7 +20,16 @@ export class ProposalsExpirationJob {
     private readonly notifications: NotificationsService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  /**
+   * Expira a proposta cuja validade passou. `timeZone` explícito pela mesma razão
+   * do `FinanceBillingJob`: o container é UTC, e sem isto a proposta que vale
+   * "até hoje" expiraria à meia-noite BRT — o dia inteiro que o cliente ainda
+   * tinha para aceitar.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: 'propostas-expiracao',
+    timeZone: 'America/Sao_Paulo',
+  })
   async run(): Promise<void> {
     const expiradas = await this.repo.expireOverdue(new Date());
     for (const p of expiradas) {
