@@ -1,4 +1,6 @@
 import {
+  addDays,
+  aoDiaUtc,
   billingDatesInWindow,
   buildInstallmentSchedule,
   buildOneTimeSchedule,
@@ -42,6 +44,44 @@ describe('buildInstallmentSchedule', () => {
     });
     expect(charges).toHaveLength(2);
     expect(charges.reduce((sum, c) => sum + c.amount, 0)).toBe(500);
+  });
+
+  it('com lastInstallmentAmount, só a última parcela difere', () => {
+    const charges = buildInstallmentSchedule({
+      installments: 3,
+      installmentAmount: 100,
+      lastInstallmentAmount: 100.02,
+      firstInstallmentDueDate: new Date('2026-01-15'),
+    });
+    expect(charges.map((c) => c.amount)).toEqual([100, 100, 100.02]);
+  });
+
+  it('sem lastInstallmentAmount, todas as parcelas são iguais (retrocompatibilidade)', () => {
+    const charges = buildInstallmentSchedule({
+      installments: 3,
+      installmentAmount: 100,
+      firstInstallmentDueDate: new Date('2026-01-15'),
+    });
+    expect(charges.map((c) => c.amount)).toEqual([100, 100, 100]);
+  });
+});
+
+describe('addDays', () => {
+  it('soma dias em UTC atravessando virada de mês', () => {
+    const d = addDays(new Date('2026-01-30T00:00:00.000Z'), 3);
+    expect(d.toISOString()).toBe('2026-02-02T00:00:00.000Z');
+  });
+
+  it('soma dias em UTC atravessando virada de ano', () => {
+    const d = addDays(new Date('2026-12-30T00:00:00.000Z'), 5);
+    expect(d.toISOString()).toBe('2027-01-04T00:00:00.000Z');
+  });
+});
+
+describe('aoDiaUtc', () => {
+  it('zera a hora, mantendo o dia em UTC', () => {
+    const d = aoDiaUtc(new Date('2026-08-10T17:42:31.000Z'));
+    expect(d.toISOString()).toBe('2026-08-10T00:00:00.000Z');
   });
 });
 

@@ -20,6 +20,33 @@ export function addMonths(date: Date, n: number): Date {
 }
 
 /**
+ * Soma n dias em UTC. Os offsets do plano de cobrança são "dias após o
+ * aceite"; somar em hora local deslocaria o dia em fuso negativo, pela mesma
+ * razão documentada em `addMonths`.
+ */
+export function addDays(date: Date, n: number): Date {
+  const d = new Date(date);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d;
+}
+
+/**
+ * Trunca para meia-noite UTC.
+ *
+ * A âncora da derivação é `Proposal.decidedAt`, um instante COM hora (gravado
+ * por `new Date()` no aceite), enquanto todo vencimento do financeiro é
+ * meia-noite UTC (vem de string ISO "AAAA-MM-DD" no DTO). Sem truncar, a
+ * agenda derivada nasceria com a hora do clique dentro dela, e o
+ * `billingDatesInWindow` do cron compararia um cursor de meia-noite com um
+ * `startDate` das 14h32 — perdendo a primeira mensalidade do contrato.
+ */
+export function aoDiaUtc(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+/**
  * Agenda de INSTALLMENTS: Entrada (se downPayment > 0) + N parcelas iguais.
  * Vencimentos: entrada em downPaymentDueDate; parcela i em firstInstallmentDueDate + (i-1) meses.
  * Soma exata por construção (downPayment + installments × installmentAmount).
@@ -29,6 +56,14 @@ export function buildInstallmentSchedule(input: {
   downPaymentDueDate?: Date | null;
   installments: number;
   installmentAmount: number;
+  /**
+   * Valor da ÚLTIMA parcela quando ele difere das demais. Só a derivação usa:
+   * `(total − entrada) / N` quase nunca é redondo, e a sobra de centavos vai
+   * toda para a última — as N−1 primeiras ficam no valor redondo que a proposta
+   * anunciou. Ausente → todas iguais (caminho manual, em que o usuário digitou
+   * `installmentAmount` e a soma é o que ele quis).
+   */
+  lastInstallmentAmount?: number | null;
   firstInstallmentDueDate: Date;
 }): ScheduledCharge[] {
   const charges: ScheduledCharge[] = [];
@@ -40,9 +75,13 @@ export function buildInstallmentSchedule(input: {
     });
   }
   for (let i = 1; i <= input.installments; i++) {
+    const valor =
+      i === input.installments && input.lastInstallmentAmount != null
+        ? input.lastInstallmentAmount
+        : input.installmentAmount;
     charges.push({
       description: `Parcela ${i}/${input.installments}`,
-      amount: fromCents(toCents(input.installmentAmount)),
+      amount: fromCents(toCents(valor)),
       dueDate: addMonths(input.firstInstallmentDueDate, i - 1),
     });
   }
