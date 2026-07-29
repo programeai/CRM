@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Check } from 'lucide-react';
 import { BrandLockup } from '@/components/ui/brand-lockup';
 import { TEAL_ON_DARK } from '@/components/ui/wordmark';
+import { EMPRESA } from '@/lib/company';
 
 const PANEL_BG = '#0b1220';
 
@@ -249,8 +250,10 @@ export function AuthLayout({ title, description, children }: Props) {
           {children}
 
           {/* Documentos legais alcançáveis de qualquer tela de entrada — é por
-              aqui que o Google chega neles na verificação do login social. */}
-          <nav className="mt-10 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+              aqui que o Google chega neles na verificação do login social.
+              O link do código-fonte cumpre o artigo 13 da AGPL: quem usa esta
+              instância pela rede precisa alcançar o fonte da versão que roda. */}
+          <nav className="mt-10 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
             <Link to="/termos" className="hover:text-primary hover:underline">
               Termos de Uso
             </Link>
@@ -258,6 +261,15 @@ export function AuthLayout({ title, description, children }: Props) {
             <Link to="/privacidade" className="hover:text-primary hover:underline">
               Política de Privacidade
             </Link>
+            <span aria-hidden>·</span>
+            <a
+              href={EMPRESA.repositorio}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-primary hover:underline"
+            >
+              Código-fonte (AGPL)
+            </a>
           </nav>
         </div>
       </main>
