@@ -28,7 +28,8 @@ function SelectTrigger({
       )}
       {...props}
     >
-      <SelectPrimitive.Value placeholder={placeholder} />
+      {/* `truncate` impede que um rótulo longo estufe o gatilho — ele encurta com elipse. */}
+      <SelectPrimitive.Value className="truncate" placeholder={placeholder} />
       {children}
       <SelectPrimitive.Icon className="text-muted-foreground">
         <ChevronDownIcon />
