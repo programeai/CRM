@@ -20,6 +20,7 @@ import type { CreateProposalDto } from '../api/dto/create-proposal.dto';
 import type { UpdateProposalDto } from '../api/dto/update-proposal.dto';
 import type { ListProposalsQueryDto } from '../api/dto/list-proposals-query.dto';
 import { CatalogosService } from '../../catalogos/application/catalogos.service';
+import { assertPlanoCoerente, planoDoDto } from '../../../shared/billing-plan';
 
 // Transições manuais permitidas (EXPIRED só via cron; ACCEPTED/REJECTED/EXPIRED terminais).
 const ALLOWED_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
@@ -81,6 +82,9 @@ export class ProposalsService {
 
     const number = await this.generateNumber();
     const total = computeTotal(dto.items, dto.discount);
+    // `billingType` é obrigatório no DTO, então o plano sempre vem na criação.
+    const plano = planoDoDto(dto)!;
+    assertPlanoCoerente(plano);
 
     return this.repo.create({
       ownerId,
@@ -96,6 +100,7 @@ export class ProposalsService {
       validUntil: dto.validUntil ? new Date(dto.validUntil) : null,
       discount: dto.discount ?? null,
       total,
+      ...plano,
       items: {
         create: dto.items.map((it, order) => ({
           ownerId,
@@ -119,6 +124,11 @@ export class ProposalsService {
         'Apenas rascunhos podem ser editados. Crie uma nova versão.',
       );
     }
+    // Plano em bloco: se `billingType` veio, o plano inteiro vem do DTO; se não
+    // veio, o patch não toca em nenhuma coluna de plano (ver `planoDoDto`).
+    const plano = planoDoDto(dto);
+    if (plano) assertPlanoCoerente(plano);
+
     // Itens e total só recalculados se `items` vier no payload; senão, mantém.
     if (dto.items) {
       const total = computeTotal(dto.items, dto.discount);
@@ -140,6 +150,7 @@ export class ProposalsService {
             : {}),
           discount: dto.discount ?? null,
           total,
+          ...(plano ?? {}),
         },
         dto.items.map((it, order) => ({
           description: it.description,
@@ -163,6 +174,7 @@ export class ProposalsService {
       ...(dto.validUntil !== undefined
         ? { validUntil: dto.validUntil ? new Date(dto.validUntil) : null }
         : {}),
+      ...(plano ?? {}),
     });
   }
 
@@ -268,6 +280,16 @@ export class ProposalsService {
       validUntil: source.validUntil,
       discount: source.discount,
       total: source.total,
+      // O plano é parte da proposta clonada: sem estas linhas a versão nova
+      // nasce sem plano e não deriva contrato nenhum.
+      billingType: source.billingType,
+      startOffsetDays: source.startOffsetDays,
+      billingDay: source.billingDay,
+      durationMonths: source.durationMonths,
+      downPaymentPercent: source.downPaymentPercent,
+      downPaymentAmount: source.downPaymentAmount,
+      downPaymentOffsetDays: source.downPaymentOffsetDays,
+      installments: source.installments,
       items: {
         create: source.items.map((it) => ({
           ownerId,

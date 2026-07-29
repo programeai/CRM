@@ -60,6 +60,8 @@ describe('ProposalsService', () => {
       clientId: 'cli',
       serviceType: 'SOFTWARE',
       items: [{ description: 'A', quantity: 1, unitPrice: 100 }],
+      billingType: 'ONE_TIME',
+      startOffsetDays: 0,
     } as never);
     expect(clients.findOne).toHaveBeenCalledWith('owner', 'cli');
     const year = new Date().getFullYear();
@@ -70,6 +72,50 @@ describe('ProposalsService', () => {
         status: 'DRAFT',
       }),
     );
+  });
+
+  it('create persiste as 8 colunas do plano de cobrança', async () => {
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.maxSequenceForYear.mockResolvedValue(0);
+    repo.create.mockResolvedValue({ id: 'p1' } as never);
+    await service.create('owner', {
+      clientId: 'cli',
+      serviceType: 'SOFTWARE',
+      items: [{ description: 'A', quantity: 1, unitPrice: 100 }],
+      billingType: 'INSTALLMENTS',
+      startOffsetDays: 30,
+      installments: 8,
+      downPaymentPercent: 30,
+      downPaymentOffsetDays: 5,
+    } as never);
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        billingType: 'INSTALLMENTS',
+        startOffsetDays: 30,
+        billingDay: null,
+        durationMonths: null,
+        downPaymentPercent: 30,
+        downPaymentAmount: null,
+        downPaymentOffsetDays: 5,
+        installments: 8,
+      }),
+    );
+  });
+
+  it('create rejeita plano incoerente antes de tocar o repo', async () => {
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.maxSequenceForYear.mockResolvedValue(0);
+    await expect(
+      service.create('owner', {
+        clientId: 'cli',
+        serviceType: 'SOFTWARE',
+        items: [{ description: 'A', quantity: 1, unitPrice: 100 }],
+        billingType: 'RECURRING',
+        startOffsetDays: 0,
+        // sem billingDay: incoerente para RECURRING
+      } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.create).not.toHaveBeenCalled();
   });
 
   it('lança NotFoundException ao carregar proposta inexistente', async () => {
@@ -89,6 +135,39 @@ describe('ProposalsService', () => {
     await expect(
       service.update('owner', 'p1', { scope: 'x' }),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  it('update sem billingType não manda nenhuma coluna de plano ao repo', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      clientId: 'cli',
+      status: 'DRAFT',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    repo.update.mockResolvedValue({ id: 'p1' } as never);
+    await service.update('owner', 'p1', { scope: 'novo escopo' });
+    expect(repo.update).toHaveBeenCalledWith(
+      'p1',
+      expect.not.objectContaining({ billingType: expect.anything() }),
+    );
+  });
+
+  it('update com billingType e sem o obrigatório do regime lança 422', async () => {
+    repo.findById.mockResolvedValue({
+      id: 'p1',
+      clientId: 'cli',
+      status: 'DRAFT',
+    } as never);
+    clients.findOne.mockResolvedValue({ id: 'cli' });
+    await expect(
+      service.update('owner', 'p1', {
+        billingType: 'INSTALLMENTS',
+        startOffsetDays: 10,
+        // sem installments: incoerente para INSTALLMENTS
+      } as never),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    expect(repo.update).not.toHaveBeenCalled();
+    expect(repo.updateWithItems).not.toHaveBeenCalled();
   });
 
   it('bloqueia exclusão fora de DRAFT', async () => {
@@ -195,7 +274,7 @@ describe('ProposalsService', () => {
     );
   });
 
-  it('cria nova versão com mesmo number, version+1 e parentId', async () => {
+  it('cria nova versão com mesmo number, version+1, parentId e clona o plano campo a campo', async () => {
     repo.findById.mockResolvedValue({
       id: 'p1',
       clientId: 'cli',
@@ -210,6 +289,14 @@ describe('ProposalsService', () => {
       validUntil: null,
       discount: null,
       total: 100,
+      billingType: 'INSTALLMENTS',
+      startOffsetDays: 30,
+      billingDay: null,
+      durationMonths: null,
+      downPaymentPercent: 30,
+      downPaymentAmount: null,
+      downPaymentOffsetDays: 5,
+      installments: 8,
       items: [{ description: 'A', quantity: 1, unitPrice: 100, order: 0 }],
     } as never);
     clients.findOne.mockResolvedValue({ id: 'cli' });
@@ -225,6 +312,14 @@ describe('ProposalsService', () => {
         version: 2,
         parentId: 'p1',
         status: 'DRAFT',
+        billingType: 'INSTALLMENTS',
+        startOffsetDays: 30,
+        billingDay: null,
+        durationMonths: null,
+        downPaymentPercent: 30,
+        downPaymentAmount: null,
+        downPaymentOffsetDays: 5,
+        installments: 8,
       }),
     );
   });
