@@ -68,6 +68,7 @@ Uma feature não importa o interior de outra; reaproveitamento sobe para `compon
 
 - Tema claro/escuro via `next-themes` e a classe `.dark`; os tokens (cores, raios, fonte) estão centralizados em `src/index.css`.
 - A marca usa o **teal ProgrameAi** (`--primary`, `#0E7C7B`) como acento; fundos são neutros cinza-frio (claro) / navy (escuro). Não tinja fundos com a cor de marca; use-a só para acento, foco e seleção.
+- **A marca só é apresentada pelo `BrandLockup`** (`@/components/ui/brand-lockup`) — símbolo + wordmark ProgrameAi + selo "CRM", a forma do header da sidebar. Regra absoluta: toda tela que exibe a marca usa esse componente (`tone="dark"` sobre painel escuro), **nunca** o `Wordmark` solto, o símbolo sozinho nem o nome como texto cru. O par em HTML de e-mail é `brandLockup()` em `apps/api/src/mail/templates/layout.ts` e o símbolo raster vive em `public/marca/` — ao mexer no desenho, mexa também em `public/favicon.svg` e nesses PNGs.
 - **Cursor de ponteiro em tudo que é clicável.** Todo elemento interativo (botão, link, item de menu/select, aba, switch, etc.) deve usar `cursor: pointer`. Isso já é garantido globalmente por uma regra em `src/index.css` (`@layer base`) que cobre elementos nativos e os primitivos `@base-ui` (via `role`). **Não** adicione `cursor-default` a elementos clicáveis nem anule a regra; elementos desabilitados (`disabled`/`aria-disabled`/`data-disabled`) são excluídos automaticamente e mantêm o cursor padrão.
 
 ### Formulários — campo obrigatório
