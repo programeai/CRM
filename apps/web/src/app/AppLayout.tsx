@@ -23,7 +23,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Wordmark } from "@/components/ui/wordmark";
+import { BrandLockup } from "@/components/ui/brand-lockup";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,21 +73,9 @@ export default function AppLayout() {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-0">
-          <div className="flex h-14 items-center gap-2 overflow-hidden border-b px-4 whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-            {/* Símbolo da marca: fica sozinho quando a sidebar está recolhida. */}
-            <img
-              src="/favicon.svg"
-              alt=""
-              aria-hidden
-              className="size-6 shrink-0 select-none"
-            />
-            {/* Lockup do produto: marca ProgrameAi + selo "CRM" (o CRM oficial). */}
-            <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-              <Wordmark tone="light" className="text-lg" />
-              <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wider text-primary">
-                CRM
-              </span>
-            </div>
+          <div className="flex h-14 items-center overflow-hidden border-b px-4 whitespace-nowrap group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+            {/* Lockup oficial. Recolhida, a sidebar guarda só o símbolo. */}
+            <BrandLockup textClassName="group-data-[collapsible=icon]:hidden" />
           </div>
         </SidebarHeader>
         <SidebarContent>

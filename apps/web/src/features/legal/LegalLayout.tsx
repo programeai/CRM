@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { Wordmark } from '@/components/ui/wordmark';
+import { BrandLockup } from '@/components/ui/brand-lockup';
 import { ATUALIZADO_EM, EMPRESA } from './company';
 
 export type Secao = {
@@ -84,7 +84,7 @@ export function LegalLayout({
       <header className="sticky top-0 z-10 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <Link to="/login" aria-label={`Início do ${EMPRESA.produto}`}>
-            <Wordmark tone="light" className="text-lg" />
+            <BrandLockup />
           </Link>
           <Link
             to="/login"

@@ -1,10 +1,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Check } from 'lucide-react';
-import { Wordmark } from '@/components/ui/wordmark';
+import { BrandLockup } from '@/components/ui/brand-lockup';
+import { TEAL_ON_DARK } from '@/components/ui/wordmark';
 
-/* Teal da marca clareado o suficiente para contrastar sobre o painel escuro. */
-const TEAL_ON_DARK = '#54c9c4';
 const PANEL_BG = '#0b1220';
 
 const HIGHLIGHTS = [
@@ -134,7 +133,7 @@ function Showcase() {
              baixo (onde cada pixel decide se cabe) sem achatar em tela grande. */
           style={{ paddingBlock: 'clamp(2rem, 6vh, 4rem)' }}
         >
-          <Wordmark tone="dark" className="text-2xl" data-animate />
+          <BrandLockup tone="dark" size="lg" data-animate />
 
           <div className="max-w-md">
             <p
@@ -235,9 +234,9 @@ export function AuthLayout({ title, description, children }: Props) {
           conteúdo fique inalcançável quando ele passa da altura disponível. */}
       <main className="flex flex-col overflow-y-auto px-6 py-10 sm:px-10">
         <div data-animate className="mx-auto my-auto w-full max-w-sm">
-          {/* Wordmark compacto — aparece no mobile, onde o showcase fica oculto. */}
+          {/* Marca compacta — aparece no mobile, onde o showcase fica oculto. */}
           <div className="mb-8 lg:hidden">
-            <Wordmark tone="light" className="text-xl" />
+            <BrandLockup />
           </div>
 
           <header className="mb-6">
