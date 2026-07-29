@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { BrandLockup } from '@/components/ui/brand-lockup';
-import { ATUALIZADO_EM, EMPRESA } from './company';
+import { ATUALIZADO_EM, EMPRESA } from '@/lib/company';
 
 export type Secao = {
   /** Âncora da seção (`#id`), usada pelo índice. */

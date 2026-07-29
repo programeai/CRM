@@ -1,4 +1,4 @@
-import { DIAS_DE_TESTE, EMPRESA, PRECO_PLANO } from './company';
+import { DIAS_DE_TESTE, EMPRESA, PRECO_PLANO } from '@/lib/company';
 import { LegalLayout, type Secao } from './LegalLayout';
 import {
   Dado,

@@ -1,4 +1,4 @@
-import { EMPRESA } from './company';
+import { EMPRESA } from '@/lib/company';
 import { LegalLayout, type Secao } from './LegalLayout';
 import {
   Dado,

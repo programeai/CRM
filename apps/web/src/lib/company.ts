@@ -33,7 +33,7 @@ export const EMPRESA = {
 
   dominio: 'crm.programeai.com.br',
   url: 'https://crm.programeai.com.br',
-  repositorio: 'https://github.com/Edsonalencar/CRM',
+  repositorio: 'https://github.com/programeai/CRM',
 } as const;
 
 /** Data de vigência exibida nos dois documentos. Atualize a cada revisão. */
