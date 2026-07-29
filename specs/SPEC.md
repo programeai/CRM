@@ -15,11 +15,11 @@ medida**, **construção de sites** e **gestão de tráfego pago**.
 >
 > | Assunto | Fonte de verdade |
 > |---|---|
-> | Modelo de dados (tabelas, campos, enums, índices) | [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) |
-> | Rotas HTTP, contratos de request/response | [`apps/api/ENDPOINTS.md`](apps/api/ENDPOINTS.md) |
+> | Modelo de dados (tabelas, campos, enums, índices) | [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma) |
+> | Rotas HTTP, contratos de request/response | [`apps/api/ENDPOINTS.md`](../apps/api/ENDPOINTS.md) |
 > | Estrutura de pastas e convenções obrigatórias | `CLAUDE.md` na raiz, em `apps/api/` e em `apps/web/` |
-> | O que está entregue e o que falta | [`ROADMAP.md`](ROADMAP.md) |
-> | Como rodar, autohospedar e contribuir | [`README.md`](README.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+> | O que está entregue e o que falta | [`ROADMAP.md`](../ROADMAP.md) |
+> | Como rodar, autohospedar e contribuir | [`README.md`](../README.md), [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
 
 ---
 
@@ -66,7 +66,7 @@ Um CRM enxuto e centrado em três pilares:
 > convite, papéis com permissões granulares e isolamento por owner (ver
 > `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
 
-O backlog pós-MVP está organizado em fases priorizadas no [ROADMAP.md](ROADMAP.md) →
+O backlog pós-MVP está organizado em fases priorizadas no [ROADMAP.md](../ROADMAP.md) →
 "Evolução pós-MVP" (fases 7 a 19), que é a **fonte única** do que falta e do que já foi
 entregue. Não há resumo aqui de propósito: uma segunda lista de prioridades divergiria da
 primeira na primeira entrega.
@@ -214,7 +214,7 @@ Controle de **receitas** por contrato, cobrindo os três regimes de remuneraçã
 
 ## 4. Modelo de Dados
 
-O modelo de dados vive em [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) —
+O modelo de dados vive em [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma) —
 models, campos, enums, índices e as policies de RLS por `ownerId`. É a fonte de verdade, e por
 isso não há transcrição dele aqui: uma segunda cópia do schema envelhece a cada migration.
 
@@ -237,7 +237,7 @@ por si só:
 Base: `/api/v1`.
 
 A relação completa das rotas — com request, response, códigos de erro e regras de permissão de
-cada uma — vive em [`apps/api/ENDPOINTS.md`](apps/api/ENDPOINTS.md), atualizado no mesmo commit
+cada uma — vive em [`apps/api/ENDPOINTS.md`](../apps/api/ENDPOINTS.md), atualizado no mesmo commit
 da rota. Abaixo ficam apenas as convenções transversais, que mudam pouco e valem para qualquer
 rota nova.
 
@@ -264,8 +264,8 @@ rota nova.
 Monorepo pnpm com dois workspaces: `apps/api` (NestJS + Prisma) e `apps/web` (React + Vite).
 A árvore de pastas e as **convenções obrigatórias** de cada lado — fronteiras de módulo,
 organização por camada, o que pode importar o quê — estão nos `CLAUDE.md`: na raiz (visão
-geral), em [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) e em
-[`apps/web/CLAUDE.md`](apps/web/CLAUDE.md). São eles a fonte de verdade; a árvore que ficava
+geral), em [`apps/api/CLAUDE.md`](../apps/api/CLAUDE.md) e em
+[`apps/web/CLAUDE.md`](../apps/web/CLAUDE.md). São eles a fonte de verdade; a árvore que ficava
 desenhada aqui apontava para uma organização que o backend já não usa.
 
 ### 6.2 Backend
@@ -274,7 +274,7 @@ desenhada aqui apontava para uma organização que o backend já não usa.
 - **Auth**: JWT access token (15 min) + refresh token (7 dias, cookie HttpOnly), guard global com rota pública via decorator `@Public()`
 - Senha com **argon2**
 - Config via `@nestjs/config` + validação de `.env`
-- Log estruturado (uma linha JSON por evento), com `evento` estável em pt-BR — ver [`docs/observabilidade.md`](docs/observabilidade.md)
+- Log estruturado (uma linha JSON por evento), com `evento` estável em pt-BR — ver [`docs/observabilidade.md`](../docs/observabilidade.md)
 - Testes: unitários nos services de regra de negócio (transições de status, cálculo de total, versionamento, geração de parcelas e de mensalidades — incluindo idempotência do cron)
 
 ### 6.3 Frontend
@@ -291,8 +291,8 @@ desenhada aqui apontava para uma organização que o backend já não usa.
 - Migrations versionadas (`prisma migrate`)
 - Seed inicial: usuários de demonstração + funil padrão **por owner** (em produção o funil nasce na criação da conta)
 - CORS restrito ao domínio do front; rate limit no login (`@nestjs/throttler`)
-- Backup: `pg_dump` diário ([`scripts/backup-postgres.sh`](scripts/backup-postgres.sh))
-- Deploy: VPS com Docker — ver [`docs/deploy.md`](docs/deploy.md) e [`docs/autohospedagem.md`](docs/autohospedagem.md)
+- Backup: `pg_dump` diário ([`scripts/backup-postgres.sh`](../scripts/backup-postgres.sh))
+- Deploy: VPS com Docker — ver [`docs/deploy.md`](../docs/deploy.md) e [`docs/autohospedagem.md`](../docs/autohospedagem.md)
 
 ---
 
@@ -300,7 +300,7 @@ desenhada aqui apontava para uma organização que o backend já não usa.
 
 As fases 0 a 6 construíram o MVP descrito em §2.1 e estão concluídas. O estado de cada fase,
 o que veio depois do MVP (fases 7 a 19) e o que segue pendente vivem no
-[`ROADMAP.md`](ROADMAP.md), que é a **fonte única** — a tabela que ficava aqui repetia as sete
+[`ROADMAP.md`](../ROADMAP.md), que é a **fonte única** — a tabela que ficava aqui repetia as sete
 primeiras fases e não acompanhava as demais.
 
 O princípio que guiou o recorte, e que continua valendo para fases novas: **cada fase termina
@@ -312,7 +312,7 @@ com o sistema utilizável de ponta a ponta**, nunca com uma camada pronta e outr
 
 Decisões de arquitetura e de produto já fechadas. Uma decisão nova entra aqui quando atravessa
 módulos; as restritas a uma frente de trabalho ficam na seção *What We're NOT Doing* do plano
-correspondente em [`specs/plans/`](specs/plans/).
+correspondente em [`specs/plans/`](plans/).
 
 1. **ORM**: Prisma sobre PostgreSQL. `schema.prisma` é a fonte de verdade do modelo de dados.
 2. **UI kit**: Tailwind CSS v4 + shadcn/ui sobre `@base-ui/react` — Radix não deve ser reintroduzido.
@@ -323,4 +323,4 @@ correspondente em [`specs/plans/`](specs/plans/).
 6. **Financeiro — juros/multa por atraso**: fora de escopo — atraso é sinalizado, sem cálculo de encargos.
 7. **Financeiro — reajuste de mensalidade**: manual (editar o valor vale para as próximas
    cobranças); sem reajuste automático por índice.
-8. **Licença**: AGPL-3.0, com a marca fora da licença — ver [`NOTICE`](NOTICE) e [`CLA.md`](CLA.md).
+8. **Licença**: AGPL-3.0, com a marca fora da licença — ver [`NOTICE`](../NOTICE) e [`CLA.md`](../CLA.md).

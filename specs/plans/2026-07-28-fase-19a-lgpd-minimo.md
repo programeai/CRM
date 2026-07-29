@@ -2229,7 +2229,7 @@ desvios de conformidade encontrados no caminho (registro de acesso e rotação d
   assíncrona. A mitigação é medir: `conta.dados_exportados` traz `bytes` e `ms`. Se aparecer
   `P2028`/timeout em produção, o caminho é a geração pelo cron (que a Fase 3 já deixa de pé, com job
   e admin client prontos) — não é retrabalho, é continuação.
-- **O expurgo apaga `Payment` pago.** [SPEC.md:188](../../SPEC.md#L188) diz que cobrança paga não pode
+- **O expurgo apaga `Payment` pago.** [SPEC.md:188](../SPEC.md#L188) diz que cobrança paga não pode
   ser excluída, apenas estornada. A regra vale para a operação do dia a dia; encerrar a conta
   necessariamente apaga tudo, e é instrução do controlador que o operador deve executar. **Escreva
   essa exceção no comentário do repositório de expurgo**, senão a próxima leitura do SPEC a trata como

@@ -1,7 +1,7 @@
 # Roadmap — ProgrameAi CRM
 
 > Documento **vivo** e **fonte única** do que está entregue e do que falta: atualize o status e os
-> checkboxes a cada avanço. As regras de negócio de cada módulo estão em [SPEC.md](SPEC.md) §3.
+> checkboxes a cada avanço. As regras de negócio de cada módulo estão em [SPEC.md](specs/SPEC.md) §3.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada · ⏸️ adiada.
 > Fases recortadas trazem o número do recorte no status (ex.: `13-A`) — ver [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
@@ -119,7 +119,7 @@ Base técnica do projeto.
 
 ## Fase 1 — Clientes ✅
 
-CRUD de clientes e contatos, timeline de atividades e follow-ups. Ver [SPEC.md](SPEC.md) §3.1, §3.5, §5.
+CRUD de clientes e contatos, timeline de atividades e follow-ups. Ver [SPEC.md](specs/SPEC.md) §3.1, §3.5, §5.
 
 **Backend** (`apps/api/src/modules/`)
 - [x] Módulo `clients`: `GET/POST /clients`, `GET/PATCH /clients/:id`, `POST /clients/:id/archive` (soft delete via `archivedAt`; sem DELETE)
@@ -152,7 +152,7 @@ unicidade de documento. Ver [plano da Fase 1](specs/plans/2026-07-21-fase-1-clie
 
 ## Fase 2 — Pipeline ✅
 
-Kanban de oportunidades, da captação ao fechamento. Ver [SPEC.md](SPEC.md) §3.2.
+Kanban de oportunidades, da captação ao fechamento. Ver [SPEC.md](specs/SPEC.md) §3.2.
 
 **Backend** (`apps/api/src/modules/pipeline/`)
 - [x] Módulo `pipeline` (estágios + deals): `GET/POST /pipeline-stages`, `PATCH /pipeline-stages/reorder`, `PATCH/DELETE /pipeline-stages/:id`
@@ -178,7 +178,7 @@ para a Fase 4 (Demandas), quando o módulo de Projetos existir. Ver [plano da Fa
 
 ## Fase 3 — Propostas ✅
 
-Documento comercial com itens, versões e ciclo de status. Ver [SPEC.md](SPEC.md) §3.3.
+Documento comercial com itens, versões e ciclo de status. Ver [SPEC.md](specs/SPEC.md) §3.3.
 
 - [x] CRUD: `GET/POST /proposals`, `GET/PATCH /proposals/:id`
 - [x] Ações: `send`, `accept`, `reject`, `new-version`
@@ -192,7 +192,7 @@ Documento comercial com itens, versões e ciclo de status. Ver [SPEC.md](SPEC.md
 
 ## Fase 4 — Demandas ✅
 
-Organização do trabalho após a venda. Ver [SPEC.md](SPEC.md) §3.4.
+Organização do trabalho após a venda. Ver [SPEC.md](specs/SPEC.md) §3.4.
 
 - [x] Projetos: `GET/POST /projects`, `GET/PATCH /projects/:id`
 - [x] Tarefas: `GET/POST /tasks` (filtros), `GET/PATCH/DELETE /tasks/:id`, `PATCH /tasks/:id/move`
@@ -204,7 +204,7 @@ Organização do trabalho após a venda. Ver [SPEC.md](SPEC.md) §3.4.
 
 ## Fase 5 — Financeiro ✅
 
-Controle de receitas por contrato (3 regimes). Ver [SPEC.md](SPEC.md) §3.6. **Fase mais densa — testes de regra críticos.**
+Controle de receitas por contrato (3 regimes). Ver [SPEC.md](specs/SPEC.md) §3.6. **Fase mais densa — testes de regra críticos.**
 
 - [x] Contratos: `GET/POST /contracts`, `GET/PATCH /contracts/:id`, `pause`/`resume`/`cancel`
 - [x] Regimes: mensalidade (`RECURRING`), entrada + parcelas (`INSTALLMENTS`), à vista (`ONE_TIME`)
@@ -218,7 +218,7 @@ Controle de receitas por contrato (3 regimes). Ver [SPEC.md](SPEC.md) §3.6. **F
 
 ## Fase 6 — Dashboard ✅
 
-Métricas e polimento final. Ver [SPEC.md](SPEC.md) §3.7.
+Métricas e polimento final. Ver [SPEC.md](specs/SPEC.md) §3.7.
 
 **Backend** (`apps/api/src/modules/dashboard/`)
 - [x] `GET /dashboard/summary` + `GET /dashboard/finance` (só leitura; posse via `client.ownerId`)

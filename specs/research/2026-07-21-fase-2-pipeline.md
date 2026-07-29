@@ -14,7 +14,7 @@ status: complete
 Mapear o contexto para implementar a Fase 2 do CRM Solarz: estágios configuráveis
 (`PipelineStage`) e Kanban de oportunidades (`Deal`) com drag & drop, ordenação manual,
 motivo de perda obrigatório e indicador "esfriando". Ver [ROADMAP.md](../../ROADMAP.md) §Fase 2
-e [SPEC.md](../../SPEC.md) §3.2.
+e [SPEC.md](../SPEC.md) §3.2.
 
 ## Summary
 

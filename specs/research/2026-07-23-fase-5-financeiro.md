@@ -15,8 +15,8 @@ status: complete
 Implementar a Fase 5 do roadmap: **Financeiro** — controle de receitas por contrato nos três
 regimes (mensalidade `RECURRING`, entrada + parcelas `INSTALLMENTS`, à vista `ONE_TIME`), com
 geração de agenda de cobranças, baixa manual e estorno, cron diário (gerar mensalidade + marcar
-vencidos), e visões de agenda de recebimentos / contratos / inadimplência. Ver [SPEC.md §3.6](SPEC.md#L152-L185)
-e o [ROADMAP.md — Fase 5](ROADMAP.md#L130-L141).
+vencidos), e visões de agenda de recebimentos / contratos / inadimplência. Ver [SPEC.md §3.6](../SPEC.md)
+e o [ROADMAP.md — Fase 5](../../ROADMAP.md).
 
 ## Summary
 

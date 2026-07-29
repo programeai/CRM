@@ -393,7 +393,7 @@ Fonte: [ICO — Right to erasure](https://ico.org.uk/for-organisations/uk-gdpr-g
   regra, mas "nome, e-mail e telefone de cliente **podem** entrar num diff de `CLIENT`".
 - **Git:** `apps/web/src/features/legal/` tem **um único commit** (`bca3a89`), nunca revisado desde
   então. Nenhum commit de LGPD/privacidade/conta nos últimos 40.
-- **[SPEC.md:188](../../SPEC.md#L188)** — "Cobrança paga não pode ser excluída — apenas estornada".
+- **[SPEC.md:188](../SPEC.md#L188)** — "Cobrança paga não pode ser excluída — apenas estornada".
   Regra em tensão: a exclusão de conta necessariamente apaga `Payment`.
 
 ## Constraints & Considerations
@@ -572,4 +572,4 @@ Precisam de decisão humana antes do `/spec`:
 - [apps/web/src/features/legal/TermosPage.tsx:367-374](../../apps/web/src/features/legal/TermosPage.tsx#L367) — encerramento por e-mail (hoje)
 - [docs/observabilidade.md:176-178](../../docs/observabilidade.md#L176) — Loki retém 30 dias
 - [docs/deploy.md:206-216](../../docs/deploy.md#L206) — backup manual, sem rotação
-- [SPEC.md:188](../../SPEC.md#L188) — cobrança paga não pode ser excluída
+- [SPEC.md:188](../SPEC.md#L188) — cobrança paga não pode ser excluída

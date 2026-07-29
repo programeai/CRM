@@ -1,15 +1,21 @@
-# specs — registro histórico de decisões
+# specs — a especificação e o registro de decisões
 
-Esta pasta **não é documentação do produto**. É o registro de como cada parte do
-CRM foi pesquisada e planejada antes de ser implementada — o *porquê* das
-decisões, preservado em ordem cronológica.
+Esta pasta guarda duas coisas com status bem diferentes:
 
-Se você quer entender ou usar o sistema, comece por outro lugar:
+- **[SPEC.md](SPEC.md) — vigente e vinculante.** A especificação funcional do
+  domínio: o que cada módulo faz, quais transições são válidas, o que o sistema
+  recusa. É mantido atualizado e vale sobre qualquer plano.
+- **`research/` e `plans/` — registro histórico.** Como cada frente de trabalho foi
+  pesquisada e planejada antes de ser implementada — o *porquê* das decisões, em
+  ordem cronológica. São documentos datados, preservados como foram escritos; não
+  são documentação do produto.
+
+Se você quer entender ou usar o sistema, o mapa é este:
 
 | O que você procura | Onde está |
 | --- | --- |
 | Como rodar, autohospedar e contribuir | [README.md](../README.md) e [CONTRIBUTING.md](../CONTRIBUTING.md) |
-| As regras de negócio do domínio | [SPEC.md](../SPEC.md) |
+| As regras de negócio do domínio | [SPEC.md](SPEC.md) |
 | O modelo de dados (tabelas, campos, enums) | [apps/api/prisma/schema.prisma](../apps/api/prisma/schema.prisma) |
 | As rotas da API | [apps/api/ENDPOINTS.md](../apps/api/ENDPOINTS.md) |
 | O que já foi entregue e o que vem depois | [ROADMAP.md](../ROADMAP.md) |
@@ -26,7 +32,9 @@ Se você quer entender ou usar o sistema, comece por outro lugar:
 O fluxo é `research → plans → implementação`, um par de documentos por frente de
 trabalho, nomeados por data. O `ROADMAP.md` linka cada fase aos seus documentos.
 
-## Leia com estas ressalvas
+## Leia `research/` e `plans/` com estas ressalvas
+
+As ressalvas abaixo valem para os documentos históricos — **não** para o `SPEC.md`.
 
 - **São documentos datados e não são atualizados depois da implementação.** Descrevem
   o que se sabia e se pretendia *naquele momento*. Onde um plano divergir do código

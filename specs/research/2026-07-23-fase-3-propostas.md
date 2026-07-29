@@ -14,7 +14,7 @@ status: complete
 Mapear o contexto para implementar a Fase 3 do CRM Solarz: módulo de **Propostas** — documento
 comercial vinculado a um cliente (e opcionalmente a uma oportunidade), com **itens**, **cálculo de
 total no backend**, **ciclo de status** validado, **versionamento** (v2, v3…) e **expiração
-automática** por cron. Ver [ROADMAP.md](../../ROADMAP.md) §Fase 3 e [SPEC.md](../../SPEC.md) §3.3.
+automática** por cron. Ver [ROADMAP.md](../../ROADMAP.md) §Fase 3 e [SPEC.md](../SPEC.md) §3.3.
 
 ## Summary
 
@@ -289,16 +289,16 @@ backend; `clientes`/`pipeline` para frontend). O único componente sem precedent
 
 ## Historical Context
 
-- **SPEC.md §3.3** ([SPEC.md:101-124](../../SPEC.md#L101-L124)): estrutura (número sequencial, cliente,
+- **SPEC.md §3.3** ([SPEC.md:101-124](../SPEC.md#L101-L124)): estrutura (número sequencial, cliente,
   deal opcional, itens, desconto, condições/prazo/validade, escopo markdown); ciclo de status; regra
   "editar enviada gera nova versão, só a mais recente é editável"; "aceita sugere criar Projeto e move
   a oportunidade para Ganhou"; dashboard usa propostas p/ conversão.
-- **SPEC.md §5** ([SPEC.md:401](../../SPEC.md#L401)): endpoints previstos —
+- **SPEC.md §5** ([SPEC.md:401](../SPEC.md#L401)): endpoints previstos —
   `GET/POST /proposals` · `GET/PATCH /proposals/:id` · `POST /proposals/:id/send` · `/accept` ·
   `/reject` · `/new-version`.
-- **SPEC.md §5** ([SPEC.md:414-417](../../SPEC.md#L414-L417)): cron diário item 1 — "marca propostas
+- **SPEC.md §5** ([SPEC.md:414-417](../SPEC.md#L414-L417)): cron diário item 1 — "marca propostas
   vencidas como `EXPIRED`". Transições validadas no service → `422`.
-- **SPEC.md §4** ([SPEC.md:382-384](../../SPEC.md#L382-L384)): valores sempre `Decimal(12,2)`, nunca
+- **SPEC.md §4** ([SPEC.md:382-384](../SPEC.md#L382-L384)): valores sempre `Decimal(12,2)`, nunca
   float; `total` sempre recalculado no backend; índice `Proposal(clientId, status)` (já existe).
 - **ROADMAP.md §Fase 3** ([ROADMAP.md:104-114](../../ROADMAP.md#L104-L114)): 7 itens — CRUD; ações
   send/accept/reject/new-version; itens com total no backend; ciclo de status (422); versionamento
