@@ -1,0 +1,57 @@
+name: CLA
+
+# Pede a um contribuidor externo que aceite o CLA (ver CLA.md) no primeiro PR.
+# O aceite é registrado em signatures/cla.json no branch `cla-signatures`, então
+# quem já assinou nunca é perguntado de novo.
+#
+# Só roda em pull_request_target — o evento carrega o workflow da main, não o do
+# fork, o que impede um PR malicioso de reescrever a checagem que o julga.
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+# Um PR não precisa de duas verificações simultâneas; a última é a que vale.
+concurrency:
+  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    # No evento de comentário, só reage à frase de aceite — qualquer outro
+    # comentário no PR não deve acordar o bot.
+    if: >
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, 'Eu li o CLA e concordo'))
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Verificar assinatura do CLA
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          # Token do próprio Actions: escreve o comentário e o status no PR.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-document: https://github.com/programeai/CRM/blob/main/CLA.md
+          path-to-signatures: signatures/cla.json
+          branch: cla-signatures
+          # Frase exata que o CLA.md manda o contribuidor comentar.
+          custom-pr-sign-comment: "Eu li o CLA e concordo com os seus termos em nome de mim mesmo e das entidades que represento."
+          custom-notsigned-prcomment: |
+            Obrigado pelo PR! Antes do merge, precisamos do seu aceite ao
+            [Acordo de Licença de Contribuição (CLA)](https://github.com/programeai/CRM/blob/main/CLA.md).
+
+            Você **continua titular do seu código** — o CLA só permite ao
+            mantenedor relicenciar o projeto como um todo.
+
+            Para aceitar, comente exatamente:
+          custom-allsigned-prcomment: "CLA aceito por todos os contribuidores deste PR. Obrigado!"
+          # Bots não têm personalidade jurídica para assinar nada.
+          allowlist: dependabot[bot],github-actions[bot]
+          lock-pullrequest-aftermerge: false
