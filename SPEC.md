@@ -1,8 +1,25 @@
 # SPEC — ProgrameAi CRM
 
-Especificação de um CRM para gestão de clientes, propostas comerciais e demandas de um desenvolvedor Full Stack que vende **software sob medida**, **construção de sites** e **gestão de tráfego pago**.
+Especificação funcional de um CRM de agência: gestão de clientes, pipeline de vendas,
+propostas comerciais, projetos/demandas e financeiro, para quem vende **software sob
+medida**, **construção de sites** e **gestão de tráfego pago**.
 
-> **Status:** rascunho v1 — decisões marcadas com ⚠️ são premissas a validar.
+> **O que este documento é.** A referência das **regras de negócio** do domínio — o que
+> cada módulo faz, quais transições são válidas e o que o sistema recusa. As decisões de
+> produto registradas aqui são vinculantes: quando um plano de implementação divergir
+> delas, este documento vale.
+>
+> **O que ele não é.** Não é referência de schema, de rotas nem de estrutura de código.
+> Essas partes viviam aqui, ficaram defasadas e foram substituídas por ponteiros para as
+> fontes vivas:
+>
+> | Assunto | Fonte de verdade |
+> |---|---|
+> | Modelo de dados (tabelas, campos, enums, índices) | [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) |
+> | Rotas HTTP, contratos de request/response | [`apps/api/ENDPOINTS.md`](apps/api/ENDPOINTS.md) |
+> | Estrutura de pastas e convenções obrigatórias | `CLAUDE.md` na raiz, em `apps/api/` e em `apps/web/` |
+> | O que está entregue e o que falta | [`ROADMAP.md`](ROADMAP.md) |
+> | Como rodar, autohospedar e contribuir | [`README.md`](README.md), [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 
 ---
 
@@ -24,7 +41,7 @@ Um CRM enxuto e centrado em três pilares:
 | **Demandas** | Organização do trabalho contratado em quadros Kanban por projeto |
 | **Financeiro** | Contratos de mensalidade e projetos com entrada + parcelas; controle de recebimentos |
 
-### 1.3 Premissas ⚠️
+### 1.3 Premissas
 - **Multi-owner**: uma instância atende vários owners, isolados por `ownerId` (RLS no banco). Cada owner é dono dos seus dados e da sua assinatura, convida colaboradores e configura o próprio funil.
 - **Monorepo**: `apps/api` (NestJS) + `apps/web` (React) no mesmo repositório.
 - **Idioma**: interface 100% em PT-BR; código, tabelas e endpoints em inglês.
@@ -49,18 +66,10 @@ Um CRM enxuto e centrado em três pilares:
 > convite, papéis com permissões granulares e isolamento por owner (ver
 > `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
 
-O backlog pós-MVP deixou de ser uma lista solta: está organizado em fases priorizadas no
-[ROADMAP.md](ROADMAP.md) → "Evolução pós-MVP" (fases 7 a 19), que é a **fonte única** do que falta.
-Resumo do que está lá:
-
-- **P0** — funil de pipeline isolado por owner e responsável (`assigneeId`) nos registros; sessões
-  múltiplas, trilha de auditoria e lixeira
-- **P1** — PDF + link público de aceite + envio da proposta; notificações e lembretes; anexos;
-  serviços e campos customizados por owner (o enum `ServiceType` fechado é uma limitação de produto);
-  importação/exportação, busca global e duplicidade; relatórios e metas
-- **P2** — captação automática de lead, e-mail e WhatsApp registrados na timeline; despesas, cobrança
-  automática (Pix/boleto) e nota fiscal; agenda/calendário; automações e templates
-- **P3** — API pública com API key, webhooks de saída, 2FA e LGPD operacional
+O backlog pós-MVP está organizado em fases priorizadas no [ROADMAP.md](ROADMAP.md) →
+"Evolução pós-MVP" (fases 7 a 19), que é a **fonte única** do que falta e do que já foi
+entregue. Não há resumo aqui de propósito: uma segunda lista de prioridades divergiria da
+primeira na primeira entrega.
 
 ---
 
@@ -74,7 +83,7 @@ Cadastro de clientes **pessoa física ou jurídica**.
 - Tipo (`PF` / `PJ`), CPF/CNPJ (opcional, validado quando informado)
 - E-mail, telefone/WhatsApp, site
 - Endereço (opcional, campos simples)
-- Origem do lead (`indicação`, `tráfego pago`, `orgânico`, `prospecção ativa`, `outro`)
+- Origem do lead — item de catálogo **configurável pelo owner** (`LeadSourceCatalog`); a conta nasce com `indicação`, `tráfego pago`, `orgânico`, `prospecção ativa` e `outro`
 - Status (`lead`, `ativo`, `inativo`, `perdido`)
 - Tags livres (ex.: "e-commerce", "recorrente")
 - Observações (texto livre)
@@ -97,7 +106,7 @@ Kanban de oportunidades comerciais, da captação ao fechamento.
 6. Ganhou ✅ / Perdeu ❌ (estágios terminais)
 
 **Campos da oportunidade:**
-- Título, cliente vinculado, tipo de serviço (`software`, `site`, `tráfego pago`)
+- Título, cliente vinculado, tipo de serviço — item de catálogo **configurável pelo owner** (`ServiceCatalog`); a conta nasce com `software`, `site` e `tráfego pago`
 - Valor estimado (BRL), probabilidade (%), data prevista de fechamento
 - Estágio atual, motivo da perda (obrigatório ao mover para "Perdeu")
 
@@ -203,226 +212,34 @@ Controle de **receitas** por contrato, cobrindo os três regimes de remuneraçã
 
 ---
 
-## 4. Modelo de Dados (PostgreSQL + Prisma)
+## 4. Modelo de Dados
 
-```prisma
-model User {
-  id               String   @id @default(uuid())
-  name             String
-  email            String   @unique
-  passwordHash     String
-  refreshTokenHash String?                       // hash (argon2) do refresh token vigente; permite revogar/logout real
-  createdAt        DateTime @default(now())
-}
+O modelo de dados vive em [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) —
+models, campos, enums, índices e as policies de RLS por `ownerId`. É a fonte de verdade, e por
+isso não há transcrição dele aqui: uma segunda cópia do schema envelhece a cada migration.
 
-model Client {
-  id          String       @id @default(uuid())
-  ownerId     String                        // preparação p/ multiusuário
-  name        String
-  tradeName   String?
-  personType  PersonType   @default(COMPANY) // INDIVIDUAL | COMPANY
-  document    String?                       // CPF/CNPJ
-  email       String?
-  phone       String?
-  website     String?
-  source      LeadSource?                   // REFERRAL | PAID_TRAFFIC | ORGANIC | OUTBOUND | OTHER
-  status      ClientStatus @default(LEAD)   // LEAD | ACTIVE | INACTIVE | LOST
-  tags        String[]
-  notes       String?
-  archivedAt  DateTime?                     // soft delete
-  assigneeId  String?                       // responsável pelo registro (FK User, SetNull)
-  contacts    Contact[]
-  activities  Activity[]
-  deals       Deal[]
-  proposals   Proposal[]
-  projects    Project[]
-  contracts   Contract[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
+O que este documento acrescenta são os invariantes **de negócio** que o schema não expressa
+por si só:
 
-model Contact {
-  id        String  @id @default(uuid())
-  clientId  String
-  name      String
-  role      String?
-  email     String?
-  phone     String?
-  isPrimary Boolean @default(false)
-}
-
-model PipelineStage {
-  id        String  @id @default(uuid())
-  ownerId   String
-  name      String
-  order     Int
-  isWon     Boolean @default(false)
-  isLost    Boolean @default(false)
-  deals     Deal[]
-
-  @@unique([ownerId, name])
-}
-
-model Deal {
-  id            String      @id @default(uuid())
-  clientId      String
-  stageId       String
-  title         String
-  serviceType   ServiceType               // SOFTWARE | WEBSITE | PAID_TRAFFIC
-  amount        Decimal?    @db.Decimal(12, 2)
-  probability   Int?                      // 0–100
-  expectedClose DateTime?
-  lostReason    String?
-  position      Int                       // ordenação na coluna
-  stageMovedAt  DateTime    @default(now()) // p/ indicador "esfriando"
-  assigneeId    String?                   // responsável pelo registro (FK User, SetNull)
-  proposals     Proposal[]
-  activities    Activity[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
-model Proposal {
-  id           String         @id @default(uuid())
-  number       String         @unique      // PROP-2026-0042
-  version      Int            @default(1)
-  parentId     String?                     // versão anterior
-  clientId     String
-  dealId       String?
-  serviceType  ServiceType
-  status       ProposalStatus @default(DRAFT) // DRAFT | SENT | NEGOTIATING | ACCEPTED | REJECTED | EXPIRED
-  scope        String?                     // markdown
-  paymentTerms String?
-  deliveryTime String?
-  validUntil   DateTime?
-  discount     Decimal?       @db.Decimal(12, 2)
-  total        Decimal        @db.Decimal(12, 2) // calculado no backend
-  items        ProposalItem[]
-  sentAt       DateTime?
-  decidedAt    DateTime?                   // aceite/recusa
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-}
-
-model ProposalItem {
-  id          String  @id @default(uuid())
-  proposalId  String
-  description String
-  quantity    Decimal @db.Decimal(10, 2) @default(1)
-  unitPrice   Decimal @db.Decimal(12, 2)
-  order       Int
-}
-
-model Project {
-  id          String        @id @default(uuid())
-  clientId    String
-  proposalId  String?
-  name        String
-  serviceType ServiceType
-  status      ProjectStatus @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
-  startDate   DateTime?
-  dueDate     DateTime?
-  tasks       Task[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model Task {
-  id          String       @id @default(uuid())
-  projectId   String
-  title       String
-  description String?                      // markdown
-  status      TaskStatus   @default(BACKLOG) // BACKLOG | TODO | IN_PROGRESS | REVIEW | DONE
-  priority    TaskPriority @default(MEDIUM)  // LOW | MEDIUM | HIGH | URGENT
-  dueDate     DateTime?
-  position    Int
-  tags        String[]
-  checklist   Json?                        // [{ text, done }]
-  completedAt DateTime?
-  assigneeId  String?                      // responsável pelo registro (FK User, SetNull)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model Contract {
-  id             String         @id @default(uuid())
-  clientId       String
-  projectId      String?
-  proposalId     String?
-  description    String
-  billingType    BillingType    // RECURRING | INSTALLMENTS | ONE_TIME
-  status         ContractStatus @default(ACTIVE) // ACTIVE | PAUSED | FINISHED | CANCELED
-  // RECURRING
-  monthlyAmount  Decimal?       @db.Decimal(12, 2)
-  billingDay     Int?                            // 1–28
-  startDate      DateTime?
-  endDate        DateTime?                       // null = tempo indeterminado
-  // INSTALLMENTS
-  downPayment    Decimal?       @db.Decimal(12, 2)
-  installments   Int?                            // qtd de parcelas (sem contar entrada)
-  installmentAmount Decimal?    @db.Decimal(12, 2)
-  payments       Payment[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-}
-
-model Payment {
-  id          String        @id @default(uuid())
-  contractId  String
-  description String                          // "Entrada", "Parcela 3/8", "Mensalidade 07/2026"
-  amount      Decimal       @db.Decimal(12, 2)
-  dueDate     DateTime
-  status      PaymentStatus @default(PENDING) // PENDING | PAID | OVERDUE | CANCELED
-  paidAt      DateTime?
-  paidAmount  Decimal?      @db.Decimal(12, 2) // permite recebimento parcial/diferente
-  method      PaymentMethod?                   // PIX | TRANSFER | BOLETO | CARD | CASH
-  notes       String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model Activity {
-  id           String       @id @default(uuid())
-  clientId     String
-  dealId       String?
-  proposalId   String?
-  type         ActivityType // NOTE | CALL | MEETING | EMAIL | WHATSAPP | FOLLOW_UP
-  content      String
-  scheduledFor DateTime?    // follow-ups
-  completedAt  DateTime?
-  assigneeId   String?      // responsável pelo registro (FK User, SetNull)
-  createdAt    DateTime     @default(now())
-}
-```
-
-**Notas:**
-- Valores monetários sempre `Decimal(12,2)`, nunca float.
-- `total` da proposta é **sempre recalculado no backend** a partir dos itens + desconto.
-- Índices: `Deal(stageId, position)`, `Task(projectId, status, position)`, `Activity(clientId, createdAt)`, `Proposal(clientId, status)`, `Payment(contractId, status)`, `Payment(dueDate, status)`.
-- `billingDay` limitado a 1–28 para evitar ambiguidade em meses curtos.
-- `OVERDUE` é derivado por job diário, mas as consultas de dashboard também tratam `PENDING` com `dueDate < hoje` como atraso (evita janela entre cron e leitura).
+- Valores monetários sempre `Decimal(12,2)`, **nunca** float.
+- O `total` da proposta é **sempre recalculado no backend** a partir dos itens + desconto;
+  valor vindo do cliente é ignorado.
+- `billingDay` limitado a **1–28**, para não haver vencimento ambíguo em meses curtos.
+- `OVERDUE` é derivado por job diário, mas as consultas de dashboard também tratam
+  `PENDING` com `dueDate < hoje` como atraso — fecha a janela entre o cron e a leitura.
+- Isolamento por `ownerId` é imposto **no banco** (RLS, fail-closed) e não apenas na
+  aplicação; ver `apps/api/CLAUDE.md`.
 
 ---
 
 ## 5. API (NestJS — REST)
 
-Base: `/api/v1`. Todas as rotas autenticadas exceto `/auth/login`.
+Base: `/api/v1`.
 
-| Recurso | Endpoints |
-|---|---|
-| Auth | `POST /auth/login` · `GET /auth/me` · `POST /auth/refresh` |
-| Clients | `GET/POST /clients` (filtro `assigneeId`) · `GET/PATCH /clients/:id` · `POST /clients/:id/archive` |
-| Contacts | `GET/POST /clients/:id/contacts` · `PATCH/DELETE /contacts/:id` |
-| Stages | `GET/POST /pipeline-stages` · `PATCH /pipeline-stages/reorder` · `PATCH/DELETE /pipeline-stages/:id` (escopo: owner) |
-| Deals | `GET/POST /deals` (filtro `assigneeId`) · `GET/PATCH/DELETE /deals/:id` · `PATCH /deals/:id/move` (stage + position) |
-| Proposals | `GET/POST /proposals` · `GET/PATCH /proposals/:id` · `POST /proposals/:id/send` · `POST /proposals/:id/accept` · `POST /proposals/:id/reject` · `POST /proposals/:id/new-version` |
-| Projects | `GET/POST /projects` · `GET/PATCH /projects/:id` |
-| Tasks | `GET/POST /tasks` (filtros: project, status, priority, dueBefore, assigneeId) · `GET/PATCH/DELETE /tasks/:id` · `PATCH /tasks/:id/move` |
-| Activities | `GET/POST /activities` (filtro por client/deal/assigneeId) · `PATCH /activities/:id` · `POST /activities/:id/complete` |
-| Contracts | `GET/POST /contracts` (filtros: client, billingType, status) · `GET/PATCH /contracts/:id` · `POST /contracts/:id/pause` · `POST /contracts/:id/resume` · `POST /contracts/:id/cancel` |
-| Payments | `GET /payments` (filtros: month, status, clientId, contractId) · `PATCH /payments/:id` (valor/vencimento, só pendentes) · `POST /payments/:id/pay` (baixa) · `POST /payments/:id/revert` (estorno) · `POST /payments/:id/cancel` |
-| Dashboard | `GET /dashboard/summary` (query `onlyMine`) · `GET /dashboard/finance` |
-| Workspace | `GET /workspace/members` (owner + colaboradores ativos, p/ o seletor de responsável) |
+A relação completa das rotas — com request, response, códigos de erro e regras de permissão de
+cada uma — vive em [`apps/api/ENDPOINTS.md`](apps/api/ENDPOINTS.md), atualizado no mesmo commit
+da rota. Abaixo ficam apenas as convenções transversais, que mudam pouco e valem para qualquer
+rota nova.
 
 **Convenções:**
 - DTOs validados com `class-validator` + `ValidationPipe` global (`whitelist: true`).
@@ -443,45 +260,29 @@ Base: `/api/v1`. Todas as rotas autenticadas exceto `/auth/login`.
 ## 6. Arquitetura Técnica
 
 ### 6.1 Estrutura do repositório
-```
-CRM/
-├── apps/
-│   ├── api/                  # NestJS
-│   │   ├── src/
-│   │   │   ├── auth/
-│   │   │   ├── clients/
-│   │   │   ├── pipeline/     # stages + deals
-│   │   │   ├── proposals/
-│   │   │   ├── projects/     # projects + tasks
-│   │   │   ├── activities/
-│   │   │   ├── dashboard/
-│   │   │   └── prisma/       # PrismaService global
-│   │   └── prisma/schema.prisma
-│   └── web/                  # React + Vite + TS
-│       └── src/
-│           ├── app/          # router, providers, layout
-│           ├── features/     # clients, pipeline, proposals, projects, dashboard
-│           ├── components/   # UI compartilhada (shadcn/ui)
-│           ├── lib/          # api client (axios), utils, formatters
-│           └── types/        # tipos compartilhados da API
-├── docker-compose.yml        # PostgreSQL local
-└── package.json              # workspaces (npm/pnpm)
-```
+
+Monorepo pnpm com dois workspaces: `apps/api` (NestJS + Prisma) e `apps/web` (React + Vite).
+A árvore de pastas e as **convenções obrigatórias** de cada lado — fronteiras de módulo,
+organização por camada, o que pode importar o quê — estão nos `CLAUDE.md`: na raiz (visão
+geral), em [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) e em
+[`apps/web/CLAUDE.md`](apps/web/CLAUDE.md). São eles a fonte de verdade; a árvore que ficava
+desenhada aqui apontava para uma organização que o backend já não usa.
 
 ### 6.2 Backend
-- **NestJS 10+** com módulos por domínio (controller → service → Prisma)
-- **Prisma** como ORM ⚠️ (alternativa: TypeORM, se preferir)
-- **Auth**: JWT access token (15 min) + refresh token (7 dias), guard global com rota pública via decorator `@Public()`
+- **NestJS 11** com módulos por domínio (controller → service → repositório Prisma)
+- **Prisma 6** como ORM sobre PostgreSQL 16
+- **Auth**: JWT access token (15 min) + refresh token (7 dias, cookie HttpOnly), guard global com rota pública via decorator `@Public()`
 - Senha com **argon2**
 - Config via `@nestjs/config` + validação de `.env`
+- Log estruturado (uma linha JSON por evento), com `evento` estável em pt-BR — ver [`docs/observabilidade.md`](docs/observabilidade.md)
 - Testes: unitários nos services de regra de negócio (transições de status, cálculo de total, versionamento, geração de parcelas e de mensalidades — incluindo idempotência do cron)
 
 ### 6.3 Frontend
-- **React 18 + Vite + TypeScript** (strict)
-- **React Router** (rotas: `/login`, `/`, `/clientes`, `/clientes/:id`, `/pipeline`, `/propostas`, `/propostas/:id`, `/projetos/:id`, `/demandas`, `/financeiro` (agenda de recebimentos), `/financeiro/contratos`, `/financeiro/contratos/:id`)
+- **React 19 + Vite + TypeScript** (strict)
+- **React Router** para as rotas da aplicação
 - **TanStack Query** para dados de servidor (cache, invalidação, optimistic update no drag & drop)
 - **React Hook Form + Zod** para formulários
-- **Tailwind CSS + shadcn/ui** para UI ⚠️
+- **Tailwind CSS v4 + shadcn/ui** (sobre `@base-ui/react`) para UI
 - **dnd-kit** para os Kanbans (pipeline e demandas)
 - Axios com interceptor: injeta token e faz refresh automático em 401
 
@@ -490,32 +291,36 @@ CRM/
 - Migrations versionadas (`prisma migrate`)
 - Seed inicial: usuários de demonstração + funil padrão **por owner** (em produção o funil nasce na criação da conta)
 - CORS restrito ao domínio do front; rate limit no login (`@nestjs/throttler`)
-- Backup: `pg_dump` diário (script/cron no servidor)
-- Deploy alvo ⚠️: VPS com Docker (a definir)
+- Backup: `pg_dump` diário ([`scripts/backup-postgres.sh`](scripts/backup-postgres.sh))
+- Deploy: VPS com Docker — ver [`docs/deploy.md`](docs/deploy.md) e [`docs/autohospedagem.md`](docs/autohospedagem.md)
 
 ---
 
 ## 7. Roadmap de Implementação
 
-| Fase | Entrega | Conteúdo |
-|---|---|---|
-| **0** | Fundação | Monorepo, docker-compose, Nest + Prisma + migrations, Vite + Tailwind + shadcn, auth completo (login, guard, refresh), layout base com navegação |
-| **1** | Clientes | CRUD clientes + contatos, timeline de atividades, follow-ups |
-| **2** | Pipeline | Estágios configuráveis, Kanban de oportunidades com drag & drop |
-| **3** | Propostas | CRUD com itens, cálculo de total, ciclo de status, versionamento, expiração automática |
-| **4** | Demandas | Projetos, tarefas, Kanban por projeto, visão "Minhas demandas" |
-| **5** | Financeiro | Contratos (mensalidade, entrada + parcelas, à vista), geração de cobranças, agenda de recebimentos, baixa/estorno, crons de recorrência e atraso |
-| **6** | Dashboard | Métricas comerciais e financeiras (MRR, previsto × recebido, inadimplência), funil, próximas ações; polimento geral e seed de demonstração |
+As fases 0 a 6 construíram o MVP descrito em §2.1 e estão concluídas. O estado de cada fase,
+o que veio depois do MVP (fases 7 a 19) e o que segue pendente vivem no
+[`ROADMAP.md`](ROADMAP.md), que é a **fonte única** — a tabela que ficava aqui repetia as sete
+primeiras fases e não acompanhava as demais.
 
-Cada fase termina com o sistema **utilizável de ponta a ponta** — dá para começar a usar o CRM de verdade a partir da Fase 1.
+O princípio que guiou o recorte, e que continua valendo para fases novas: **cada fase termina
+com o sistema utilizável de ponta a ponta**, nunca com uma camada pronta e outra pela metade.
 
 ---
 
 ## 8. Decisões
 
-1. **ORM**: Prisma (assumido) ou TypeORM?  ⚠️
-2. **UI kit**: shadcn/ui + Tailwind (assumido) ou outra biblioteca (MUI, Ant)?  ⚠️
-3. **Gerenciador de pacotes/workspace**: pnpm workspaces (sugerido) ou npm?  ⚠️
-4. **Deploy**: VPS com Docker. ✅ decidido
-5. **Financeiro — juros/multa por atraso**: fora do MVP — atraso é só sinalizado, sem cálculo de encargos. ✅ decidido
-6. **Financeiro — reajuste de mensalidade**: manual (editar o valor da mensalidade vale para as próximas cobranças); sem reajuste automático (IPCA/percentual) no MVP. ✅ decidido
+Decisões de arquitetura e de produto já fechadas. Uma decisão nova entra aqui quando atravessa
+módulos; as restritas a uma frente de trabalho ficam na seção *What We're NOT Doing* do plano
+correspondente em [`specs/plans/`](specs/plans/).
+
+1. **ORM**: Prisma sobre PostgreSQL. `schema.prisma` é a fonte de verdade do modelo de dados.
+2. **UI kit**: Tailwind CSS v4 + shadcn/ui sobre `@base-ui/react` — Radix não deve ser reintroduzido.
+3. **Gerenciador de pacotes**: pnpm workspaces; comandos sempre da raiz, com `--filter`.
+4. **Deploy**: VPS com Docker.
+5. **Isolamento**: `ownerId` como eixo único, imposto por RLS no banco (fail-closed). Sem
+   entidade de organização/tenant separada e sem permissão por registro.
+6. **Financeiro — juros/multa por atraso**: fora de escopo — atraso é sinalizado, sem cálculo de encargos.
+7. **Financeiro — reajuste de mensalidade**: manual (editar o valor vale para as próximas
+   cobranças); sem reajuste automático por índice.
+8. **Licença**: AGPL-3.0, com a marca fora da licença — ver [`NOTICE`](NOTICE) e [`CLA.md`](CLA.md).

@@ -7,8 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- models: transcritos de SPEC.md §4, com os dois lados das relações
-//     (campo de relação + @relation + FK) exigidos pelo Prisma ---
+// --- models: este arquivo é a fonte de verdade do modelo de dados.
+//     As regras de negócio que os campos servem estão em SPEC.md §3;
+//     os invariantes transversais (Decimal(12,2), billingDay 1-28,
+//     derivação de OVERDUE) em SPEC.md §4 ---
 
 model User {
   id               String         @id @default(uuid())
@@ -735,7 +737,7 @@ model AuditLog {
   @@index([ownerId, actorId, createdAt])
 }
 
-// --- enums necessários (inferidos dos comentários do SPEC.md §4) ---
+// --- enums do domínio ---
 enum SubscriptionStatus {
   TRIALING
   ACTIVE

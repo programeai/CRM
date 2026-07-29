@@ -1,6 +1,7 @@
 # Roadmap — ProgrameAi CRM
 
-> Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
+> Documento **vivo** e **fonte única** do que está entregue e do que falta: atualize o status e os
+> checkboxes a cada avanço. As regras de negócio de cada módulo estão em [SPEC.md](SPEC.md) §3.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada · ⏸️ adiada.
 > Fases recortadas trazem o número do recorte no status (ex.: `13-A`) — ver [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).
 > Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·

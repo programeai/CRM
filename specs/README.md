@@ -9,7 +9,9 @@ Se você quer entender ou usar o sistema, comece por outro lugar:
 | O que você procura | Onde está |
 | --- | --- |
 | Como rodar, autohospedar e contribuir | [README.md](../README.md) e [CONTRIBUTING.md](../CONTRIBUTING.md) |
-| O modelo de domínio e as regras de negócio | [SPEC.md](../SPEC.md) |
+| As regras de negócio do domínio | [SPEC.md](../SPEC.md) |
+| O modelo de dados (tabelas, campos, enums) | [apps/api/prisma/schema.prisma](../apps/api/prisma/schema.prisma) |
+| As rotas da API | [apps/api/ENDPOINTS.md](../apps/api/ENDPOINTS.md) |
 | O que já foi entregue e o que vem depois | [ROADMAP.md](../ROADMAP.md) |
 | Convenções obrigatórias de arquitetura | `CLAUDE.md` na raiz, em `apps/api/` e em `apps/web/` |
 | Como usar o CRM no dia a dia | [docs/uso/](../docs/uso/) |
