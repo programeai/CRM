@@ -193,7 +193,12 @@ export default function PropostasListPage() {
                       {translateProposalStatus(proposal.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatMoney(proposal.total)}</TableCell>
+                  <TableCell>
+                    {formatMoney(proposal.total)}
+                    {proposal.billingType === 'RECURRING' && (
+                      <span className="text-muted-foreground"> /mês</span>
+                    )}
+                  </TableCell>
                   <TableCell>{formatDate(proposal.validUntil) || '—'}</TableCell>
                 </TableRow>
               ))

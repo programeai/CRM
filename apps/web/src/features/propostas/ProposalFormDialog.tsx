@@ -12,10 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchInput } from '@/components/ui/search-input';
 import { Spinner } from '@/components/ui/spinner';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger,
 } from '@/components/ui/select';
+import { MoneyInput } from '@/components/ui/money-input';
+import { BILLING_TYPE_LABELS, translateBillingType } from '@/lib/labels';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { ClientFormDialog } from '@/features/clientes/ClientFormDialog';
 import type { Client } from '@/features/clientes/api/types';
@@ -23,27 +25,58 @@ import { extractApiMessage } from './lib/api-error';
 import { useClientOptions, buildClientItems } from '@/lib/clients-lookup';
 import { useCreateProposal, useUpdateProposal } from './api/hooks';
 import { ItemsEditor } from './components/ItemsEditor';
-import type { Proposal, } from './api/types';
+import type { BillingType, Proposal, } from './api/types';
 import { CatalogSelect } from '@/features/catalogos/CatalogSelect';
 
-const schema = z.object({
-  clientId: z.string().uuid('Selecione um cliente.'),
-  serviceTypeId: z.string().uuid('Selecione o tipo de serviço.'),
-  items: z
-    .array(
-      z.object({
-        description: z.string().min(1, 'Descrição obrigatória.'),
-        quantity: z.number().min(0, 'Quantidade inválida.'),
-        unitPrice: z.number().min(0, 'Valor inválido.'),
-      }),
-    )
-    .min(1, 'Adicione ao menos um item.'),
-  discount: z.number().min(0).optional(),
-  scope: z.string().optional(),
-  paymentTerms: z.string().optional(),
-  deliveryTime: z.string().optional(),
-  validUntil: z.string().optional(),
-});
+const schema = z
+  .object({
+    clientId: z.string().uuid('Selecione um cliente.'),
+    serviceTypeId: z.string().uuid('Selecione o tipo de serviço.'),
+    items: z
+      .array(
+        z.object({
+          description: z.string().min(1, 'Descrição obrigatória.'),
+          quantity: z.number().min(0, 'Quantidade inválida.'),
+          unitPrice: z.number().min(0, 'Valor inválido.'),
+        }),
+      )
+      .min(1, 'Adicione ao menos um item.'),
+    discount: z.number().min(0).optional(),
+    scope: z.string().optional(),
+    paymentTerms: z.string().optional(),
+    deliveryTime: z.string().optional(),
+    validUntil: z.string().optional(),
+    // Plano de cobrança. `billingType` e `startOffsetDays` sem `.optional()`
+    // → asterisco obrigatório na label (regra de apps/web/CLAUDE.md).
+    billingType: z.enum(['RECURRING', 'INSTALLMENTS', 'ONE_TIME']),
+    startOffsetDays: z.number().min(0, 'O prazo não pode ser negativo.').max(365),
+    billingDay: z.number().optional(),
+    durationMonths: z.number().optional(),
+    /** Como a entrada é expressa — é UI, não vai no body. */
+    tipoDeEntrada: z.enum(['NENHUMA', 'PERCENTUAL', 'VALOR']),
+    downPaymentPercent: z.number().optional(),
+    downPaymentAmount: z.number().optional(),
+    downPaymentOffsetDays: z.number().optional(),
+    installments: z.number().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.billingType === 'RECURRING') {
+      if (!v.billingDay || v.billingDay < 1 || v.billingDay > 28) {
+        ctx.addIssue({ code: 'custom', path: ['billingDay'], message: 'Dia de vencimento entre 1 e 28.' });
+      }
+    }
+    if (v.billingType === 'INSTALLMENTS') {
+      if (!v.installments || v.installments < 1) {
+        ctx.addIssue({ code: 'custom', path: ['installments'], message: 'Informe a quantidade de parcelas.' });
+      }
+      if (v.tipoDeEntrada === 'PERCENTUAL' && !v.downPaymentPercent) {
+        ctx.addIssue({ code: 'custom', path: ['downPaymentPercent'], message: 'Informe o percentual da entrada.' });
+      }
+      if (v.tipoDeEntrada === 'VALOR' && !v.downPaymentAmount) {
+        ctx.addIssue({ code: 'custom', path: ['downPaymentAmount'], message: 'Informe o valor da entrada.' });
+      }
+    }
+  });
 export type ProposalFormValues = z.infer<typeof schema>;
 type Values = ProposalFormValues;
 
@@ -56,6 +89,9 @@ const EMPTY: Values = {
   paymentTerms: '',
   deliveryTime: '',
   validUntil: '',
+  billingType: 'ONE_TIME',
+  startOffsetDays: 0,
+  tipoDeEntrada: 'NENHUMA',
 };
 
 function toValues(proposal: Proposal): Values {
@@ -72,6 +108,18 @@ function toValues(proposal: Proposal): Values {
     paymentTerms: proposal.paymentTerms ?? '',
     deliveryTime: proposal.deliveryTime ?? '',
     validUntil: proposal.validUntil?.slice(0, 10) ?? '',
+    billingType: proposal.billingType ?? 'ONE_TIME',
+    startOffsetDays: proposal.startOffsetDays ?? 0,
+    billingDay: proposal.billingDay ?? undefined,
+    durationMonths: proposal.durationMonths ?? undefined,
+    tipoDeEntrada:
+      proposal.downPaymentPercent != null ? 'PERCENTUAL'
+      : proposal.downPaymentAmount != null ? 'VALOR'
+      : 'NENHUMA',
+    downPaymentPercent: proposal.downPaymentPercent != null ? Number(proposal.downPaymentPercent) : undefined,
+    downPaymentAmount: proposal.downPaymentAmount != null ? Number(proposal.downPaymentAmount) : undefined,
+    downPaymentOffsetDays: proposal.downPaymentOffsetDays ?? undefined,
+    installments: proposal.installments ?? undefined,
   };
 }
 
@@ -109,12 +157,15 @@ export function ProposalFormDialog({
   const [createdClients, setCreatedClients] = useState<{ id: string; name: string }[]>([]);
 
   const {
-    register, handleSubmit, control, reset, setValue,
+    register, handleSubmit, control, reset, setValue, watch,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: EMPTY,
   });
+
+  const billingType = watch('billingType');
+  const tipoDeEntrada = watch('tipoDeEntrada');
 
   useEffect(() => {
     if (!open) return;
@@ -149,6 +200,21 @@ export function ProposalFormDialog({
       paymentTerms: v.paymentTerms || undefined,
       deliveryTime: v.deliveryTime || undefined,
       validUntil: v.validUntil || undefined,
+      billingType: v.billingType,
+      startOffsetDays: v.startOffsetDays,
+      // Só os campos do regime escolhido: mandar os outros derrubaria em 422
+      // no `assertPlanoCoerente` ("plano recorrente não usa entrada…").
+      ...(v.billingType === 'RECURRING'
+        ? { billingDay: v.billingDay, durationMonths: v.durationMonths || undefined }
+        : {}),
+      ...(v.billingType === 'INSTALLMENTS'
+        ? {
+            installments: v.installments,
+            ...(v.tipoDeEntrada === 'PERCENTUAL' ? { downPaymentPercent: v.downPaymentPercent } : {}),
+            ...(v.tipoDeEntrada === 'VALOR' ? { downPaymentAmount: v.downPaymentAmount } : {}),
+            ...(v.tipoDeEntrada !== 'NENHUMA' ? { downPaymentOffsetDays: v.downPaymentOffsetDays ?? 0 } : {}),
+          }
+        : {}),
     };
     try {
       if (isEdit) {
@@ -277,8 +343,191 @@ export function ProposalFormDialog({
                 </Field>
 
                 <Field>
+                  <FieldLabel required>Regime de cobrança</FieldLabel>
+                  <Controller
+                    control={control}
+                    name="billingType"
+                    render={({ field }) => (
+                      <Select<BillingType>
+                        items={BILLING_TYPE_LABELS}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger />
+                        <SelectContent>
+                          {(Object.keys(BILLING_TYPE_LABELS) as BillingType[]).map((b) => (
+                            <SelectItem key={b} value={b}>
+                              {translateBillingType(b)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </Field>
+
+                <Field data-invalid={!!errors.startOffsetDays}>
+                  <FieldLabel htmlFor="startOffsetDays" required>
+                    Começa em (dias após o aceite)
+                  </FieldLabel>
+                  <Input
+                    id="startOffsetDays"
+                    type="number"
+                    min={0}
+                    max={365}
+                    {...register('startOffsetDays', {
+                      setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                    })}
+                  />
+                  {errors.startOffsetDays && (
+                    <FieldError>{errors.startOffsetDays.message}</FieldError>
+                  )}
+                </Field>
+
+                {billingType === 'RECURRING' && (
+                  <>
+                    <Field data-invalid={!!errors.billingDay}>
+                      <FieldLabel htmlFor="billingDay" required>
+                        Dia de vencimento (1–28)
+                      </FieldLabel>
+                      <Input
+                        id="billingDay"
+                        type="number"
+                        min={1}
+                        max={28}
+                        {...register('billingDay', {
+                          setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                        })}
+                      />
+                      {errors.billingDay && <FieldError>{errors.billingDay.message}</FieldError>}
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="durationMonths">Duração (meses)</FieldLabel>
+                      <Input
+                        id="durationMonths"
+                        type="number"
+                        min={1}
+                        max={120}
+                        placeholder="Em branco = indeterminado"
+                        {...register('durationMonths', {
+                          setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                        })}
+                      />
+                    </Field>
+                  </>
+                )}
+
+                {billingType === 'INSTALLMENTS' && (
+                  <>
+                    <Field>
+                      <FieldLabel required>Entrada</FieldLabel>
+                      <Controller
+                        control={control}
+                        name="tipoDeEntrada"
+                        render={({ field }) => (
+                          <Select<Values['tipoDeEntrada']>
+                            items={{ NENHUMA: 'Nenhuma', PERCENTUAL: 'Percentual', VALOR: 'Valor' }}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                          >
+                            <SelectTrigger />
+                            <SelectContent>
+                              <SelectItem value="NENHUMA">Nenhuma</SelectItem>
+                              <SelectItem value="PERCENTUAL">Percentual</SelectItem>
+                              <SelectItem value="VALOR">Valor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </Field>
+
+                    {tipoDeEntrada === 'PERCENTUAL' && (
+                      <Field data-invalid={!!errors.downPaymentPercent}>
+                        <FieldLabel htmlFor="downPaymentPercent" required>
+                          Entrada (%)
+                        </FieldLabel>
+                        <Input
+                          id="downPaymentPercent"
+                          type="number"
+                          min={0.01}
+                          max={100}
+                          step={0.01}
+                          {...register('downPaymentPercent', {
+                            setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                          })}
+                        />
+                        {errors.downPaymentPercent && (
+                          <FieldError>{errors.downPaymentPercent.message}</FieldError>
+                        )}
+                      </Field>
+                    )}
+
+                    {tipoDeEntrada === 'VALOR' && (
+                      <Field data-invalid={!!errors.downPaymentAmount}>
+                        <FieldLabel htmlFor="downPaymentAmount" required>
+                          Valor da entrada
+                        </FieldLabel>
+                        <Controller
+                          control={control}
+                          name="downPaymentAmount"
+                          render={({ field }) => (
+                            <MoneyInput
+                              id="downPaymentAmount"
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            />
+                          )}
+                        />
+                        {errors.downPaymentAmount && (
+                          <FieldError>{errors.downPaymentAmount.message}</FieldError>
+                        )}
+                      </Field>
+                    )}
+
+                    {tipoDeEntrada !== 'NENHUMA' && (
+                      <Field>
+                        <FieldLabel htmlFor="downPaymentOffsetDays">
+                          Vencimento da entrada (dias após o aceite)
+                        </FieldLabel>
+                        <Input
+                          id="downPaymentOffsetDays"
+                          type="number"
+                          min={0}
+                          max={365}
+                          {...register('downPaymentOffsetDays', {
+                            setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                          })}
+                        />
+                      </Field>
+                    )}
+
+                    <Field data-invalid={!!errors.installments}>
+                      <FieldLabel htmlFor="installments" required>
+                        Quantidade de parcelas
+                      </FieldLabel>
+                      <Input
+                        id="installments"
+                        type="number"
+                        min={1}
+                        max={120}
+                        {...register('installments', {
+                          setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                        })}
+                      />
+                      {errors.installments && (
+                        <FieldError>{errors.installments.message}</FieldError>
+                      )}
+                    </Field>
+                  </>
+                )}
+
+                <Field>
                   <FieldLabel htmlFor="paymentTerms">Condições de pagamento</FieldLabel>
                   <Input id="paymentTerms" placeholder="Ex.: 50% na aprovação, 50% na entrega" {...register('paymentTerms')} />
+                  <FieldDescription>
+                    Observação complementar em texto livre — o plano de cobrança acima é o que gera o contrato.
+                  </FieldDescription>
                 </Field>
 
                 <Field>

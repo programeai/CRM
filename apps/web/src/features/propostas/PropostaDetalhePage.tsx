@@ -12,7 +12,9 @@ import {
   Copy,
   Trash2,
 } from 'lucide-react';
-import { ContratoFormDialog } from '@/features/financeiro/ContratoFormDialog';
+import { GerarContratoDialog } from '@/features/financeiro/GerarContratoDialog';
+import { useContractsByProposal } from '@/features/financeiro/api/hooks';
+import { useCan } from '@/hooks/use-can';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +27,7 @@ import {
 } from '@/components/ui/table';
 import { TableLink } from '@/components/ui/table-link';
 import { useGoBack } from '@/hooks/use-go-back';
-import { translateProposalStatus } from '@/lib/labels';
+import { translateBillingType, translateContractStatus, translateProposalStatus } from '@/lib/labels';
 import { formatDate, formatDateTime } from '@/lib/format';
 import {
   useDeleteProposal,
@@ -34,6 +36,7 @@ import {
   useProposalVersions,
 } from './api/hooks';
 import { formatMoney } from './lib/proposal-format';
+import { describeBillingPlan } from './lib/billing-plan-format';
 import { ProposalFormDialog } from './ProposalFormDialog';
 import type { ProposalStatus } from './api/types';
 import { extractApiMessage } from './lib/api-error';
@@ -53,6 +56,11 @@ export default function PropostaDetalhePage() {
   const goBack = useGoBack('/propostas');
   const { data: proposal, isLoading, isError } = useProposal(id);
   const { data: versions } = useProposalVersions(id);
+  const { can, canAny } = useCan();
+  const podeVerFinanceiro = canAny(['financeiro:ver', 'financeiro:gerenciar']);
+  // Não peça dado que a pessoa não pode ver (apps/web/CLAUDE.md): a query
+  // desliga e a seção não é renderizada.
+  const { data: contratos } = useContractsByProposal(id, podeVerFinanceiro);
 
   const send = useProposalAction('send');
   const accept = useProposalAction('accept');
@@ -216,11 +224,18 @@ export default function PropostaDetalhePage() {
                 </Button>
               </>
             )}
-            {proposal.status === 'ACCEPTED' && (
-              <Button variant="outline" onClick={() => setContratoOpen(true)}>
-                <FileSignature data-icon="inline-start" />
-                Criar contrato
-              </Button>
+            {proposal.status === 'ACCEPTED' && can('financeiro:gerenciar') && (
+              contratos && contratos.length > 0 ? (
+                <Button variant="outline" onClick={() => navigate(`/financeiro/contratos/${contratos[0].id}`)}>
+                  <FileSignature data-icon="inline-start" />
+                  Ver contrato
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => setContratoOpen(true)}>
+                  <FileSignature data-icon="inline-start" />
+                  Gerar contrato
+                </Button>
+              )
             )}
             {isFinal && (
               <Button
@@ -244,6 +259,10 @@ export default function PropostaDetalhePage() {
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Válida até</span>
           <span className="text-sm">{formatDate(proposal.validUntil) || '—'}</span>
+        </div>
+        <div className="flex flex-col gap-0.5 sm:col-span-2">
+          <span className="text-xs text-muted-foreground">Plano de cobrança</span>
+          <span className="text-sm">{describeBillingPlan(proposal) ?? '—'}</span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-muted-foreground">Condições de pagamento</span>
@@ -302,14 +321,49 @@ export default function PropostaDetalhePage() {
               )}
               <TableRow>
                 <TableCell colSpan={3} className="text-right font-semibold">
-                  Total
+                  {proposal.billingType === 'RECURRING' ? 'Total mensal' : 'Total'}
                 </TableCell>
-                <TableCell className="font-semibold">{formatMoney(proposal.total)}</TableCell>
+                <TableCell className="font-semibold">
+                  {formatMoney(proposal.total)}
+                  {proposal.billingType === 'RECURRING' && (
+                    <span className="text-muted-foreground"> /mês</span>
+                  )}
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
         </div>
       </div>
+
+      {podeVerFinanceiro && contratos && contratos.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-sm font-medium">Contratos gerados</h2>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Regime</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Criado em</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {contratos.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell>
+                      <TableLink to={`/financeiro/contratos/${c.id}`}>{c.description}</TableLink>
+                    </TableCell>
+                    <TableCell>{translateBillingType(c.billingType)}</TableCell>
+                    <TableCell>{translateContractStatus(c.status)}</TableCell>
+                    <TableCell>{formatDate(c.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <h2 className="font-heading text-sm font-medium">Versões</h2>
@@ -349,13 +403,10 @@ export default function PropostaDetalhePage() {
 
       <ProposalFormDialog open={editOpen} onOpenChange={setEditOpen} proposal={proposal} />
 
-      <ContratoFormDialog
+      <GerarContratoDialog
         open={contratoOpen}
         onOpenChange={setContratoOpen}
-        defaultClientId={proposal.clientId}
-        defaultDescription={`Contrato — ${proposal.number}`}
-        defaultProposalId={proposal.id}
-        suggestedAmount={Number(proposal.total)}
+        proposalId={proposal.id}
       />
 
       <ConfirmDialog

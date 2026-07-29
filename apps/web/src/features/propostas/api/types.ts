@@ -5,6 +5,13 @@ export type { Paginated };
 export type ProposalStatus =
   | 'DRAFT' | 'SENT' | 'NEGOTIATING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 
+/**
+ * Declarado aqui, não importado de `features/financeiro`: uma feature não
+ * importa o interior de outra (`apps/web/CLAUDE.md`). Os RÓTULOS não são
+ * duplicados — vêm de `BILLING_TYPE_LABELS` em `@/lib/labels`.
+ */
+export type BillingType = 'RECURRING' | 'INSTALLMENTS' | 'ONE_TIME';
+
 export interface ProposalItem {
   id: string;
   description: string;
@@ -29,7 +36,16 @@ export interface Proposal {
   deliveryTime?: string | null;
   validUntil?: string | null;
   discount?: string | null;
-  total: string;
+  total: string; // em plano RECURRING é o valor MENSAL
+  // --- plano de cobrança ---
+  billingType?: BillingType | null;
+  startOffsetDays?: number | null;
+  billingDay?: number | null;
+  durationMonths?: number | null;
+  downPaymentPercent?: string | null; // Decimal → string
+  downPaymentAmount?: string | null;
+  downPaymentOffsetDays?: number | null;
+  installments?: number | null;
   items: ProposalItem[];
   sentAt?: string | null;
   decidedAt?: string | null;
@@ -52,6 +68,14 @@ export interface CreateProposalBody {
   paymentTerms?: string;
   deliveryTime?: string;
   validUntil?: string;
+  billingType: BillingType;
+  startOffsetDays: number;
+  billingDay?: number;
+  durationMonths?: number;
+  downPaymentPercent?: number;
+  downPaymentAmount?: number;
+  downPaymentOffsetDays?: number;
+  installments?: number;
 }
 export type UpdateProposalBody = Partial<Omit<CreateProposalBody, 'clientId' | 'dealId'>>;
 
