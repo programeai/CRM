@@ -90,7 +90,7 @@ export default function PaywallPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Seu período de teste acabou</CardTitle>
           <CardDescription>
-            Assine para continuar usando o CRM ProgrameAi e manter seus dados,
+            Assine para continuar usando o ProgrameAi CRM e manter seus dados,
             pipeline e financeiro sempre à mão.
           </CardDescription>
         </CardHeader>

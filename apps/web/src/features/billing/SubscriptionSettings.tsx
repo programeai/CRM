@@ -58,7 +58,7 @@ export default function SubscriptionSettings() {
       <CardHeader>
         <CardTitle>Assinatura</CardTitle>
         <CardDescription>
-          Gerencie sua assinatura do CRM ProgrameAi ({PRICE_LABEL}).
+          Gerencie sua assinatura do ProgrameAi CRM ({PRICE_LABEL}).
         </CardDescription>
       </CardHeader>
       <CardContent>

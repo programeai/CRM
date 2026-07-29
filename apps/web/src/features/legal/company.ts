@@ -12,7 +12,7 @@ export const EMPRESA = {
   /** Marca / nome comercial. */
   nome: 'ProgrameAi',
   /** Nome do produto na instância hospedada. */
-  produto: 'CRM ProgrameAi',
+  produto: 'ProgrameAi CRM',
 
   /** Razão social da pessoa jurídica que opera o serviço hospedado. */
   razaoSocial: 'PROGRAMEAI LTDA',
