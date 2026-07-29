@@ -62,7 +62,7 @@ social ou atuação como representante designado em um evento *online* ou
 
 Instâncias de comportamento abusivo, de assédio ou de outra forma inaceitável
 podem ser comunicadas aos líderes da comunidade responsáveis pela aplicação em
-**edson@solarz.com.br**. Todas as reclamações serão revisadas e apuradas de forma
+**atendimento@programeai.com**. Todas as reclamações serão revisadas e apuradas de forma
 rápida e justa.
 
 Todos os líderes da comunidade são obrigados a respeitar a privacidade e a
