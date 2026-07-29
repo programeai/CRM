@@ -21,11 +21,42 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Wordmark tipográfico (espelha `apps/web/src/components/ui/wordmark.tsx`). */
-function wordmark(fontSize: string): string {
-  return `<span style="font-family:${BRAND.fontSans};font-size:${fontSize};font-weight:800;letter-spacing:-0.03em;">
-        <span class="e-wordmark" style="color:${BRAND.text};">Programe</span><span class="e-accent" style="color:${BRAND.primary};">Ai</span>
-      </span>`;
+/**
+ * Lockup oficial do produto — **símbolo + wordmark ProgrameAi + selo "CRM"** —,
+ * o mesmo do header da sidebar. Espelha `BrandLockup`
+ * (`apps/web/src/components/ui/brand-lockup.tsx`): ao mexer num, mexa no outro.
+ *
+ * O símbolo é PNG servido pelo próprio front (`public/marca/`), porque cliente
+ * de e-mail não renderiza SVG. São duas imagens porque ele muda de cor no tema
+ * escuro: a clara nasce escondida e só a media query de dark mode a revela
+ * (`mso-hide:all` garante que o Outlook nunca mostre as duas).
+ *
+ * Imagem remota é bloqueada por padrão em boa parte dos clientes — por isso o
+ * nome continua sendo **texto** ao lado, e não parte do PNG: com as imagens
+ * desligadas, a marca ainda se lê.
+ */
+function brandLockup(
+  appUrl: string,
+  { symbol, font, badge }: { symbol: number; font: string; badge: string },
+): string {
+  const base = appUrl.replace(/\/+$/, '');
+  const img = (variant: string, cls: string, extra: string) =>
+    `<img src="${escapeHtml(`${base}/marca/${variant}.png`)}" width="${symbol}" height="${symbol}" alt="" class="${cls}" style="display:block;width:${symbol}px;height:${symbol}px;border:0;outline:none;text-decoration:none;${extra}">`;
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+        <tr>
+          <td valign="middle" style="padding:0 8px 0 0;line-height:0;font-size:0;">
+            ${img('simbolo', 'e-sym-light', '')}
+            ${img('simbolo-claro', 'e-sym-dark', 'display:none;max-height:0;overflow:hidden;mso-hide:all;')}
+          </td>
+          <td valign="middle" style="font-family:${BRAND.fontSans};font-size:${font};font-weight:800;letter-spacing:-0.03em;line-height:1;white-space:nowrap;">
+            <span class="e-wordmark" style="color:${BRAND.text};">Programe</span><span class="e-accent" style="color:${BRAND.primary};">Ai</span>
+          </td>
+          <td valign="middle" style="padding:0 0 0 8px;">
+            <span class="e-badge e-accent" style="display:inline-block;background-color:${BRAND.badge};border-radius:6px;padding:3px 6px;font-family:${BRAND.fontSans};font-size:${badge};font-weight:700;line-height:1;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND.primary};">CRM</span>
+          </td>
+        </tr>
+      </table>`;
 }
 
 /**
@@ -127,8 +158,12 @@ export function renderLayout({
     .e-muted { color: ${BRAND.darkMuted} !important; }
     .e-wordmark { color: #FFFFFF !important; }
     .e-accent { color: ${BRAND.darkAccent} !important; }
+    .e-badge { background-color: ${BRAND.darkBadge} !important; }
     .e-btn { background-color: ${BRAND.darkPrimary} !important; }
     .e-btn-link { color: #FFFFFF !important; }
+    /* Símbolo da marca: troca o teal escuro pelo clareado. */
+    .e-sym-light { display: none !important; max-height: 0 !important; overflow: hidden !important; }
+    .e-sym-dark { display: block !important; max-height: none !important; overflow: visible !important; }
   }
   /* Outlook.com/Hotmail no modo escuro (não suporta a media query). */
   [data-ogsc] body, [data-ogsc] .e-page { background-color: ${BRAND.darkPage} !important; }
@@ -138,6 +173,9 @@ export function renderLayout({
   [data-ogsc] .e-muted { color: ${BRAND.darkMuted} !important; }
   [data-ogsc] .e-wordmark { color: #FFFFFF !important; }
   [data-ogsc] .e-accent { color: ${BRAND.darkAccent} !important; }
+  [data-ogsc] .e-badge { background-color: ${BRAND.darkBadge} !important; }
+  [data-ogsc] .e-sym-light { display: none !important; max-height: 0 !important; overflow: hidden !important; }
+  [data-ogsc] .e-sym-dark { display: block !important; max-height: none !important; overflow: visible !important; }
 
   @media only screen and (max-width: 620px) {
     .e-shell { width: 100% !important; }
@@ -162,7 +200,7 @@ export function renderLayout({
           <!-- Assinatura da marca -->
           <tr>
             <td align="left" style="padding:0 4px 20px;">
-              ${wordmark('20px')}
+              ${brandLockup(appUrl, { symbol: 24, font: '20px', badge: '10px' })}
             </td>
           </tr>
 
@@ -188,7 +226,7 @@ export function renderLayout({
           <!-- Rodapé -->
           <tr>
             <td align="left" style="padding:24px 4px 0;">
-              ${wordmark('14px')}
+              ${brandLockup(appUrl, { symbol: 17, font: '14px', badge: '8px' })}
               <p class="e-muted" style="margin:6px 0 0;font-family:${BRAND.fontMono};font-size:11px;line-height:1.6;color:${BRAND.muted};">// crm comercial para agências</p>
               <p class="e-muted" style="margin:14px 0 0;font-family:${BRAND.fontSans};font-size:12px;line-height:1.6;color:${BRAND.muted};">
                 E-mail automático do ProgrameAi CRM — não é necessário responder.<br>

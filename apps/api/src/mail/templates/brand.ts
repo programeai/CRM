@@ -24,6 +24,8 @@ export const BRAND = {
   primary: '#0E7C7B',
   /** `--primary-foreground` */
   primaryForeground: '#FFFFFF',
+  /** `bg-primary/10` do selo "CRM", achatado sobre a página (sem alfa no Outlook). */
+  badge: '#E2EFEF',
 
   /* ── Tema escuro (`prefers-color-scheme: dark`) ──────────────────── */
   /** Painel escuro da marca, o mesmo do showcase de autenticação. */
@@ -37,6 +39,8 @@ export const BRAND = {
   darkPrimary: '#0F9A94',
   /** Teal clareado para texto sobre fundo escuro (igual ao `Wordmark`). */
   darkAccent: '#54C9C4',
+  /** Tinta do selo "CRM" achatada sobre o fundo escuro. */
+  darkBadge: '#162F3A',
 
   /* ── Forma e tipografia ──────────────────────────────────────────── */
   /** `--radius-xl` (0.625rem × 1.4 ≈ 14px) — card. */
