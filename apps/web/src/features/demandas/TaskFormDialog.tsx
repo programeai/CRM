@@ -88,7 +88,7 @@ export function TaskFormDialog({ open, onOpenChange, task, defaultProjectId }: P
   );
   const projectChoices = (projectsPage?.data ?? []).map((p) => ({
     id: p.id,
-    label: `${p.client.name} · ${p.name}`,
+    label: `${p.name} · ${p.client.name}`,
   }));
   /** Mapa id→rótulo que o Select usa para exibir o projeto escolhido no gatilho (senão mostra o id). */
   const projectItems = Object.fromEntries(projectChoices.map((p) => [p.id, p.label]));

@@ -86,7 +86,7 @@ export default function MinhasDemandasPage() {
     const map = new Map<string, string>();
     for (const t of tasks ?? []) {
       if (!map.has(t.project.id)) {
-        map.set(t.project.id, `${t.project.client.name} · ${t.project.name}`);
+        map.set(t.project.id, `${t.project.name} · ${t.project.client.name}`);
       }
     }
     return Array.from(map, ([value, label]) => ({ value, label })).sort((a, b) =>
