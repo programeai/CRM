@@ -86,6 +86,8 @@ longo do tempo. Os que existem hoje:
 | `catalogo.item_criado` / `catalogo.item_atualizado` / `catalogo.item_excluido` | manutenção dos catálogos do owner | `info` |
 | `catalogo.itens_provisionados` | conta nova criada (senha ou OAuth) | `info` |
 | `cadastro.bloqueado` | autocadastro tentado com `REGISTRATION_ENABLED=false` | `warn` |
+| `senha.redefinicao_solicitada` | link de redefinição enviado; `primeiraSenha=true` = conta de login social definindo a primeira | `info` |
+| `senha.redefinicao_descartada` | pedido que não gerou e-mail; `motivo` = `conta_inexistente` \| `convite_pendente` | `info` |
 | `colaborador.convidado` / `colaborador.convite_reemitido` / `colaborador.convite_aceito` | ciclo do convite de colaborador | `info` |
 | `colaborador.papel_alterado` | troca de papel de um colaborador | `info` |
 | `papel.criado` / `papel.atualizado` / `papel.excluido` | manutenção de papéis e permissões | `info` |
