@@ -80,6 +80,7 @@ longo do tempo. Os que existem hoje:
 | `app.migracao_falhou` | `prisma migrate deploy` falhou no start do container — a API não sobe até resolver | `error` |
 | `email.envio_falhou` / `email.smtp_desabilitado` | envio de e-mail | `error` / `warn` |
 | `financeiro.mensalidades_geradas` / `financeiro.cobrancas_vencidas` | rotina diária das 3h BRT | `info` |
+| `contrato.derivado_de_proposta` | contrato gerado a partir do plano de cobrança de uma proposta aceita | `info` |
 | `propostas.expiradas` | rotina diária das 3h BRT | `info` |
 | `billing.configuracao_incompleta` / `billing.webhook_ignorado` | Stripe | `warn` / `debug` |
 | `funil.estagios_provisionados` | conta nova criada (senha ou OAuth) | `info` |

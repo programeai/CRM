@@ -629,11 +629,11 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.list`
 
 ### POST /proposals
-- **Propósito:** Criar uma proposta (status `DRAFT`, `version 1`); gera `number` PROP-AAAA-NNNN e calcula `total` no backend a partir dos itens e desconto.
+- **Propósito:** Criar uma proposta (status `DRAFT`, `version 1`); gera `number` PROP-AAAA-NNNN e calcula `total` no backend a partir dos itens e desconto. Grava também o **plano de cobrança** (estrutura e prazos em dias relativos ao aceite) que deriva o contrato; nenhum valor em dinheiro vive no plano.
 - **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
-- **Body:** `{ clientId: uuid, serviceTypeId: uuid, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date }`
+- **Body:** `{ clientId: uuid, serviceTypeId: uuid, items: [{ description, quantity, unitPrice }] (≥1), dealId?: uuid, discount?: number, scope?, paymentTerms?, deliveryTime?, validUntil?: ISO date, billingType: 'RECURRING' | 'INSTALLMENTS' | 'ONE_TIME', startOffsetDays: number (0–365) }` — obrigatórios, mais os condicionais por regime: RECURRING `{ billingDay (1–28), durationMonths? }`; INSTALLMENTS `{ installments (1–120), downPaymentPercent? | downPaymentAmount?, downPaymentOffsetDays? }`; ONE_TIME `{}`.
 - **Resposta:** `201 Proposal` (com `items[]`, `total`, `number`).
-- **Erros:** `400` (validação / `Informe ao menos um item.`), `404 Cliente não encontrado.` / `Oportunidade não encontrada.`, `401`.
+- **Erros:** `400` (validação / `Informe ao menos um item.`), `404 Cliente não encontrado.` / `Oportunidade não encontrada.`, `422` (coerência do plano — ver `assertPlanoCoerente`), `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.create`
 
 ### GET /proposals/:id
@@ -655,9 +655,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### PATCH /proposals/:id
 - **Propósito:** Atualizar parcialmente uma proposta **apenas em rascunho** (`DRAFT`). Se `items` for informado, substitui os itens e recalcula `total`.
 - **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
-- **Body:** Campos parciais de `POST /proposals` exceto `clientId`/`dealId`.
+- **Body:** Campos parciais de `POST /proposals` exceto `clientId`/`dealId`. Os campos de plano são aceitos e **o plano é patchado em bloco**: enviar `billingType` substitui o plano inteiro (campo ausente vira nulo); omitir `billingType` deixa o plano intacto.
 - **Resposta:** `200 Proposal`.
-- **Erros:** `400` (validação), `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser editados. Crie uma nova versão.`, `401`.
+- **Erros:** `400` (validação), `404 Proposta não encontrada.`, `422 Apenas rascunhos podem ser editados. Crie uma nova versão.` / (coerência do plano — ver `assertPlanoCoerente`), `401`.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.update`
 
 ### DELETE /proposals/:id
@@ -693,7 +693,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/proposals/api/proposals.controller.ts` → `ProposalsController.reject`
 
 ### POST /proposals/:id/new-version
-- **Propósito:** Criar uma nova versão da proposta (mesmo `number`, `version+1`, `parentId` = origem), copiando itens e campos, com status `DRAFT`.
+- **Propósito:** Criar uma nova versão da proposta (mesmo `number`, `version+1`, `parentId` = origem), copiando itens, campos e o **plano de cobrança**, com status `DRAFT`. A unicidade é do par `(number, version)` — o `UNIQUE` só em `number` fazia esta rota responder `500` em toda proposta (ver `20260820100000_proposal_number_version_unique`).
 - **Auth:** Bearer (access token). Permissão: `proposta:gerenciar`.
 - **Body:** —
 - **Resposta:** `201 Proposal` (nova versão, `DRAFT`).
@@ -864,7 +864,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Listar contratos do usuário autenticado, paginado, com filtro opcional por cliente, status e regime de cobrança.
 - **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** — (query: `page`, `limit`, `clientId?`, `status?`, `billingType?`).
-- **Resposta:** `200 Paginated<Contract>` (com `client` e `payments` ordenadas por vencimento).
+- **Resposta:** `200 Paginated<Contract>` (com `client`, `payments` ordenadas por vencimento e `proposal: { id, number, version }` quando o contrato veio de uma proposta).
 - **Erros:** `400` (validação), `404 Cliente não encontrado.` (se `clientId` não for do dono), `401`.
 - **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.list`
 
@@ -884,11 +884,35 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Erros:** `400 Formato inválido: use csv ou xlsx.` (ou query inválida), `404 Cliente não encontrado.` (se `clientId` não for do dono), `422 A exportação está limitada a 5.000 linhas e o filtro atual seleciona N. Refine os filtros e tente de novo.`, `401`, `403`.
 - **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.export`
 
+### POST /contracts/from-proposal/:proposalId/preview
+- **Propósito:** Derivar o contrato e a agenda de cobranças de uma proposta sem gravar nada — alimenta a tela de conferência. Não escreve nada no banco além das leituras de posse; é POST porque recebe corpo (o plano em edição), não porque escreve.
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
+- **Body:** `{ description?, projectId?, plano? }` — `plano` ausente usa o gravado na proposta.
+- **Resposta:** `200 PreviaDeContrato` (`{ proposta, plano, derivado, descricaoSugerida, contratosExistentes }`).
+- **Erros:** `400` (validação), `404 Proposta não encontrada.`, `422` (coerência do plano — ver `assertPlanoCoerente`), `401`, `403`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.previewFromProposal`
+
+### POST /contracts/from-proposal/:proposalId
+- **Propósito:** Gerar o contrato e a agenda de cobranças a partir do plano de cobrança de uma proposta **aceita**, ancorando os prazos em `decidedAt`. Um contrato por cadeia de versões da proposta.
+- **Auth:** Bearer (access token). Permissão: `financeiro:gerenciar`.
+- **Body:** `{ description?, projectId?, plano? }` — mesmo shape da prévia.
+- **Resposta:** `201 Contract` (com `payments` geradas conforme o regime).
+- **Erros:** `400` (validação), `404 Proposta não encontrada.`, `409 A proposta … já gerou o contrato "…". Cancele-o antes de gerar outro.`, `422 Só proposta aceita gera contrato.` / `Esta proposta não tem plano de cobrança. Preencha o plano na tela de geração.` / `A entrada cobre o total da proposta: não sobra valor para parcelar.` / (coerência do plano), `401`, `403`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.createFromProposal`
+
+### GET /contracts/by-proposal/:proposalId
+- **Propósito:** Listar os contratos gerados por qualquer versão da cadeia da proposta informada.
+- **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 Contract[]`.
+- **Erros:** `404 Proposta não encontrada.`, `401`, `403`.
+- **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.listByProposal`
+
 ### GET /contracts/:id
 - **Propósito:** Buscar um contrato, validando que o cliente pertence ao usuário autenticado.
 - **Auth:** Bearer (access token). Permissão: `financeiro:ver` ou `financeiro:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 Contract` (com `payments`).
+- **Resposta:** `200 Contract` (com `payments` e `proposal: { id, number, version }` quando aplicável).
 - **Erros:** `404 Contrato não encontrado.`, `401`.
 - **Handler:** `modules/finance/api/contracts.controller.ts` → `ContractsController.findOne`
 
