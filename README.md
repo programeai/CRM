@@ -1,6 +1,6 @@
 <div align="center">
 
-# CRM ProgrameAi
+# ProgrameAi CRM
 
 **Todo o comercial da sua agência em um só lugar.**
 Do primeiro lead ao contrato assinado — pipeline, propostas, projetos e
@@ -55,7 +55,7 @@ para Loki/Grafana.
 <div align="center">
 
 **Dashboard** — comercial e financeiro no mesmo painel
-![Dashboard do CRM ProgrameAi](docs/images/crm-dashboard.png)
+![Dashboard do ProgrameAi CRM](docs/images/crm-dashboard.png)
 
 **Pipeline** — funil visual do lead ao fechamento
 ![Pipeline de oportunidades](docs/images/crm-pipeline.png)
@@ -249,7 +249,7 @@ autohospedar e vender versões derivadas.
 
 ### Marca (Trademark)
 
-O **código** é livre, mas os nomes **"ProgrameAi"** e **"CRM ProgrameAi"**, o
+O **código** é livre, mas os nomes **"ProgrameAi"** e **"ProgrameAi CRM"**, o
 logo e a identidade visual (teal `#0E7C7B`) **não são licenciados**. Forks e
 produtos derivados devem usar nome e identidade próprios e não podem sugerir
 afiliação ou endosso oficial. Ver [NOTICE](./NOTICE).

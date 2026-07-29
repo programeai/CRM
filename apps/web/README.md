@@ -1,6 +1,6 @@
-# apps/web — CRM ProgrameAi (frontend)
+# apps/web — ProgrameAi CRM (frontend)
 
-UI do CRM ProgrameAi: React + Vite + Tailwind v4 + shadcn (Base UI),
+UI do ProgrameAi CRM: React + Vite + Tailwind v4 + shadcn (Base UI),
 React Router e TanStack Query. Consome a API em `apps/api`.
 
 ## Rodar em desenvolvimento

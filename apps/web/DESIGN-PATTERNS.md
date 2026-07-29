@@ -1,4 +1,4 @@
-# Padrões de design — CRM ProgrameAi
+# Padrões de design — ProgrameAi CRM
 
 > Regras e padrões de UI portados do **Ecomerce-menager** e adaptados ao stack do CRM
 > (`@base-ui/react` + shadcn v4, React 19, Tailwind v4). Esta é a **fonte de verdade**

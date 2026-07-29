@@ -1,4 +1,4 @@
-# SPEC — CRM ProgrameAi
+# SPEC — ProgrameAi CRM
 
 Especificação de um CRM para gestão de clientes, propostas comerciais e demandas de um desenvolvedor Full Stack que vende **software sob medida**, **construção de sites** e **gestão de tráfego pago**.
 

@@ -1,4 +1,4 @@
-# Roadmap — CRM ProgrameAi
+# Roadmap — ProgrameAi CRM
 
 > Documento **vivo**: atualize o status e os checkboxes a cada avanço. Fonte de escopo: [SPEC.md](SPEC.md) §7.
 > Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada · ⏸️ adiada.

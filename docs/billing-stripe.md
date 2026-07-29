@@ -1,6 +1,6 @@
 # Configuração do Billing (Stripe)
 
-Guia de configuração da cobrança por assinatura do CRM ProgrameAi.
+Guia de configuração da cobrança por assinatura do ProgrameAi CRM.
 
 > **Quando isto se aplica:** apenas à **instância SaaS hospedada** pelo mantenedor.
 > Quem **autohospeda** não precisa configurar nada aqui — deixe `BILLING_ENABLED=false`
@@ -37,7 +37,7 @@ modo correto.
 ### 1.1. Produto e preço
 
 1. **Products → Add product**.
-2. Nome: ex. `CRM ProgrameAi`.
+2. Nome: ex. `ProgrameAi CRM`.
 3. Em **Pricing**:
    - Modelo: **Recurring** (recorrente).
    - Valor: **R$ 27,97**, moeda **BRL**.

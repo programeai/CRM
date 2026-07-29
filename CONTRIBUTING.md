@@ -1,4 +1,4 @@
-# Contribuindo com o CRM ProgrameAi
+# Contribuindo com o ProgrameAi CRM
 
 Obrigado pelo interesse em contribuir! Este guia é curto e direto.
 

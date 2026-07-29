@@ -1,6 +1,6 @@
-# apps/api — CRM ProgrameAi (backend)
+# apps/api — ProgrameAi CRM (backend)
 
-API do CRM ProgrameAi: monólito modular NestJS + Prisma (PostgreSQL).
+API do ProgrameAi CRM: monólito modular NestJS + Prisma (PostgreSQL).
 Rotas sob o prefixo `/api/v1`.
 
 ## Rodar em desenvolvimento

@@ -7,7 +7,7 @@ metadata:
   version: 1.0.0
 ---
 
-# Worktree (CRM ProgrameAi)
+# Worktree (ProgrameAi CRM)
 
 Cria e gerencia **git worktrees** para trabalhar em correções paralelas, cada uma numa branch e pasta próprias, permitindo abrir uma sessão do Claude Code por worktree sem conflito de working tree.
 
