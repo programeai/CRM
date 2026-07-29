@@ -208,6 +208,7 @@ imagens estão sob o `DOCKERHUB_USERNAME` de quem publicou. Troque `image:` por
 | Documento | Conteúdo |
 | --- | --- |
 | [docs/autohospedagem.md](./docs/autohospedagem.md) | **Subir sua própria instância numa VPS** (start aqui) |
+| [docs/uso/](./docs/uso/) | **Como usar o CRM**: primeiros passos do owner e o fluxo do lead à receita |
 | [docs/deploy.md](./docs/deploy.md) | Deploy do mantenedor: Traefik, secrets, pipeline e rollback |
 | [docs/observabilidade.md](./docs/observabilidade.md) | Log estruturado, consultas prontas e `x-request-id` |
 | [docs/billing-stripe.md](./docs/billing-stripe.md) | Integração de assinatura via Stripe (opcional) |

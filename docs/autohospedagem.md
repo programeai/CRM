@@ -130,6 +130,11 @@ Se preferir manter o cadastro aberto (uma instância pública, por exemplo),
 configure o captcha (`TURNSTILE_SECRET_KEY` + `VITE_TURNSTILE_SITE_KEY`). Ele
 reduz abuso automatizado, mas **não é controle de acesso**.
 
+**9. Configure a workspace**
+
+A instância está no ar; o que falta é ajustar o CRM ao seu processo — funil,
+catálogos, time e papéis. Siga [uso/primeiros-passos.md](./uso/primeiros-passos.md).
+
 ## Como o stack é montado
 
 ```
