@@ -1,18 +1,23 @@
 # Roadmap — ProgrameAi CRM
 
-> Documento **vivo** e **fonte única** do que está entregue e do que falta: atualize o status e os
-> checkboxes a cada avanço. As regras de negócio de cada módulo estão em [SPEC.md](specs/SPEC.md) §3.
-> Convenção de status: ✅ concluída · 🚧 em andamento · 🔜 próxima · ⬜ não iniciada · ⏸️ adiada.
-> Fases recortadas trazem o número do recorte no status (ex.: `13-A`) — ver [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).
-> Convenção de prioridade (fases 7+): **P0** defeito que já doe · **P1** ausência que limita uso profissional ·
-> **P2** evolução de produto · **P3** plataforma e governança.
+> **A intenção do produto:** o *porquê* de cada frente, a ordem entre elas e as decisões de recorte e
+> adiamento. É o registro estratégico — **não** descreve o que já foi construído nem o passo a passo
+> do que falta.
 >
 > **Última atualização:** 2026-07-29
->
-> **Quer contribuir?** Este documento é o *porquê* e a ordem; o trabalho recortado em pedaços de um
-> PR está nas [issues abertas](https://github.com/programeai/CRM/issues) — comece pelas
-> [`good first issue`](https://github.com/programeai/CRM/labels/good%20first%20issue). Ver
-> [CONTRIBUTING.md](CONTRIBUTING.md#por-onde-começar).
+
+| O que você procura | Onde está |
+|---|---|
+| O trabalho aberto, em pedaços de um PR | [issues](https://github.com/programeai/CRM/issues) — comece pelas [`good first issue`](https://github.com/programeai/CRM/labels/good%20first%20issue) |
+| Como cada frente foi pesquisada e planejada | [`specs/research/`](specs/research/) e [`specs/plans/`](specs/plans/) |
+| As regras de negócio vigentes | [SPEC.md](specs/SPEC.md) |
+| O modelo de dados | [schema.prisma](apps/api/prisma/schema.prisma) |
+| As rotas da API | [ENDPOINTS.md](apps/api/ENDPOINTS.md) |
+
+Convenção de status: ✅ concluída · 🚧 em andamento · ⬜ não iniciada · ⏸️ adiada. Fases recortadas
+trazem a letra do recorte (ex.: `13-A`) — ver [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).
+Convenção de prioridade (fases 7+): **P0** defeito que já dói · **P1** ausência que limita uso
+profissional · **P2** evolução de produto · **P3** plataforma e governança.
 
 ## Visão
 
@@ -23,34 +28,36 @@ Interface 100% pt-BR; código/tabelas/endpoints em inglês.
 
 ## Panorama das fases
 
-| Fase | Entrega | Status | Spec |
-|---|---|---|---|
-| 0 | Fundação (monorepo, infra, auth, layout base) | ✅ concluída | [research](specs/research/2026-07-20-fase-0-fundacao.md) · [plan](specs/plans/2026-07-20-fase-0-fundacao.md) |
-| 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | ✅ concluída | [research](specs/research/2026-07-21-fase-1-clientes.md) · [plan](specs/plans/2026-07-21-fase-1-clientes.md) |
-| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | ✅ concluída | [research](specs/research/2026-07-21-fase-2-pipeline.md) · [plan](specs/plans/2026-07-21-fase-2-pipeline.md) |
-| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | ✅ concluída | [research](specs/research/2026-07-23-fase-3-propostas.md) · [plan](specs/plans/2026-07-23-fase-3-propostas.md) |
-| 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ✅ concluída | [research](specs/research/2026-07-23-fase-4-demandas.md) · [plan](specs/plans/2026-07-23-fase-4-demandas.md) |
-| 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ concluída | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
-| 6 | Dashboard (métricas comerciais e financeiras, funil, polimento) | ✅ concluída | implementação direta |
-| 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
-| 8 | Governança — sessões, auditoria e lixeira (**P0**) | ✅ concluída | [research](specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md) · [plan A](specs/plans/2026-07-26-fase-8a-sessoes.md) · [plan B](specs/plans/2026-07-26-fase-8b-auditoria.md) · [plan C](specs/plans/2026-07-26-fase-8c-lixeira.md) |
-| 9 | Notificações e lembretes (**P1**) | ✅ concluída | [plan](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md) |
-| 10 | Relatórios e metas (**P1**) | ⏸️ adiada | a definir |
-| 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ não iniciada | a definir |
-| 12 | Anexos e documentos (**P1**) | ⬜ não iniciada · **2º na trilha** | a definir |
-| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ✅ **13-A concluída** · 13-B adiada | [plan 13-A](specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md) |
-| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ✅ **14-A concluída** · 14-B 3º · 14-C adiada | [plan 14-A](specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md) |
-| 15 | Agenda e calendário (**P2**) | ⬜ não iniciada | a definir |
-| 16 | Automações e templates (**P2**) | ⬜ não iniciada | a definir |
-| 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ✅ **17-A concluída** · 17-B/17-C não iniciadas | [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) · [plan 17-A](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md) |
-| 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ não iniciada | a definir |
-| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ✅ **19-A concluída** · 19-B P3 | [research](specs/research/2026-07-28-fase-19a-lgpd-minimo.md) · [plan 19-A](specs/plans/2026-07-28-fase-19a-lgpd-minimo.md) |
+| Fase | Entrega | Status | Issues | Spec |
+|---|---|---|---|---|
+| 0 | Fundação (monorepo, infra, auth, layout base) | ✅ | — | [research](specs/research/2026-07-20-fase-0-fundacao.md) · [plan](specs/plans/2026-07-20-fase-0-fundacao.md) |
+| 1 | Clientes (CRUD clientes + contatos, timeline, follow-ups) | ✅ | — | [research](specs/research/2026-07-21-fase-1-clientes.md) · [plan](specs/plans/2026-07-21-fase-1-clientes.md) |
+| 2 | Pipeline (estágios configuráveis, Kanban de oportunidades) | ✅ | — | [research](specs/research/2026-07-21-fase-2-pipeline.md) · [plan](specs/plans/2026-07-21-fase-2-pipeline.md) |
+| 3 | Propostas (itens, total, ciclo de status, versionamento, expiração) | ✅ | — | [research](specs/research/2026-07-23-fase-3-propostas.md) · [plan](specs/plans/2026-07-23-fase-3-propostas.md) |
+| 4 | Demandas (projetos, tarefas, Kanban por projeto, "Minhas demandas") | ✅ | — | [research](specs/research/2026-07-23-fase-4-demandas.md) · [plan](specs/plans/2026-07-23-fase-4-demandas.md) |
+| 5 | Financeiro (contratos, cobranças, agenda, baixa/estorno, crons) | ✅ | [#30](https://github.com/programeai/CRM/issues/30) | [research](specs/research/2026-07-23-fase-5-financeiro.md) · [plan](specs/plans/2026-07-23-fase-5-financeiro.md) |
+| 6 | Dashboard (métricas comerciais e financeiras, funil) | ✅ | — | implementação direta — ver [SPEC.md](specs/SPEC.md) §3.7 |
+| 7 | Base — funil por owner e responsável por registro (**P0**) | ✅ | [#24](https://github.com/programeai/CRM/issues/24) [#28](https://github.com/programeai/CRM/issues/28) [#29](https://github.com/programeai/CRM/issues/29) | [research](specs/research/2026-07-26-fase-7-funil-por-owner-e-responsavel.md) · [plan A](specs/plans/2026-07-26-fase-7a-funil-por-owner.md) · [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md) |
+| 8 | Governança — sessões, auditoria e lixeira (**P0**) | ✅ | — | [research](specs/research/2026-07-26-fase-8-sessoes-auditoria-lixeira.md) · [plan A](specs/plans/2026-07-26-fase-8a-sessoes.md) · [plan B](specs/plans/2026-07-26-fase-8b-auditoria.md) · [plan C](specs/plans/2026-07-26-fase-8c-lixeira.md) |
+| 9 | Notificações e lembretes (**P1**) | ✅ | [#26](https://github.com/programeai/CRM/issues/26) | [plan](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md) |
+| 10 | Relatórios e metas (**P1**) | ⏸️ adiada | [#25](https://github.com/programeai/CRM/issues/25) | a definir |
+| 11 | Proposta que o cliente vê — PDF, link de aceite, envio (**P1**) | ⬜ | — | a definir |
+| 12 | Anexos e documentos (**P1**) | ⬜ **2º na trilha** | [epic #31](https://github.com/programeai/CRM/issues/31) | a definir |
+| 13 | Extensibilidade do domínio — serviços e campos por owner (**P1**) | ✅ **13-A** · 13-B adiada | — | [research](specs/research/2026-07-27-fase-13a-dominio-configuravel-por-owner.md) · [plan 13-A](specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md) |
+| 14 | Dados — importação, exportação, busca global, duplicidade (**P1**) | ✅ **14-A** · 14-B 3º · 14-C adiada | [epic #32](https://github.com/programeai/CRM/issues/32) | [research](specs/research/2026-07-27-fase-14-dados-importacao-exportacao-busca-duplicidade.md) · [plan 14-A](specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md) |
+| 15 | Agenda e calendário (**P2**) | ⬜ | — | a definir |
+| 16 | Automações e templates (**P2**) | ⬜ | — | a definir |
+| 17 | Entrada de lead e comunicação (e-mail/WhatsApp) (**P2**) | ✅ **17-A** · 17-B/17-C ⬜ | [#27](https://github.com/programeai/CRM/issues/27) | [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) · [plan 17-A](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md) |
+| 18 | Financeiro completo — despesas, cobrança automática, NF (**P2**) | ⬜ | — | a definir |
+| 19 | Plataforma — API pública, 2FA, LGPD operacional (**P3**) | ✅ **19-A** · 19-B P3 | [#26](https://github.com/programeai/CRM/issues/26) | [research](specs/research/2026-07-28-fase-19a-lgpd-minimo.md) · [plan 19-A](specs/plans/2026-07-28-fase-19a-lgpd-minimo.md) |
 
-Cada fase termina com o sistema **utilizável de ponta a ponta**.
+Fora das fases, entregue depois do MVP: **multiusuário com papéis e permissões** — colaboradores por
+convite, papéis com permissões granulares e isolamento por owner
+([plan](specs/plans/2026-07-25-colaboradores-e-papeis.md)).
 
-As fases 0–6 entregaram o MVP; as fases 7+ são o caminho para o CRM cobrir o que se espera de um
-CRM profissional. A ordem é a recomendada, não obrigatória — cada fase é independente das seguintes,
-exceto onde indicado em "Depende de".
+Cada fase termina com o sistema **utilizável de ponta a ponta**. As fases 0–6 entregaram o MVP; as
+7+ são o caminho para cobrir o que se espera de um CRM profissional. A ordem é a recomendada, não
+obrigatória — cada fase é independente das seguintes, exceto onde declara "Depende de".
 
 ---
 
@@ -78,14 +85,13 @@ para depois. Os números das fases não mudaram — as specs e os links continua
 > antes da 19-A. O motivo não é ordem de valor, é que a ingestão de lead **já rodava em produção** e
 > era single-tenant por construção — o segredo era um token de instância e a conta de destino vinha de
 > um e-mail no ambiente. Com o autocadastro aberto, isso deixou de ser "estágio do produto" e passou a
-> ser defeito: qualquer owner novo que quisesse captar lead não tinha como. Ver
-> [Fase 17](#fase-17--entrada-de-lead-e-comunicação--17-a-concluída--p2).
+> ser defeito: qualquer owner novo que quisesse captar lead não tinha como.
 
 **Adiado explicitamente:** campos customizados (**13-B**), mesclagem de clientes e unicidade de
 `document` (**14-C**), Fase 10 inteira (relatório é de quem já tem meses de dado) e o resto da Fase 19
 (**19-B**: API pública, 2FA, consentimento).
 
-> **Por que a Fase 12 desce para 4º**, mesmo sendo lacuna real: ninguém abandona o produto por não
+> **Por que a Fase 12 desce para 2º**, mesmo sendo lacuna real: ninguém abandona o produto por não
 > anexar arquivo — continua no Drive, como hoje. E é a única das três que pede **credencial e mudança
 > de deploy**, justo na janela em que se quer estabilizar. Ela sobe de prioridade no momento em que a
 > Fase 11 (proposta que o cliente vê) entrar, porque o logo do owner pressupõe upload.
@@ -107,263 +113,53 @@ lixeira.
 
 ---
 
-## Fase 0 — Fundação ✅
+## Sobras das fases concluídas
 
-Base técnica do projeto.
+Recortes que ficaram **fora do escopo por decisão** ao fechar uma fase, e que hoje são issue própria.
+Não são defeito nem dívida escondida: cada um foi excluído com motivo registrado na spec da fase.
 
-- [x] Monorepo pnpm (`apps/api` + `apps/web`) + `docker-compose` (Postgres 16, porta host **5435**)
-- [x] NestJS + Prisma 6.19.3 + schema completo + migration `init`
-- [x] Seed idempotente: admin (`admin@crm.local` / `changeme123`) + 7 estágios de pipeline
-- [x] Auth: JWT access (15 min) + refresh (7 dias, cookie httpOnly), argon2, guard global, `@Public()`, throttler no login
-- [x] Frontend base: Vite + Tailwind v4 + shadcn (Base UI) + React Router 7 + TanStack Query + axios com refresh automático
-- [x] Layout protegido com sidebar/topbar, tela de login integrada, rotas placeholder
+**Da Fase 7** (responsável por registro) — ver [plan B](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md):
 
-**Adaptações vs SPEC original:** Postgres na porta host 5435; shadcn sobre Base UI (não Radix); estrutura backend em `src/modules/<nome>/`.
+- Filtro "sem responsável" nas listagens → [#24](https://github.com/programeai/CRM/issues/24)
+- `assigneeId` em `Proposal`/`Project`/`Contract`/`Payment` → [#28](https://github.com/programeai/CRM/issues/28)
+- Reatribuição da carteira ao desativar colaborador → [#29](https://github.com/programeai/CRM/issues/29)
+- **Sem issue, e continua fora por decisão:** escopo por registro nas **escritas** — sem `:ver_todos`,
+  editar registro alheio segue permitido por `:gerenciar`.
 
----
+**Da Fase 9** (notificações): a assinatura HMAC do canal `WEBHOOK` → [#26](https://github.com/programeai/CRM/issues/26).
+Foi adiada porque assinar pedia uma máquina de segredo com rotação que não existia — e que a 17-A
+depois construiu. Ver a nota da Fase 19-B, em "O que falta".
 
-## Fase 1 — Clientes ✅
+**Da Fase 17-A** (entrada de lead): o formulário público de captação → [#27](https://github.com/programeai/CRM/issues/27).
+Na 17-A o lead entra apenas servidor-a-servidor. Nada no desenho impede o formulário — o canal de
+captação é o registro que ele usaria.
 
-CRUD de clientes e contatos, timeline de atividades e follow-ups. Ver [SPEC.md](specs/SPEC.md) §3.1, §3.5, §5.
+**Da Fase 6** (dashboard): o funil é desenhado em barras **sem lib de gráfico**, com tokens de tema.
+Não é limitação a corrigir, é a escolha vigente — gráfico novo segue o mesmo caminho antes de
+acrescentar dependência.
 
-**Backend** (`apps/api/src/modules/`)
-- [x] Módulo `clients`: `GET/POST /clients`, `GET/PATCH /clients/:id`, `POST /clients/:id/archive` (soft delete via `archivedAt`; sem DELETE)
-- [x] Módulo `contacts`: `GET/POST /clients/:id/contacts`, `PATCH/DELETE /contacts/:id` (regra: único `isPrimary` por cliente)
-- [x] Módulo `activities`: `GET/POST /activities`, `PATCH /activities/:id`, `POST /activities/:id/complete` (follow-up com `scheduledFor`/`completedAt`)
-- [x] DTOs com class-validator em pt-BR; validação de CPF/CNPJ quando informado
-- [x] Paginação `?page=&limit=` → `{ data, meta: { total, page, limit } }` (novo padrão do projeto)
-- [x] `ownerId` derivado do usuário autenticado (`req.user.sub`)
-- [x] Testes unitários dos services (arquivamento, contato principal, validação de documento)
-- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
+**Da Fase 1** (clientes), fora do plano e entregue: autopreenchimento de endereço por CEP (ViaCEP) e
+de dados da empresa pelo CNPJ (BrasilAPI), com máscaras controladas de CPF/CNPJ, telefone, CEP e UF.
+Registrado aqui porque não consta de spec nenhuma.
 
-**Frontend** (`apps/web/src/features/clientes/`)
-- [x] Listagem de clientes (Table + TableLink + Badge de status + filtros/busca)
-- [x] Formulário de cadastro/edição (RHF + Zod pt-BR, Select para enums via `@/lib/labels`)
-- [x] Ficha do cliente com sub-abas (Dados + Contatos + Timeline; demais abas placeholder)
-- [x] CRUD de contatos na ficha
-- [x] Timeline de atividades + registro de follow-ups + marcar como concluído
-- [x] Primeiro padrão de TanStack Query (queryKeys, mutations, invalidação)
-- [x] Helpers de formatação em `lib/` (CPF/CNPJ, telefone, datas)
-- [x] Trocar `PlaceholderPage` das rotas `/clientes` e `/clientes/:id`
-
-**Extras entregues além do plano:** autopreenchimento de endereço via ViaCEP (por CEP) e de dados
-da empresa via BrasilAPI (ao completar o CNPJ), com máscaras controladas de CPF/CNPJ, telefone, CEP e UF.
-
-**Decisões fechadas no `/spec`:** arquitetura em camadas (`api`/`application`/`domain`/`infra` com repository pattern) ·
-campos de endereço adicionados ao schema · módulos `contacts`/`activities` separados · filtro por `ownerId` e
-unicidade de documento. Ver [plano da Fase 1](specs/plans/2026-07-21-fase-1-clientes.md).
+**Da Fase 17-A**, dívida de transição com prazo externo: `POST /leads/intake` ainda aceita o
+`LEAD_INTAKE_TOKEN` do ambiente como caminho legado, porque o emissor (`site-v2`) vive em outro
+repositório e cortar sem coordenar os dois deploys perderia lead sem erro visível no site. Remover as
+duas variáveis é PR próprio, **depois** que o site migrar para chave de integração; a consulta
+`{stack="crm"} | evento="lead.token_legado_aceito"` diz quando é seguro. Não é trabalho de terceiro:
+depende de acesso ao outro repo, ao Grafana e aos secrets do deploy.
 
 ---
 
-## Fase 2 — Pipeline ✅
-
-Kanban de oportunidades, da captação ao fechamento. Ver [SPEC.md](specs/SPEC.md) §3.2.
-
-**Backend** (`apps/api/src/modules/pipeline/`)
-- [x] Módulo `pipeline` (estágios + deals): `GET/POST /pipeline-stages`, `PATCH /pipeline-stages/reorder`, `PATCH/DELETE /pipeline-stages/:id`
-- [x] Oportunidades (Deals): `GET/POST /deals`, `GET /deals/board` (sem paginação), `GET/PATCH/DELETE /deals/:id`, `PATCH /deals/:id/move` (stage + position, reindexação em `$transaction`)
-- [x] Motivo da perda obrigatório (`422`) ao mover para estágio `isLost`; `stageMovedAt` atualizado a cada troca de estágio
-- [x] Proteção contra exclusão de estágio com oportunidades vinculadas (`409`)
-- [x] Posse derivada via `ClientsService` (`Deal`/`PipelineStage` não têm `ownerId`)
-- [x] Testes unitários dos services (`pipeline-stages.service.spec.ts`, `deals.service.spec.ts`)
-- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
-
-**Frontend** (`apps/web/src/features/pipeline/`)
-- [x] Kanban com drag & drop (`dnd-kit`) + optimistic update no cache do board (rollback em erro)
-- [x] Diálogo de motivo de perda ao soltar em estágio "Perdeu"
-- [x] Indicador "esfriando" derivado no client (> 7 dias parado em estágios não terminais)
-- [x] Tela de configuração de estágios (criar/renomear/reordenar/excluir, marcar `isWon`/`isLost`)
-- [x] Aba "Oportunidades" na ficha do cliente (lista + criação já vinculada ao cliente)
-- [x] Trocar `PlaceholderPage` da rota `/pipeline`
-
-**Deferido (fora do escopo desta fase):** criar Projeto automaticamente ao mover para "Ganhou" — fica
-para a Fase 4 (Demandas), quando o módulo de Projetos existir. Ver [plano da Fase 2](specs/plans/2026-07-21-fase-2-pipeline.md).
-
----
-
-## Fase 3 — Propostas ✅
-
-Documento comercial com itens, versões e ciclo de status. Ver [SPEC.md](specs/SPEC.md) §3.3.
-
-- [x] CRUD: `GET/POST /proposals`, `GET/PATCH /proposals/:id`
-- [x] Ações: `send`, `accept`, `reject`, `new-version`
-- [x] Itens com cálculo de total **no backend** (desconto incluído); nunca float
-- [x] Ciclo de status com transições validadas (422 em transição inválida)
-- [x] Versionamento (v2, v3…); só a versão mais recente é editável
-- [x] Expiração automática (cron `ProposalsExpirationJob`) ao passar `validUntil`
-- [x] Proposta aceita sugere criar Projeto e Contrato
-
----
-
-## Fase 4 — Demandas ✅
-
-Organização do trabalho após a venda. Ver [SPEC.md](specs/SPEC.md) §3.4.
-
-- [x] Projetos: `GET/POST /projects`, `GET/PATCH /projects/:id`
-- [x] Tarefas: `GET/POST /tasks` (filtros), `GET/PATCH/DELETE /tasks/:id`, `PATCH /tasks/:id/move`
-- [x] Kanban por projeto (dnd-kit); checklist de subtarefas
-- [x] Visão "Minhas demandas" cruzando projetos, com filtros (prioridade, prazo, cliente)
-- [x] Destaque de demandas atrasadas
-
----
-
-## Fase 5 — Financeiro ✅
-
-Controle de receitas por contrato (3 regimes). Ver [SPEC.md](specs/SPEC.md) §3.6. **Fase mais densa — testes de regra críticos.**
-
-- [x] Contratos: `GET/POST /contracts`, `GET/PATCH /contracts/:id`, `pause`/`resume`/`cancel`
-- [x] Regimes: mensalidade (`RECURRING`), entrada + parcelas (`INSTALLMENTS`), à vista (`ONE_TIME`)
-- [x] Cobranças (Payments): `GET /payments`, `PATCH /payments/:id`, `pay`/`revert`/`cancel`
-- [x] Geração de agenda de parcelas na criação do contrato
-- [x] Cron diário (`FinanceBillingJob`): gera mensalidade 30 dias antes (idempotente) + marca `OVERDUE`
-- [x] Agenda de recebimentos, contratos por cliente, visão de inadimplência
-- [x] Baixa manual com valor/forma; estorno (nunca excluir cobrança paga)
-
----
-
-## Fase 6 — Dashboard ✅
-
-Métricas e polimento final. Ver [SPEC.md](specs/SPEC.md) §3.7.
-
-**Backend** (`apps/api/src/modules/dashboard/`)
-- [x] `GET /dashboard/summary` + `GET /dashboard/finance` (só leitura; posse via `client.ownerId`)
-- [x] Funil (oportunidades por estágio e valor em negociação)
-- [x] Propostas em aberto, aceitas no mês, taxa de conversão (90 dias)
-- [x] Demandas em andamento/atrasadas/próximas entregas (7 dias)
-- [x] Próximas ações (follow-ups agendados)
-- [x] Financeiro: MRR, previsto × recebido no mês, total em atraso, próximos vencimentos (7 dias)
-- [x] Testes unitários do service (janelas de tempo em UTC, funil, taxa de conversão)
-- [x] Atualizar `apps/api/ENDPOINTS.md` (Definition of Done)
-
-**Frontend** (`apps/web/src/features/dashboard/`)
-- [x] Página em seções (Comercial / Financeiro / Operação) com `StatCard` do design system
-- [x] Funil em barras (sem lib de gráfico — tokens de tema) + listas de próximos itens clicáveis
-- [x] Trocar `PlaceholderPage` da rota `/`
-
-**Deferido:** seed de demonstração e polimento geral adicional ficam como refinamento futuro
-(o dashboard já opera de ponta a ponta com os dados reais das fases 1–5).
-
----
-
-## Entregue depois do MVP
-
-- [x] **Multiusuário com papéis e permissões** — colaboradores por convite, papéis com permissões
-      granulares e isolamento por owner (ver `specs/plans/2026-07-25-colaboradores-e-papeis.md`).
-
----
-
-## Evolução pós-MVP — lacunas para cobrir um CRM profissional
-
-Levantamento de 2026-07-26 sobre o código entregue (schema, `ENDPOINTS.md`, módulos da API e features
-do web). Cada fase abaixo é uma lacuna **fechada em si mesma**, entregável isoladamente.
-
----
-
-## Fase 7 — Base: funil por owner e responsável por registro ✅ **P0**
-
-Dois defeitos estruturais que já afetavam o uso real: o funil não era isolado por owner e nenhum
-registro tinha responsável — o que esvaziava o multiusuário entregue depois do MVP. A fase foi
-partida em duas frentes independentes, **ambas entregues**.
-
-**Frente A — Isolamento do funil** ✅ entregue ([plano](specs/plans/2026-07-26-fase-7a-funil-por-owner.md))
-- [x] `PipelineStage` recebe `ownerId`
-- [x] RLS em `PipelineStage` (`20260726120000_pipeline_stages_per_owner`)
-- [x] Trocar `name @unique` global por `@@unique([ownerId, name])`
-- [x] Migration de dados: replicar os estágios por owner existente e religar os `Deal`
-- [x] Seed dos estágios padrão passa a rodar na criação da conta, não na instância
-
-> **Por quê:** numa instância multi-owner, renomear/reordenar/excluir um estágio hoje afeta todos
-> os owners. Funil configurável por owner é premissa de CRM, não feature.
-
-**Frente B — Responsável por registro** ✅ entregue ([plano](specs/plans/2026-07-26-fase-7b-responsavel-por-registro.md))
-
-- [x] `assigneeId` (FK → `User`, opcional, `ON DELETE SET NULL`) em `Deal`, `Task`, `Activity` e `Client` (`20260727100000_assignee_per_record`)
-- [x] Atribuição na criação e edição, com troca de responsável e validação de pertencimento à workspace (`422`); filtro `?assigneeId=` nas listagens
-- [x] "Minhas demandas" e o board do pipeline filtram por responsável (filtro do servidor, persistido na URL); `GET /workspace/members` alimenta o seletor
-- [x] Permissões novas: `cliente:ver_todos`, `oportunidade:ver_todas` e `demanda:ver_todas` (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts)); sem elas, a pessoa vê apenas os seus registros e os sem responsável
-- [x] Dashboard com corte por responsável (automático + alternador "Somente meus")
-
-> **Por quê:** papéis definem *o que* alguém pode fazer, mas não existia *de quem* é o registro —
-> sem carteira por vendedor, sem distribuição de lead, sem métrica por pessoa.
-
-> **Fora do escopo, por decisão:** escopo por registro nas **escritas** (sem `:ver_todos`, editar
-> um registro alheio continua permitido por `:gerenciar`), filtro "sem responsável", reatribuição
-> automática ao desativar colaborador, e `assigneeId` em `Proposal`/`Project`/`Contract`/`Payment`.
-
----
-
-## Fase 8 — Governança: sessões, auditoria e lixeira ✅ **P0**
-
-Três lacunas de governança, cada uma entregável por si. A fase foi partida em três frentes
-independentes, **todas entregues**.
-
-**Frente A — Sessões múltiplas** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8a-sessoes.md))
-- [x] `User.refreshTokenHash` (valor único) dá lugar ao modelo `Session`, uma linha por dispositivo (`20260728100000_sessions`)
-- [x] `sid` no payload do refresh token: validação por chave primária + um `argon2.verify`, independente do número de sessões
-- [x] Device/IP/último uso registrados; `GET /auth/sessions`, `DELETE /auth/sessions/:id` e `DELETE /auth/sessions` (revogar todas)
-- [x] Lista de sessões ativas no perfil ([`SessoesAtivas.tsx`](apps/web/src/features/perfil/SessoesAtivas.tsx)), com a sessão atual destacada
-
-> **Por quê:** era uma sessão por usuário — logar no celular derrubava o desktop.
-
-**Frente B — Trilha de auditoria** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8b-auditoria.md))
-- [x] Modelo `AuditLog` (owner, autor, entidade, ação, diff, timestamp) com RLS (`20260729100000_audit_log`)
-- [x] Autor resolvido via CLS (o `AccessGuard` publica o `AccessContext`) — nenhuma assinatura de service mudou; gravação atômica na transação do `OwnerContextInterceptor`
-- [x] Ações sensíveis instrumentadas: baixa/estorno/cancelamento de cobrança, edição de contrato, aceite/recusa de proposta, papéis e colaboradores, arquivamento e expurgo
-- [x] Escritas sem ator humano na trilha: os dois crons diários, o webhook do Stripe e o aceite de convite
-- [x] `GET /audit` e `GET /audit/entities/:entity/:id` sob permissão `auditoria:ver`
-- [x] Tela de auditoria do owner ([`AuditoriaPage.tsx`](apps/web/src/features/auditoria/AuditoriaPage.tsx)) + histórico por registro ([`HistoricoDialog.tsx`](apps/web/src/features/auditoria/HistoricoDialog.tsx))
-
-> **Por quê:** colaboradores mexem em dinheiro (`/payments/:id/pay`, `/revert`, `/cancel`) e nada
-> registrava quem fez o quê.
-
-**Frente C — Lixeira** ✅ entregue ([plano](specs/plans/2026-07-26-fase-8c-lixeira.md))
-- [x] Soft delete (`archivedAt`) estendido a `Deal`, `Project`, `Task` e `Contact` — antes só `Client` tinha (`20260730100000_soft_delete_lixeira`)
-- [x] Todas as leituras revisadas: listagens paginadas, os dois Kanban, "Minhas demandas", `_count.tasks`, agregações do dashboard e as travas de exclusão que contam filhos
-- [x] `POST /<recurso>/:id/archive` e `/restore` nos cinco recursos; arquivar oportunidade e demanda nasceu na UI
-- [x] Expurgo definitivo (`DELETE /<recurso>/:id`) sob permissão própria, respeitando a ordem imposta pelas FKs `ON DELETE RESTRICT` (`409` com registros vinculados, `422` fora da lixeira)
-- [x] Permissões novas: `auditoria:ver`, `lixeira:ver` e `lixeira:expurgar` (catálogo em [`shared/permissions.ts`](apps/api/src/shared/permissions.ts))
-- [x] `GET /trash` (read model dos cinco tipos) e a página [`/lixeira`](apps/web/src/features/lixeira/LixeiraPage.tsx) com restaurar e expurgar
-
----
+## O que falta
 
 > **Ordem do P1 — superada pela [Trilha de produção](#trilha-de-produção--revisão-de-2026-07-27).**
-> A Fase 9 (notificações) veio primeiro **por decisão de produto** e está entregue. A ordem original da
-> Fase 10 em diante era **da mais simples para a mais complexa**, pelos mesmos três critérios do P2:
+> A ordem original era da mais simples para a mais complexa, pelos mesmos três critérios do P2:
 > dependência externa (integração, infra nova, credencial), tamanho de schema e superfície tocada, e
-> risco de dinheiro/irreversível. Essa ordem **não é mais a de execução** — a trilha de produção
-> reordenou por "o que impede alguém de usar" e recortou as fases 12–14. As fases seguem independentes
-> entre si, exceto onde declaram "Depende de"; os critérios abaixo continuam valendo como leitura de
-> **esforço**.
+> risco de dinheiro/irreversível. Essa ordem **não é mais a de execução** — a trilha reordenou por "o
+> que impede alguém de usar". Os critérios seguem valendo como leitura de **esforço**.
 
-## Fase 9 — Notificações e lembretes ✅ **P1**
-
-Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md)
-
-- [x] Central de notificações in-app (não lidas, marcar como lida) — sino no header, polling de 45s só na contagem
-- [x] Preferências por usuário: matriz **tipo × destino** no Perfil, com N destinos por pessoa
-- [x] Gatilhos: follow-up agendado vencendo, proposta a expirar, cobrança a vencer e vencida,
-      demanda atrasada, registro atribuído a você
-- [x] Gatilho **oportunidade esfriando** (29/07/2026): o indicador da Fase 2 era só visual, e quem não
-      abria o Pipeline nunca soube que o negócio parou. Mesmo limite do selo (7 dias), avisando uma vez
-      por parada — o `dedupeKey` carrega o `stageMovedAt`. Fecha a promessa de "alerta de oportunidade
-      esfriando" que o README já anunciava
-- [x] Digest diário por e-mail (resumo do dia, 7h BRT)
-- [x] Os crons existentes ([`FinanceBillingJob`](apps/api/src/modules/finance/application/finance-billing.job.ts), [`ProposalsExpirationJob`](apps/api/src/modules/proposals/application/proposals-expiration.job.ts)) passam a notificar, não só mudar status
-- [x] Todos os crons declaram `timeZone: 'America/Sao_Paulo'` (29/07/2026) — os legados rodavam 3h UTC, ou seja meia-noite BRT, três horas antes do que o nome anunciava
-- [x] Quatro canais plugáveis (`IN_APP`, `EMAIL`, `WEBHOOK`, `SLACK`) num registry — canal novo é 1 arquivo + 1 linha
-
-> **Por quê:** hoje o sistema só informa quem já está olhando a tela.
-
-> **Complexidade — correção do que estava previsto.** O plano previa "dois modelos novos"; a entrega
-> tem **três** (`Notification`, `NotificationDelivery`, `UserNotificationTarget`). A divergência é
-> consciente e é o preço de "N destinos por usuário" com opt-in por destino: sem a tabela de entrega
-> não há outbox transacional (retry e status por destino), e sem a de destino o opt-in seria tipo ×
-> canal, não tipo × destino. Continua sem integração externa obrigatória — o envio de e-mail já
-> existia em [`mail.service.ts`](apps/api/src/mail/mail.service.ts) e os dois crons já rodavam.
-
----
-
-## Fase 10 — Relatórios e metas ⬜ **P1** · ⏸️ adiada
+### Fase 10 — Relatórios e metas ⏸️ **P1**
 
 > **Adiada na revisão de 2026-07-27.** Não bloqueia usuário novo: relatório com comparação de período,
 > tempo médio de ciclo e "quanto falta para a meta" só dizem algo depois de meses de dado acumulado.
@@ -371,191 +167,105 @@ Plano: [`specs/plans/2026-07-27-fase-9-notificacoes-e-lembretes.md`](specs/plans
 
 - [ ] Relatório comercial por período com comparação (mês/trimestre anterior)
 - [ ] Resultado por responsável, por serviço e por fonte de lead
-- [ ] Análise de perda agregada (`lostReason` é coletado e nunca somado)
+- [ ] Análise de perda agregada — **recortada para [#25](https://github.com/programeai/CRM/issues/25)**,
+      porque contagem por motivo vale já na primeira perda e não espera histórico
 - [ ] Tempo médio por estágio e ciclo de venda (`stageMovedAt` existe e não é usado analiticamente)
 - [ ] Forecast ponderado por `probability` e valor esperado no período
-- [ ] Metas por período e por pessoa (comercial e financeira) → painel mostra "quanto falta", não só "quanto foi"
-- [ ] Exportação dos relatórios (depende da Fase 14)
+- [ ] Metas por período e por pessoa → painel mostra "quanto falta", não só "quanto foi"
+- [ ] Exportação dos relatórios (reusa o `ExportService` da 14-A)
 
-> **Complexidade:** a menor do P1 — é leitura agregada sobre dados que já existem, com um único
-> modelo novo (metas) e nenhuma integração, nenhuma escrita de negócio, nada irreversível. As janelas
-> de tempo em UTC e o funil já têm precedente testado na Fase 6.
+> **Complexidade:** a menor do P1 — leitura agregada sobre dados que já existem, um único modelo novo
+> (metas), nenhuma integração, nada irreversível. As janelas de tempo em UTC e o funil já têm
+> precedente testado na Fase 6.
 
-> **Ressalva:** "tempo médio por estágio" não sai do schema atual — `stageMovedAt`
-> ([`schema.prisma:260`](apps/api/prisma/schema.prisma#L260)) guarda só a **última** troca. Esse item
-> pede histórico de transições do `Deal` (modelo novo, alimentado no `PATCH /deals/:id/move`), e é o
-> único da fase que mexe em escrita. A exportação depende da Fase 14 e pode ficar por último.
+> **Ressalva:** "tempo médio por estágio" não sai do schema atual — `stageMovedAt` guarda só a
+> **última** troca. Esse item pede histórico de transições do `Deal` (modelo novo, alimentado no
+> `PATCH /deals/:id/move`), e é o único da fase que mexe em escrita.
 
----
-
-## Fase 11 — Proposta que o cliente vê ⬜ **P1**
+### Fase 11 — Proposta que o cliente vê ⬜ **P1**
 
 - [ ] Geração de PDF da proposta (template com identidade do owner: logo, cores, dados)
 - [ ] Link público de aceite (token de uso único, expiração alinhada a `validUntil`)
 - [ ] Aceite/recusa pelo cliente na página pública → status, `decidedAt` e registro na timeline
-- [ ] Envio por e-mail com o PDF/link — hoje `POST /proposals/:id/send` só marca `sentAt`, não envia nada
+- [ ] Envio por e-mail com o PDF/link — hoje `POST /proposals/:id/send` só marca `sentAt`
 - [ ] Rastreio básico: visualizada em, aceita em
 - [ ] Templates de proposta reutilizáveis (escopo, condições, itens padrão)
 
 > **Complexidade:** o e-mail e o token de uso único já têm padrão no projeto (`mail.service.ts`,
-> `PasswordResetToken`, rotas `@Public()`). O custo novo é a renderização de PDF dentro do container
-> e uma superfície pública sem sessão — aceite de proposta é ato do cliente com efeito contratual,
-> então token, expiração e idempotência do aceite viram requisito, não detalhe. A identidade visual
-> do owner (**logo**) pressupõe upload — nasce limitada ou **depende da Fase 12**.
+> `PasswordResetToken`, rotas `@Public()`). O custo novo é renderizar PDF dentro do container e uma
+> superfície pública sem sessão — aceite de proposta é ato do cliente com efeito contratual, então
+> token, expiração e idempotência do aceite viram requisito, não detalhe. A identidade visual do owner
+> (**logo**) pressupõe upload: nasce limitada ou **depende da Fase 12**.
 
----
+### Fase 12 — Anexos e documentos ⬜ **P1** · 2º na trilha
 
-## Fase 12 — Anexos e documentos ⬜ **P1** · 2º na trilha de produção
-
-> **Aberta em issues:** [epic #31](https://github.com/programeai/CRM/issues/31) — a fase está
-> recortada em sete issues, na ordem de execução. Comece pela
-> [#14 (storage)](https://github.com/programeai/CRM/issues/14).
-
-- [ ] Upload de arquivos com storage S3-compatível (config por env; autohospedagem usa MinIO ou disco)
-- [ ] Anexos em cliente, proposta, projeto, tarefa, contrato e cobrança
-- [ ] Limites de tamanho/tipo, antivírus opcional, URLs assinadas de curta duração
-- [ ] Aba "Documentos" na ficha do cliente
+**O trabalho está em [epic #31](https://github.com/programeai/CRM/issues/31)**, recortado em sete
+issues na ordem de execução. Comece pela [#14](https://github.com/programeai/CRM/issues/14) (storage).
 
 > **Por quê:** não existe upload em nenhum ponto do sistema — contrato assinado, briefing, arte e
 > comprovante de pagamento continuam no Drive/WhatsApp.
 
-> **Posição na trilha (2º), não recortada.** A fase entra inteira — o recorte aqui não ajudaria, porque
-> o custo é a infra, e ela é indivisível: sem bucket não há upload nenhum. Fica depois da 19-A (com a
-> 13-A e a 14-A já entregues) porque a ausência de anexo **não impede o uso** (o arquivo continua no
-> Drive, como hoje), e porque é a primeira fase a exigir credencial e mudança de deploy — o que se quer
-> evitar na janela de estabilização. Sobe de prioridade junto com a Fase 11, que precisa do logo do owner.
+> **Entra inteira, não recortada.** O recorte não ajudaria: o custo é a infra, e ela é indivisível —
+> sem bucket não há upload nenhum.
 
 > **Complexidade:** primeira fase com **infra externa** — bucket S3-compatível (ou MinIO na
-> autohospedagem) significa env, credencial e mudança de deploy, não só código. Soma-se uma
-> capacidade que a API nunca teve (multipart), anexo polimórfico ligado a seis entidades e uma
-> superfície de segurança nova: tipo/tamanho, URL assinada de curta duração e conteúdo malicioso.
+> autohospedagem) significa env, credencial e mudança de deploy, não só código. Soma-se uma capacidade
+> que a API nunca teve (multipart), anexo polimórfico ligado a seis entidades e uma superfície de
+> segurança nova: tipo/tamanho, URL assinada de curta duração e conteúdo malicioso.
 
----
-
-## Fase 13 — Extensibilidade do domínio ✅ **13-A concluída** · **P1** · recortada
-
-> **Por quê:** com o enum fechado, o produto só serve a agências com exatamente o nosso mix de serviço.
-
-**Frente A — Domínio configurável pelo owner** ✅ **concluída**
-
-Plano: [`specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md`](specs/plans/2026-07-27-fase-13a-dominio-configuravel-por-owner.md)
-
-- [x] Catálogo de **serviços por owner** substituindo o enum fechado `ServiceType`
-      (`SOFTWARE | WEBSITE | PAID_TRAFFIC`), com migration de dados
-      (`20260807100000_service_catalog`)
-- [x] Fontes de lead (`LeadSource`) e tipos de atividade (`ActivityType`) editáveis pelo owner
-      (`20260805100000_lead_source_catalog`, `20260808100000_activity_type_catalog`)
-- [x] Motivos de perda como lista configurável (o antigo `lostReason` texto livre virou FK —
-      `20260806100000_lost_reason_catalog`)
-
-> **Como ficou:** as quatro listas viraram tabelas com `ownerId` + RLS, provisionadas no cadastro a
-> partir de [`shared/default-catalogs.ts`](apps/api/src/shared/default-catalogs.ts) e gerenciadas em
-> `/catalogos` (permissão `catalogo:gerenciar`). A superfície de aplicação é um módulo só —
-> `modules/catalogos`, com registry `kind → delegate` e 4 rotas em `/catalogos/:kind`. `FOLLOW_UP`
-> deixou de ser literal: virou a coluna de regra `ActivityTypeCatalog.isFollowUp`, e os três
-> predicados divergentes de "follow-up pendente" convergiram para ela.
-
-> **Por que era o 1º:** era o **único bloqueio absoluto** do roadmap. `ServiceType` não é um detalhe de
-> exibição — é obrigatório em `Deal`, `Proposal` e `Project`, e aparece em 18 arquivos entre DTOs,
-> tipos do front, formulários e [`labels.ts`](apps/web/src/lib/labels.ts). Quem se cadastra e não é
-> agência com o nosso mix trava no primeiro formulário de oportunidade, sem contorno na UI.
-
-> **Complexidade:** nenhuma integração, mas **migration de dados sobre registros vivos** com RLS por
-> owner — cada owner existente precisa herdar os três serviços atuais como catálogo próprio, e os
-> `Deal`/`Proposal`/`Project` religados por FK. Tem precedente direto: a Frente A da Fase 7 fez
-> exatamente isso com `PipelineStage` (`20260726120000_pipeline_stages_per_owner`), incluindo o seed
-> por conta em vez de por instância. Seguir aquele plano de perto.
-
-**Frente B — Campos customizados** ⬜ adiada
+### Fase 13-B — Campos customizados ⏸️ **P1**
 
 - [ ] Campos customizados em cliente, oportunidade e projeto (texto, número, data, seleção, booleano),
       exibidos nos formulários, nos filtros e na exportação
 
-> **Adiada na revisão de 2026-07-27.** É o item estruturalmente mais difícil do roadmap — valor dinâmico
-> por tipo, validação em runtime, e todo formulário, filtro e exportação passando a se montar a partir de
-> definição, não de código. E não bloqueia ninguém: sem campo customizado o CRM funciona, sem serviço
-> configurável não. Depende da Frente A e, para a exportação, de 14-A — as duas já entregues, então o
-> que falta é só o trabalho dela.
+> **Adiada na revisão de 2026-07-27.** É o item estruturalmente mais difícil do roadmap — valor
+> dinâmico por tipo, validação em runtime, e todo formulário, filtro e exportação passando a se montar
+> a partir de definição, não de código. E não bloqueia ninguém: sem campo customizado o CRM funciona,
+> sem serviço configurável não. Dependia da 13-A e, para a exportação, da 14-A — as duas entregues,
+> então o que falta é só o trabalho dela.
 
----
+### Fase 14-B — Busca global e duplicidade ⬜ **P1** · 3º na trilha
 
-## Fase 14 — Dados: importação, exportação, busca e duplicidade ✅ **14-A concluída** · **P1** · recortada
+**O trabalho está em [epic #32](https://github.com/programeai/CRM/issues/32)** —
+[#21](https://github.com/programeai/CRM/issues/21) (endpoint),
+[#22](https://github.com/programeai/CRM/issues/22) (interface) e
+[#23](https://github.com/programeai/CRM/issues/23) (duplicidade).
 
-> **Por quê:** sem import, o onboarding de um cliente real morre no primeiro dia; sem export, o
-> financeiro não fecha o mês fora da tela.
+> **Conveniência, não bloqueio.** Toda listagem já tem `?search=` própria; a busca global economiza
+> cliques, não destrava uso. Custo real: índice full-text novo no Postgres sobre seis entidades, com
+> RLS — e o recorte por responsável, que **não é do banco**, tem de ser reaplicado na busca.
 
-> **Por que era a mais complexa do P1:** são seis frentes de naturezas diferentes numa fase — ingestão
-> com mapeamento e relatório de erro, egressão genérica que atravessa **todas** as listagens
-> respeitando filtro e permissão, busca full-text (índice novo no Postgres) sobre seis entidades, e
-> **mesclagem de clientes**: religar FKs de contatos, oportunidades, propostas, contratos, cobranças e
-> timeline num só `$transaction`, sem volta. Daí o recorte em três: só a Frente A é bloqueio de produção.
+### Fase 14-C — Mesclagem e unicidade ⏸️ **P1**
 
-**Frente A — Entrada e saída de dados** ✅ **concluída**
-
-Plano: [`specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md`](specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md)
-
-- [x] Importação CSV/XLSX de clientes e contatos (mapeamento de colunas, prévia, relatório de erros)
-- [x] Exportação CSV/XLSX de qualquer listagem, respeitando filtros e permissões
-
-> **Como ficou:** um módulo `data` com `ExportService` genérico (a listagem passa as colunas, não o
-> formato) e `ImportService` com prévia antes de gravar. A exportação reusa o **mesmo** `filter` +
-> `scope` da listagem — é o que garante que a planilha respeite o recorte por responsável, que o banco
-> não protege. A importação casa fonte de lead por nome pelo `CatalogResolver`, e criar item novo dali
-> exige `catalogo:gerenciar`. Permissão `dados:importar`; a trilha registra `IMPORT`/`IMPORTAR`.
-
-> **Por que era o 2º:** são as duas pontas do onboarding. Nenhum owner migra a base à mão, e antes
-> desta frente **não existia nenhum endpoint de exportação** em todo o `ENDPOINTS.md` — o dado entrava
-> e não saía. Ambas eram autocontidas: nenhum modelo novo de negócio, nada irreversível (import falho
-> não corrompe, só não importa), e a exportação reaproveita os filtros e as permissões que cada
-> listagem já aplica.
-
-**Frente B — Busca global e duplicidade** ⬜ 3º na trilha
-
-> **Aberta em issues:** [epic #32](https://github.com/programeai/CRM/issues/32) —
-> [#21](https://github.com/programeai/CRM/issues/21) (endpoint),
-> [#22](https://github.com/programeai/CRM/issues/22) (interface) e
-> [#23](https://github.com/programeai/CRM/issues/23) (duplicidade).
-
-- [ ] Busca global (clientes, contatos, propostas por número, contratos, projetos, tarefas)
-- [ ] Detecção de duplicidade por documento/e-mail/telefone na criação
-
-> **Adiada por ser conveniência, não bloqueio.** Toda listagem já tem `?search=` própria (clientes,
-> deals, propostas, projetos, cobranças — ver `ENDPOINTS.md`); a busca global economiza cliques, não
-> destrava uso. Custo real: índice full-text novo no Postgres sobre seis entidades, com RLS.
-
-**Frente C — Mesclagem e unicidade** ⬜ adiada
-
-- [ ] Mesclagem de clientes duplicados (move contatos, oportunidades, propostas, contratos e timeline)
+- [ ] Mesclagem de clientes duplicados (move contatos, oportunidades, propostas, projetos, contratos
+      e timeline; cobranças acompanham o contrato, sem religamento próprio)
 - [ ] `document` com unicidade por owner quando informado
 
-> **Última coisa a entrar.** É a única frente do P1 que **reescreve chave de registro financeiro** e não
-> tem volta: religar FKs de cobrança num só `$transaction`. Numa produção recém-aberta, o custo de errar
-> é maior que o de conviver com duplicata. Pede a trilha da Fase 8 e testes de posse. A unicidade de
-> `document` só entra **depois** de resolver as duplicatas já existentes, e a detecção da Frente B é o
-> pré-requisito prático para saber quais são.
+> **Última coisa a entrar.** Única frente do P1 que **reescreve chave de registro financeiro** e não
+> tem volta: religar FKs num só `$transaction`. Pede a trilha da Fase 8 e testes de posse. A unicidade
+> de `document` só entra **depois** de resolver as duplicatas existentes, e a detecção da 14-B
+> ([#23](https://github.com/programeai/CRM/issues/23)) é o pré-requisito prático para saber quais são.
 
 ---
 
-> **Ordem do P2.** As quatro fases de evolução de produto estão ordenadas **da mais simples para a
-> mais complexa**, por três critérios somados: dependência externa (integração de terceiro,
-> aprovação, credencial), tamanho de schema e superfície tocada, e risco de dinheiro/irreversível.
-> São independentes entre si — a ordem é de esforço, não de pré-requisito.
+> **Ordem do P2.** As quatro fases de evolução de produto estão ordenadas da mais simples para a mais
+> complexa, por três critérios somados: dependência externa (integração de terceiro, aprovação,
+> credencial), tamanho de schema e superfície tocada, e risco de dinheiro/irreversível. São
+> independentes entre si — a ordem é de esforço, não de pré-requisito.
 
-## Fase 15 — Agenda e calendário ⬜ **P2**
+### Fase 15 — Agenda e calendário ⬜ **P2**
 
 - [ ] Visão de calendário (mês/semana/dia) cruzando follow-ups, entregas, vencimentos e reuniões
-- [ ] Compromisso com duração, local/link e participantes (hoje `Activity.scheduledFor` é só um instante)
+- [ ] Compromisso com duração, local/link e participantes (hoje `Activity.scheduledFor` é um instante)
 - [ ] Sincronia com Google Calendar (duas vias)
 - [ ] Link de agendamento para o cliente escolher horário
 
 > **Por que é a mais simples:** os três primeiros itens são leitura do que já existe
-> (`Activity.scheduledFor`, `Task.dueDate`, `Payment.dueDate`) mais uma extensão de `Activity` —
-> nenhuma integração, nenhum dado novo de negócio. A única frente difícil (Google Calendar em duas
-> vias: OAuth, sync token, conflito) é separável e pode ficar por último sem travar o resto.
+> (`Activity.scheduledFor`, `Task.dueDate`, `Payment.dueDate`) mais uma extensão de `Activity` — nenhuma
+> integração, nenhum dado novo de negócio. A única frente difícil (Google Calendar em duas vias: OAuth,
+> sync token, conflito) é separável e pode ficar por último sem travar o resto.
 
----
-
-## Fase 16 — Automações e templates ⬜ **P2**
+### Fase 16 — Automações e templates ⬜ **P2**
 
 - [ ] Cadência de follow-up (sequência de lembretes por estágio ou inatividade)
 - [ ] Regras "quando X, então Y" configuráveis pelo owner (mover estágio, criar tarefa, notificar, atribuir)
@@ -565,77 +275,29 @@ Plano: [`specs/plans/2026-07-27-fase-14a-importacao-e-exportacao.md`](specs/plan
 
 > **Complexidade:** zero integração externa e tudo determinístico/testável, mas o motor de regras
 > configurável (evento → condição → ação, persistido e editável na UI) é desenho de arquitetura, não
-> CRUD. **Depende de** Fase 9 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço) —
-> as duas já entregues, então nada mais a esperar.
+> CRUD. **Dependia de** Fase 9 (notificar é uma das ações) e Fase 13 (checklist por tipo de serviço) —
+> as duas entregues, então nada mais a esperar.
 
----
+### Fase 17-B e 17-C — E-mail e WhatsApp pelo CRM ⬜ **P2**
 
-## Fase 17 — Entrada de lead e comunicação ✅ **17-A concluída** · **P2**
-
-> **Por quê:** vendemos tráfego pago — lead precisa entrar por integração, não por digitação. E o
-> valor de e-mail/WhatsApp está em **registrar** a interação, não só em disparar: timeline
-> alimentada à mão é timeline abandonada.
-
-**Frente A — Entrada de lead por integração** ✅ **concluída**
-
-Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
-[plan](specs/plans/2026-07-28-fase-17a-entrada-de-lead.md)
-
-- [x] Endpoint de entrada de lead multi-owner, com deduplicação por telefone
-      (`POST /leads/intake` — serve site, landing page, Meta/Google Ads e n8n pelo mesmo contrato)
-- [x] **Chave de integração por owner** com hash no banco, escopos, exibição única e rotação,
-      substituindo o token de instância no ambiente (`20260811100000_integration_key`)
-- [x] Canal de captação com roteamento: responsável e fonte de lead do catálogo por canal
-      (`20260812100000_lead_intake_channel`)
-- [x] Roteamento do lead novo para um responsável (dependia da Fase 7)
-- [x] Fonte de lead vinda do `LeadSourceCatalog` em vez de tag crua (dependia da 13-A)
-- [x] Tela `/administracao/captacao`: cria, edita, rotaciona e revoga
-
-> **Como ficou:** a ingestão já rodava em produção, mas era single-tenant por construção — o segredo
-> era `LEAD_INTAKE_TOKEN` e a conta de destino vinha de `LEAD_INTAKE_OWNER_EMAIL`. Agora a chave
-> apresentada descobre **três** coisas que não existiam: qual workspace recebe, quem é o responsável e
-> qual fonte de lead classifica. O `ownerId` sai da credencial e nunca do corpo.
->
-> A **máquina de segredo-por-registro que a 19-B reservava nasceu aqui**, já genérica e com escopos —
-> ver a nota da [Fase 19](#fase-19--plataforma-api-pública-2fa-e-lgpd--19-a-é-a-próxima--p3--recortada).
-> Ela vive em `modules/integracoes`, que não conhece lead; o que é do domínio de lead (responsável,
-> fonte, nome do canal) vive em `LeadIntakeChannel`, no módulo `leads`. A dependência aponta
-> **leads → integracoes**, nunca o contrário.
->
-> Lead reincidente não muda de mão: assume o responsável do canal só quando o cadastro está sem
-> ninguém. `LEAD_RECEIVED` passa a ir ao responsável roteado — consequência assumida: o owner deixa de
-> receber aviso de todo lead quando o canal roteia.
-
-> **O formulário público saiu do escopo** por decisão de produto: nesta frente o lead entra apenas
-> servidor-a-servidor. Nada no desenho impede acrescentá-lo — o canal é o registro que um formulário
-> usaria. O obstáculo mapeado na pesquisa continua valendo: CORS aceita uma origem só (`FRONTEND_URL`)
-> e o front responde `X-Frame-Options: DENY`, então a variante gratuita é hospedar o formulário numa
-> rota pública do próprio `apps/web`.
-
-> **O token de ambiente continua aceito**, como caminho legado explícito e observável
-> (`lead.token_legado_aceito`, em `warn`). Ele existe porque o emissor (`site-v2`) vive em outro
-> repositório: cortar sem coordenar os dois deploys perderia lead sem erro visível no site. Remover
-> `LEAD_INTAKE_TOKEN` e `LEAD_INTAKE_OWNER_EMAIL` é um PR próprio, depois que o site migrar — a
-> consulta `{stack="crm"} | evento="lead.token_legado_aceito"` diz quando é seguro.
-
-**Frente B — E-mail pelo CRM** ⬜ não iniciada
+**Frente B — E-mail**
 
 - [ ] Envio de e-mail ao cliente pelo CRM, com a mensagem registrada na timeline
 - [ ] Vínculo automático da resposta do cliente ao registro correspondente
 
-**Frente C — WhatsApp** ⬜ não iniciada
+**Frente C — WhatsApp**
 
 - [ ] WhatsApp: registro da conversa na timeline e envio de mensagem/template
 
-> **Por que B e C ficaram para depois:** era onde estava o custo desta fase desde o começo. A entrada
-> de lead era barata (rota pública já é padrão do projeto, e o roteamento veio da Fase 7). WhatsApp
+> **Por que ficaram para depois:** era onde estava o custo da fase desde o começo. A entrada de lead
+> (17-A) era barata — rota pública já é padrão do projeto, e o roteamento veio da Fase 7. WhatsApp
 > Cloud API exige verificação de negócio, templates aprovados e respeito à janela de 24h — é a única
 > dependência externa da fase —, e o vínculo automático da resposta ao registro é heurística de
 > correspondência, não FK.
 
----
+> **O valor está em registrar, não em disparar:** timeline alimentada à mão é timeline abandonada.
 
-## Fase 18 — Financeiro completo ⬜ **P2**
+### Fase 18 — Financeiro completo ⬜ **P2**
 
 - [ ] Despesas (fixas e por projeto), categorias e fornecedores — hoje só há receita
 - [ ] DRE simplificado: receita × despesa × margem, por período e por projeto/cliente
@@ -647,38 +309,12 @@ Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
 
 > **Por que é a mais complexa:** três integrações externas de naturezas diferentes (gateway Pix/boleto,
 > emissor de NFS-e — que varia por prefeitura — e extrato bancário para conciliação), o maior schema
-> novo do roadmap (despesas, categorias, fornecedores) e a única frente onde o erro mexe em dinheiro
-> de verdade: baixa por webhook pede idempotência, e juros/multa/renegociação exigem trilha (Fase 8).
+> novo do roadmap (despesas, categorias, fornecedores) e a única frente onde o erro mexe em dinheiro de
+> verdade: baixa por webhook pede idempotência, e juros/multa/renegociação exigem trilha (Fase 8).
 
----
+### Fase 19-B — Plataforma aberta ⬜ **P3**
 
-## Fase 19 — Plataforma: API pública, 2FA e LGPD ✅ **19-A concluída** · **P3** · recortada
-
-**Frente A — LGPD mínimo** ✅ **concluída** (promovida de P3 para bloqueio de produção)
-
-- [x] Excluir a própria conta (owner), com o efeito em cascata explícito e irreversível — encerramento
-      agendado com 30 dias de carência, cancelável, e expurgo diário pelo `AccountPurgeJob`
-- [x] Exportar meus dados — dump da workspace num JSON tipado, sem teto de linhas
-
-> **Por que subiu de P3 para o 1º lugar:** enquanto o usuário era a nossa agência, LGPD operacional era
-> governança futura. Com autocadastro aberto, estranhos passaram a guardar **dado de terceiros**
-> (clientes deles, CPF/CNPJ, telefone) na nossa instância — e não existia **nenhum** endpoint de
-> exclusão de conta ou de exportação de dados em todo o `ENDPOINTS.md`. A
-> [página de privacidade](apps/web/src/features/legal/PrivacidadePage.tsx) prometia o que o sistema não
-> cumpria. Era exposição legal, não feature — e foi o recorte mais barato dos três primeiros.
->
-> A fase também fechou, no caminho, dois desvios de conformidade encontrados ao ler o contrato
-> publicado: o registro de acesso (Marco Civil art. 15) passou a ser persistido por **6 meses** —
-> antes só existia como linha de log, com 30 dias no Loki — e o backup do banco ganhou **rotação e
-> expiração implementadas** por `scripts/backup-postgres.sh`, com ledger de expurgos para reaplicar
-> exclusão num restore. As duas páginas legais foram reescritas para descrever exatamente isso.
-
-> **Escopo mínimo de propósito:** só as duas operações do titular. Consentimento, política de retenção
-> e opt-out ficam na Frente B. A premissa de reaproveitar o `ExportService` da 14-A **não se confirmou**:
-> ele serializa planilha (CSV/XLSX de aba única, teto de 5.000 linhas) e o dump é um grafo relacional em
-> JSON — o que se reaproveitou foi o padrão de trilha agregada do `ImportService`.
-
-**Frente B — Plataforma aberta** ⬜ **P3**
+Depois do LGPD mínimo (19-A), entregue.
 
 - [x] ~~A máquina de segredo-por-registro~~ — **antecipada para a 17-A**, já genérica e com escopos
 - [ ] API key por owner, com escopos e rotação — **escopo novo em cima da máquina que já existe**
@@ -693,7 +329,7 @@ Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
 > sha256 indexável, exibição única, mascaramento na fronteira HTTP, rotação na mesma linha, ausência em
 > log e em `CAMPOS_OMITIDOS` do diff da auditoria, e `scopes[]` no próprio registro.
 >
-> O que sobra para a 19-B é **acrescentar escopo**, não construir infraestrutura: o catálogo é
+> O que sobra é **acrescentar escopo**, não construir infraestrutura: o catálogo é
 > [`domain/integration-scope.ts`](apps/api/src/modules/integracoes/domain/integration-scope.ts), hoje
 > com um item (`lead:receber`). Uma chave de API pública ou de webhook de saída entra ali sem tocar em
 > captação. A permissão `integracao:gerenciar` e a tela de gestão também já existem.
@@ -703,30 +339,29 @@ Spec: [research](specs/research/2026-07-28-fase-17a-entrada-de-lead.md) ·
 
 > **Não confundir com o `WebhookChannel` da Fase 9.** O que já existe é destino **do usuário**: cada
 > pessoa aponta as *próprias* notificações para um n8n ou Slack pessoal, com a URL funcionando como
-> credencial (ver `apps/api/ENDPOINTS.md` → Notificações). O que falta aqui é o webhook **do owner**:
-> evento de negócio da workspace **saindo** para um sistema externo. São duas features distintas —
-> tratar uma como a outra vira retrabalho.
+> credencial. O que falta aqui é o webhook **do owner**: evento de negócio da workspace **saindo** para
+> um sistema externo. São duas features distintas — tratar uma como a outra vira retrabalho.
 >
-> Note que a 17-A resolveu o sentido **oposto**: chave de integração é credencial de quem escreve
-> *dentro* da workspace (lead entrando). O webhook de saída reusa a mesma tabela `IntegrationKey` e o
-> mesmo service, com escopo próprio — a direção do dado muda, a máquina não.
-
-> **A assinatura HMAC das notificações entra aqui**, não na Fase 9 — e agora custa só o que é assinar,
-> porque a máquina de segredo já existe (ver a nota acima). Desenho a usar:
-> `HMAC-SHA256` sobre `<timestamp>.<body>` com o corpo cru **exatamente como enviado** (serializar uma
-> vez, assinar e postar a mesma string — reserializar entre assinar e enviar é o bug clássico que
-> invalida a verificação do outro lado), em `X-CRM-Signature: sha256=<hex>`. Acrescentar cabeçalho
-> novo é aditivo: não quebra quem já recebe.
+> A 17-A resolveu o sentido **oposto**: chave de integração é credencial de quem escreve *dentro* da
+> workspace (lead entrando). O webhook de saída reusa a mesma tabela `IntegrationKey` e o mesmo
+> service, com escopo próprio — a direção do dado muda, a máquina não.
 
 ---
 
-## Como evoluímos (esteira de trabalho)
+## Como evoluímos
 
-Cada fase segue o fluxo spec-driven do projeto:
+Frente grande segue o fluxo spec-driven do projeto:
 
 ```
-/prd <fase>   →   /spec <prd>   →   /code <plano>
- specs/research/    specs/plans/       implementação faseada
+/prd <fase>   →   /spec <prd>   →   issues   →   /code <plano>
+ specs/research/    specs/plans/     o recorte      implementação faseada
+                                     em PRs
 ```
 
-Ao concluir uma fase: marque os checkboxes, mude o status na tabela de panorama, e atualize a data no topo.
+Contribuição pontual não precisa de spec — vai direto por PR a partir de uma issue
+([CONTRIBUTING.md](CONTRIBUTING.md#por-onde-começar)).
+
+**Ao concluir uma frente:** mude o status na tabela de panorama, atualize a data no topo, e registre
+aqui apenas o que **não** cabe na spec — divergência entre o planejado e o entregue, ou recorte que
+ficou de fora com motivo. O detalhe do que foi feito fica na spec e no código; duplicá-lo aqui é o que
+faz este documento envelhecer.
