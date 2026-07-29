@@ -1,4 +1,6 @@
+import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import { OAuthProvider, type NotificationChannelKind } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PrismaAdminService } from '../../prisma/prisma-admin.service';
@@ -20,6 +22,17 @@ import {
 
 /** Duração do trial concedido no cadastro. */
 const TRIAL_DAYS = 14;
+
+/**
+ * Senha aleatória da conta criada por login social. Ninguém — nem o titular —
+ * a conhece: ela existe só para que a conta tenha um `passwordHash` como
+ * qualquer outra, e assim a redefinição por e-mail funcione nela sem caso
+ * especial. 32 bytes de `randomBytes` são inadivinháveis, então o `login()`
+ * continua recusando quem tentar entrar por senha nessa conta.
+ */
+function senhaAleatoria(): string {
+  return randomBytes(32).toString('hex');
+}
 
 @Injectable()
 export class UsersService {
@@ -131,6 +144,8 @@ export class UsersService {
         ...data,
         // Owner: `ownerId` nulo (é a própria workspace) e conta já ativa.
         acceptedAt: new Date(),
+        // A senha veio do formulário de cadastro: o titular a conhece.
+        passwordSetAt: new Date(),
         subscription: { create: this.trialSubscription() },
         ownedRoles: { create: this.systemRole() },
         pipelineStages: { create: this.defaultStages() },
@@ -186,6 +201,10 @@ export class UsersService {
         name: data.name,
         email: data.email,
         acceptedAt: new Date(),
+        // Senha aleatória e `passwordSetAt` nulo: a conta tem hash como
+        // qualquer outra (a redefinição por e-mail funciona nela), mas o
+        // sistema sabe que o titular ainda não escolheu senha nenhuma.
+        passwordHash: (await argon2.hash(senhaAleatoria())) as string,
         oauthAccounts: {
           create: {
             provider: data.provider,
@@ -217,8 +236,16 @@ export class UsersService {
       select: { deletionRequestedAt: true, deletionScheduledFor: true },
     });
   }
+  /**
+   * Grava a senha ESCOLHIDA pelo titular (só a redefinição chega aqui). Carimba
+   * `passwordSetAt` junto: é o que promove a conta só-OAuth a conta com senha
+   * de verdade, e o par tem de andar sempre junto.
+   */
   updatePassword(id: string, passwordHash: string) {
-    return this.prisma.user.update({ where: { id }, data: { passwordHash } });
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash, passwordSetAt: new Date() },
+    });
   }
   updateProfile(id: string, data: { name: string; email: string }) {
     return this.prisma.user.update({ where: { id }, data });

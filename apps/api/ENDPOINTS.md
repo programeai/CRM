@@ -58,10 +58,10 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.login`
 
 ### POST /auth/forgot-password
-- **Propósito:** Iniciar a redefinição de senha: gera um token de uso único (validade 1h), persiste apenas o hash e envia por e-mail (SMTP) o link `{FRONTEND_URL}/redefinir-senha?token=…`. Sem SMTP configurado, o link é logado no console (ver `MailService`).
+- **Propósito:** Iniciar a redefinição de senha: gera um token de uso único (validade 1h), persiste apenas o hash e envia por e-mail (SMTP) o link `{FRONTEND_URL}/redefinir-senha?token=…`. Sem SMTP configurado, o link é logado no console (ver `MailService`). **Vale também para a conta criada por login social** — é o único caminho pelo qual ela ganha uma senha utilizável (não existe rota de "definir senha" autenticada, por decisão de produto). Único descartado: convite de colaborador ainda não aceito (`acceptedAt` nulo), que tem o link do próprio convite.
 - **Auth:** Pública (`@Public()`). Rate limit: 3 req/min.
 - **Body:** `{ email: string (e-mail) }`
-- **Resposta:** `201 { ok: true }` — resposta genérica (anti-enumeração): idêntica se o e-mail existe, não existe ou é de conta só-OAuth (sem senha).
+- **Resposta:** `201 { ok: true }` — resposta genérica (anti-enumeração): idêntica se o e-mail existe, não existe ou é convite pendente. O que de fato aconteceu só aparece no log (`senha.redefinicao_solicitada` / `senha.redefinicao_descartada`).
 - **Erros:** `400` (validação do e-mail).
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.forgotPassword`
 
@@ -85,7 +85,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Propósito:** Retornar o usuário autenticado (sem campos sensíveis) junto com o contexto de acesso — é o que o frontend usa para esconder navegação e ações (ver `useCan`).
 - **Auth:** Bearer (access token).
 - **Body:** —
-- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[], hasPassword: boolean, deletion: { requestedAt, scheduledFor } | null }`. Sem `passwordHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro. `hasPassword` é `false` na conta criada só por login social. `deletion` é o agendamento de encerramento da **workspace** (Fase 19-A) — vem preenchido também para o colaborador (para o banner global), mas só o owner pode cancelá-lo.
+- **Resposta:** `200 { id, name, email, active, acceptedAt, stripeCustomerId, createdAt, isOwner: boolean, role: { id, name } | null, permissions: string[], hasPassword: boolean, deletion: { requestedAt, scheduledFor } | null }`. Sem `passwordHash`; sem `ownerId`/`roleId` (o mesmo estado é expresso por `isOwner`/`role`). No owner, `isOwner: true`, `role: null` e `permissions` traz o catálogo inteiro. `hasPassword` é `false` na conta criada por login social **enquanto ela não redefinir a senha por e-mail** — a conta OAuth tem sim um `passwordHash` (aleatório, gerado no cadastro e desconhecido de todos), então quem responde essa pergunta é `User.passwordSetAt`, não a presença do hash. `deletion` é o agendamento de encerramento da **workspace** (Fase 19-A) — vem preenchido também para o colaborador (para o banner global), mas só o owner pode cancelá-lo.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.me`
 

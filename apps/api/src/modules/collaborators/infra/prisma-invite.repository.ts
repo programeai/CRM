@@ -81,7 +81,13 @@ export class PrismaInviteRepository implements InviteRepository {
       if (count === 0) return false;
       await tx.user.update({
         where: { id: userId },
-        data: { passwordHash, acceptedAt: new Date() },
+        // `passwordSetAt` junto com o hash: a senha veio do formulário de
+        // aceite, então o colaborador a conhece.
+        data: {
+          passwordHash,
+          acceptedAt: new Date(),
+          passwordSetAt: new Date(),
+        },
       });
       return true;
     });

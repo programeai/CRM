@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import * as argon2 from 'argon2';
+import { MailService } from '../src/mail/mail.service';
 import { criarAppDeTeste } from './helpers/app';
 import { clientAdmin, limparBanco, fecharBanco } from './helpers/banco';
 import { criarOwner, SENHA_PADRAO } from './helpers/fixtures';
@@ -245,6 +246,119 @@ describe('Auth (e2e)', () => {
     expect(corpo.message).toBe(
       'Seu acesso ao CRM foi desativado. Fale com o responsável pela conta.',
     );
+  });
+
+  /**
+   * Rota `@Public()` que responde `{ ok: true }` aconteça o que acontecer — a
+   * resposta genérica é anti-enumeração. Ou seja: o HTTP não distingue "enviou"
+   * de "descartou em silêncio", e foi exatamente assim que a conta de login
+   * social ficou um beco sem saída sem ninguém perceber. O que estes testes
+   * afirmam é a LINHA NO BANCO, único sinal observável do que de fato ocorreu.
+   */
+  describe('forgot-password', () => {
+    const pedirRedefinicao = (email: string) =>
+      http().post('/api/v1/auth/forgot-password').send({ email }).expect(201);
+
+    const tokensDe = (userId: string) =>
+      clientAdmin().passwordResetToken.findMany({ where: { userId } });
+
+    it('conta de login social (sem senha escolhida) recebe token de redefinição', async () => {
+      const social = await clientAdmin().user.create({
+        data: {
+          email: 'social@teste.local',
+          name: 'Entrou pelo Google',
+          // Como o `createWithOAuth` grava: hash aleatório, `passwordSetAt` nulo.
+          passwordHash: await argon2.hash('aleatoria-que-ninguem-conhece'),
+          passwordSetAt: null,
+          acceptedAt: new Date(),
+        },
+      });
+
+      await pedirRedefinicao('social@teste.local');
+
+      expect(await tokensDe(social.id)).toHaveLength(1);
+    });
+
+    it('convite de colaborador ainda pendente NÃO recebe token', async () => {
+      // Porta paralela ao link do convite: ativaria o acesso sem consumir o
+      // convite, e o painel mostraria "PENDING" para sempre.
+      const pendente = await clientAdmin().user.create({
+        data: {
+          email: 'pendente@teste.local',
+          name: 'Convidada',
+          passwordHash: null,
+          acceptedAt: null,
+        },
+      });
+
+      await pedirRedefinicao('pendente@teste.local');
+
+      expect(await tokensDe(pendente.id)).toHaveLength(0);
+    });
+
+    it('e-mail sem conta não cria nada e responde igual', async () => {
+      await pedirRedefinicao('ninguem@teste.local');
+      expect(await clientAdmin().passwordResetToken.findMany()).toHaveLength(0);
+    });
+
+    /**
+     * A conta OAuth ANTIGA — criada antes da senha aleatória, logo com
+     * `passwordHash` nulo no banco. Nenhuma migration lhe dá um hash (argon2
+     * não roda em SQL), então quem a destrava é a guarda por `acceptedAt`. Se
+     * alguém reintroduzir `!user.passwordHash` ali, ela volta a ser um beco sem
+     * saída e SÓ este teste percebe: as contas novas continuariam funcionando.
+     *
+     * Vai até o fim de propósito — pedir, redefinir e entrar com a senha nova —
+     * porque é o percurso real de quem hoje está preso ao Google.
+     */
+    it('conta OAuth ANTIGA (passwordHash nulo) redefine a senha e passa a logar com ela', async () => {
+      const enviados: string[] = [];
+      const espiao = jest
+        .spyOn(MailService.prototype, 'sendPasswordReset')
+        .mockImplementation((_to, resetUrl) => {
+          enviados.push(resetUrl);
+          return Promise.resolve();
+        });
+
+      try {
+        const legada = await clientAdmin().user.create({
+          data: {
+            email: 'legada@teste.local',
+            name: 'OAuth de antes do PR',
+            passwordHash: null,
+            passwordSetAt: null,
+            acceptedAt: new Date(),
+          },
+        });
+
+        await pedirRedefinicao('legada@teste.local');
+        expect(enviados).toHaveLength(1);
+
+        const token = new URL(enviados[0]).searchParams.get('token');
+        expect(token).toBeTruthy();
+
+        const NOVA_SENHA = 'senha-escolhida-agora-123';
+        await http()
+          .post('/api/v1/auth/reset-password')
+          .send({ token, password: NOVA_SENHA })
+          .expect(201);
+
+        await http()
+          .post('/api/v1/auth/login')
+          .send({ email: 'legada@teste.local', password: NOVA_SENHA })
+          .expect(201);
+
+        // A conta deixou de ser "só social": o hash existe e o carimbo também,
+        // então o diálogo de encerramento volta a pedir senha em vez de e-mail.
+        const depois = await clientAdmin().user.findUniqueOrThrow({
+          where: { id: legada.id },
+        });
+        expect(depois.passwordHash).not.toBeNull();
+        expect(depois.passwordSetAt).not.toBeNull();
+      } finally {
+        espiao.mockRestore();
+      }
+    });
   });
 
   describe('registro de acesso (Marco Civil art. 15)', () => {

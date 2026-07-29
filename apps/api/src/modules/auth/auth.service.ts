@@ -147,13 +147,39 @@ export class AuthService {
 
   /**
    * Inicia a redefinição de senha. Anti-enumeração: nunca revela se o e-mail
-   * existe — contas inexistentes ou sem senha (só-OAuth) simplesmente não
-   * recebem e-mail, mas o retorno é sempre o mesmo. Invalida tokens pendentes
-   * anteriores antes de emitir um novo.
+   * existe — o retorno é sempre o mesmo. Invalida tokens pendentes anteriores
+   * antes de emitir um novo.
+   *
+   * A conta criada por login social PASSA por aqui: é o único caminho pelo qual
+   * ela ganha uma senha utilizável, e o token vai justamente para o e-mail
+   * verificado que o provedor confirmou. Quem não passa é o convite de
+   * colaborador ainda pendente (`acceptedAt` nulo) — deixá-lo redefinir senha
+   * seria uma porta paralela ao link do convite, que ativaria o acesso sem
+   * consumir o convite e deixaria o painel mostrando "PENDING" para sempre.
    */
   async requestPasswordReset(email: string): Promise<void> {
     const user = await this.users.findByEmail(email);
-    if (!user || !user.passwordHash) return;
+    // Os dois descartes são logados: sem isto o fluxo é uma caixa-preta — a
+    // pessoa vê "enviamos as instruções", nada chega e não há linha nenhuma no
+    // Grafana explicando o porquê. O e-mail NÃO entra no log (dado pessoal em
+    // linha que vive 30 dias); o `usuarioId` basta para investigar.
+    if (!user) {
+      this.logger.log({
+        evento: 'senha.redefinicao_descartada',
+        msg: 'Redefinição de senha pedida para e-mail sem conta.',
+        motivo: 'conta_inexistente',
+      });
+      return;
+    }
+    if (!user.acceptedAt) {
+      this.logger.log({
+        evento: 'senha.redefinicao_descartada',
+        msg: 'Redefinição de senha pedida para convite ainda não aceito.',
+        motivo: 'convite_pendente',
+        usuarioId: user.id,
+      });
+      return;
+    }
 
     await this.users.deletePendingResetTokens(user.id);
 
@@ -168,6 +194,14 @@ export class AuthService {
     const base = this.config.get<string>('FRONTEND_URL') ?? '';
     const resetUrl = `${base}/redefinir-senha?token=${rawToken}`;
     await this.mail.sendPasswordReset(user.email, resetUrl);
+    this.logger.log({
+      evento: 'senha.redefinicao_solicitada',
+      msg: 'Link de redefinição de senha enviado.',
+      usuarioId: user.id,
+      // Distingue quem está TROCANDO a senha de quem está definindo a primeira
+      // (conta de login social) — é a métrica que diz se o caminho novo pegou.
+      primeiraSenha: user.passwordSetAt === null,
+    });
   }
 
   /**
@@ -279,6 +313,7 @@ export class AuthService {
     // precisa saber que existem duas colunas que andam em par.
     const {
       passwordHash,
+      passwordSetAt,
       ownerId,
       roleId,
       deletionRequestedAt,
@@ -305,11 +340,15 @@ export class AuthService {
       role: access.roleId ? { id: access.roleId, name: access.roleName } : null,
       permissions: access.permissions,
       /**
-       * `false` no owner criado por OAuth. O diálogo de encerramento usa isto
-       * para pedir a senha ou o e-mail da conta — e é a única informação sobre
-       * autenticação que o front recebe.
+       * `false` no owner criado por OAuth que nunca redefiniu a senha. Repare
+       * que a pergunta é `passwordSetAt`, NÃO `passwordHash`: a conta de login
+       * social tem hash (aleatório, que ninguém conhece) desde o cadastro, e
+       * responder por ele faria o diálogo de encerramento pedir uma senha
+       * impossível de digitar. O diálogo usa isto para escolher entre pedir a
+       * senha ou o e-mail — e é a única informação sobre autenticação que o
+       * front recebe.
        */
-      hasPassword: passwordHash !== null,
+      hasPassword: passwordSetAt !== null,
       /**
        * Encerramento agendado da WORKSPACE. Vem no `me` de todo mundo, owner ou
        * colaborador: o banner tem de avisar a equipe inteira, e só o owner vê o

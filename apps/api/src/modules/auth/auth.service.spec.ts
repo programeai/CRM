@@ -291,15 +291,34 @@ describe('AuthService', () => {
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
     });
 
-    it('não envia e-mail para conta sem senha (só-OAuth)', async () => {
+    it('não envia e-mail para convite de colaborador ainda pendente', async () => {
       users.findByEmail.mockResolvedValue({
         id: 'u1',
         email: 'a@b.com',
         passwordHash: null,
+        acceptedAt: null,
       } as any);
       await service.requestPasswordReset('a@b.com');
       expect(users.createPasswordResetToken).not.toHaveBeenCalled();
       expect(mail.sendPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('ENVIA e-mail para conta de login social que nunca definiu senha', async () => {
+      // O caso que era um beco sem saída: sem este caminho, quem entrou pelo
+      // Google nunca consegue uma senha e fica preso ao provedor para sempre.
+      users.findByEmail.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.com',
+        passwordHash: await argon2.hash('aleatoria-do-cadastro'),
+        passwordSetAt: null,
+        acceptedAt: new Date(),
+      } as any);
+      await service.requestPasswordReset('a@b.com');
+      expect(users.createPasswordResetToken).toHaveBeenCalled();
+      expect(mail.sendPasswordReset).toHaveBeenCalledWith(
+        'a@b.com',
+        expect.stringContaining('/redefinir-senha?token='),
+      );
     });
 
     it('cria token e envia e-mail com link para usuário com senha', async () => {
@@ -307,6 +326,8 @@ describe('AuthService', () => {
         id: 'u1',
         email: 'a@b.com',
         passwordHash: await argon2.hash('x'),
+        passwordSetAt: new Date(),
+        acceptedAt: new Date(),
       } as any);
       await service.requestPasswordReset('a@b.com');
       expect(users.deletePendingResetTokens).toHaveBeenCalledWith('u1');
