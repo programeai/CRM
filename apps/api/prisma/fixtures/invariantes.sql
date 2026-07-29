@@ -368,3 +368,21 @@ BEGIN
     RAISE EXCEPTION 'Tabela "AccessRecord" está com RLS habilitado — o login roda sem app.owner_id e passaria a gravar zero linha em silêncio.';
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Senha escolhida pelo titular (20260817100000_password_set_at)
+-- ---------------------------------------------------------------------------
+-- O backfill precisa ter percorrido as linhas que já existiam. "Não estourou"
+-- não valeria como portão: `ADD COLUMN` sozinho terminaria com exit 0 e todo
+-- usuário da fixture ficaria marcado como "nunca escolheu senha" — o que faria o
+-- diálogo de encerramento pedir e-mail a quem tem senha e o `/auth/me` mentir no
+-- `hasPassword`.
+DO $$
+DECLARE sem_marca INT;
+BEGIN
+  SELECT count(*) INTO sem_marca FROM "User"
+   WHERE "passwordHash" IS NOT NULL AND "passwordSetAt" IS NULL;
+  IF sem_marca > 0 THEN
+    RAISE EXCEPTION 'Há % usuário(s) com senha e sem "passwordSetAt" — o backfill de 20260817100000_password_set_at não percorreu as linhas existentes.', sem_marca;
+  END IF;
+END $$;

@@ -14,7 +14,19 @@ model User {
   id               String         @id @default(uuid())
   name             String
   email            String         @unique
-  passwordHash     String? // opcional: conta criada via OAuth ou convite de colaborador ainda não aceito
+  /// Conta criada por OAuth nasce com uma senha ALEATÓRIA que ninguém conhece —
+  /// não com `NULL`. É o que faz `POST /auth/forgot-password` funcionar para ela
+  /// sem nenhum caso especial, e é por isso que a redefinição por e-mail é o
+  /// único caminho para o login social ganhar uma senha utilizável.
+  /// Segue nullable só pelo convite de colaborador ainda não aceito (`acceptedAt`
+  /// nulo) e pelas contas OAuth criadas antes desta regra.
+  passwordHash     String?
+  /// Quando o TITULAR escolheu a senha (cadastro, aceite de convite ou
+  /// redefinição). NULL = a senha guardada é a aleatória do OAuth, ou não há
+  /// nenhuma. É este campo — nunca `passwordHash IS NOT NULL` — que responde
+  /// "esta pessoa sabe uma senha?", pergunta que o `hasPassword` do `/auth/me` e
+  /// a reautenticação do encerramento de conta fazem.
+  passwordSetAt    DateTime?
   stripeCustomerId String?        @unique // billing (SaaS hospedado) — ausente na autohospedagem
   // --- colaboração (ver modelos Role/CollaboratorInvite) ---
   // NULL = este usuário é um owner: dono da workspace, dos dados e da assinatura.
