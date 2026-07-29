@@ -6,7 +6,7 @@
 Do primeiro lead ao contrato assinado — pipeline, propostas, projetos e
 financeiro conversando entre si, sem planilha solta.
 
-[![Licença: Apache 2.0](https://img.shields.io/badge/licen%C3%A7a-Apache%202.0-0E7C7B.svg)](./LICENSE)
+[![Licença: AGPL v3](https://img.shields.io/badge/licen%C3%A7a-AGPL%20v3-0E7C7B.svg)](./LICENSE)
 [![NestJS](https://img.shields.io/badge/API-NestJS%2011-E0234E.svg)](https://nestjs.com)
 [![React](https://img.shields.io/badge/Web-React%20%2B%20Vite-61DAFB.svg)](https://react.dev)
 [![PostgreSQL](https://img.shields.io/badge/Banco-PostgreSQL%2016-4169E1.svg)](https://www.postgresql.org)
@@ -158,7 +158,8 @@ pnpm db:down                          # derruba o Postgres
 
 ## Autohospedagem
 
-Rodar sua própria instância é **gratuito e não exige licença nenhuma**.
+Rodar sua própria instância é **gratuito e não exige contratar nada** — a
+[AGPL](#licença) já lhe dá esse direito.
 
 O [`docker-compose.selfhost.yml`](./docker-compose.selfhost.yml) sobe o CRM
 inteiro numa VPS onde só exista Docker: front, API, Postgres e um **reverse proxy
@@ -245,12 +246,33 @@ Antes de abrir o PR: `pnpm --filter api test` e `pnpm --filter api build`.
 
 ## Licença
 
-Distribuído sob a **[Apache License 2.0](./LICENSE)**. Você pode usar, modificar,
-autohospedar e vender versões derivadas.
+Distribuído sob a **[GNU AGPL v3](./LICENSE)** — software livre, com copyleft de
+rede.
+
+**O que você pode fazer, sem pedir nada a ninguém:** usar, estudar, modificar e
+autohospedar quantas instâncias quiser, inclusive dentro da sua empresa e para
+atender seus próprios clientes.
+
+**A contrapartida (artigo 13):** se você modificar o CRM e oferecê-lo a outras
+pessoas através de uma rede, precisa disponibilizar o código-fonte da sua versão
+modificada aos usuários dela, também sob AGPL. Não existe a opção de pegar este
+código, fechá-lo e vendê-lo como produto proprietário — melhorias em cima de um
+projeto livre voltam para o comum.
+
+Uso interno e modificações que você não distribui nem expõe em rede a terceiros
+não disparam essa obrigação.
 
 ### Marca (Trademark)
 
-O **código** é livre, mas os nomes **"ProgrameAi"** e **"ProgrameAi CRM"**, o
-logo e a identidade visual (teal `#0E7C7B`) **não são licenciados**. Forks e
-produtos derivados devem usar nome e identidade próprios e não podem sugerir
-afiliação ou endosso oficial. Ver [NOTICE](./NOTICE).
+O **código** é livre, a **marca não é.** Os nomes **"ProgrameAi"** e **"ProgrameAi
+CRM"**, o logo e a identidade visual (teal `#0E7C7B`) **não são licenciados pela
+AGPL** — ela cobre o código, não a marca. Forks e produtos derivados devem adotar
+nome e identidade próprios e não podem sugerir afiliação ou endosso oficial. Ver
+[NOTICE](./NOTICE).
+
+### Licença comercial
+
+Precisa integrar este código a um produto proprietário, ou distribuí-lo sem as
+obrigações da AGPL? O projeto é de titularidade única (contribuições passam por
+[CLA](./CLA.md)), então uma licença comercial é possível — abra contato com o
+mantenedor.

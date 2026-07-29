@@ -39,8 +39,18 @@ Tipos comuns: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`.
 
 ## Licenciamento das contribuições
 
-Ao enviar um PR, você concorda em licenciar sua contribuição sob a
-**Apache License 2.0** (ver [LICENSE](./LICENSE)), a mesma licença do projeto.
+O projeto é distribuído sob a **[GNU AGPL v3](./LICENSE)**, e sua contribuição
+entra no projeto sob essa licença.
+
+Além disso, o projeto adota um **[CLA](./CLA.md)** (Acordo de Licença de
+Contribuição). No seu primeiro PR, um bot vai pedir que você confirme o aceite
+em um comentário — leva alguns segundos e vale para todos os PRs seguintes.
+Correções triviais são dispensadas.
+
+Em resumo: **você continua titular do seu código** e livre para usá-lo como
+quiser; o CLA apenas dá ao mantenedor o direito de relicenciar o projeto como um
+todo — o que viabiliza o licenciamento comercial sem precisar rastrear cada
+contribuidor. Os detalhes e o texto integral estão em [CLA.md](./CLA.md).
 
 ## Código de conduta
 
