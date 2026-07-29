@@ -15,6 +15,7 @@ import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { ListContractsQueryDto } from './dto/list-contracts-query.dto';
 import { ExportContractsQueryDto } from './dto/export-contracts-query.dto';
+import { DeriveContractFromProposalDto } from './dto/derive-contract-from-proposal.dto';
 
 @Controller('contracts')
 export class ContractsController {
@@ -43,6 +44,39 @@ export class ContractsController {
     @Query() query: ExportContractsQueryDto,
   ): Promise<StreamableFile> {
     return this.contracts.export(ownerId, query);
+  }
+
+  // Rotas literais antes das de `:id`, no mesmo cuidado de `GET /contracts/export`
+  // (comentário em L38): `from-proposal`/`by-proposal` não colidem com as rotas
+  // de hoje, mas a ordem é a convenção do arquivo e protege de colisão futura.
+
+  @RequirePermission('financeiro:gerenciar')
+  @Post('from-proposal/:proposalId/preview')
+  previewFromProposal(
+    @CurrentOwnerId() ownerId: string,
+    @Param('proposalId') proposalId: string,
+    @Body() dto: DeriveContractFromProposalDto,
+  ) {
+    return this.contracts.previewFromProposal(ownerId, proposalId, dto);
+  }
+
+  @RequirePermission('financeiro:gerenciar')
+  @Post('from-proposal/:proposalId')
+  createFromProposal(
+    @CurrentOwnerId() ownerId: string,
+    @Param('proposalId') proposalId: string,
+    @Body() dto: DeriveContractFromProposalDto,
+  ) {
+    return this.contracts.createFromProposal(ownerId, proposalId, dto);
+  }
+
+  @RequirePermission('financeiro:ver', 'financeiro:gerenciar')
+  @Get('by-proposal/:proposalId')
+  listByProposal(
+    @CurrentOwnerId() ownerId: string,
+    @Param('proposalId') proposalId: string,
+  ) {
+    return this.contracts.listByProposal(ownerId, proposalId);
   }
 
   @RequirePermission('financeiro:ver', 'financeiro:gerenciar')

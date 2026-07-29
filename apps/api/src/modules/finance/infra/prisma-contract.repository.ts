@@ -10,6 +10,9 @@ import type {
 const withPayments = {
   payments: { orderBy: { dueDate: 'asc' } },
   client: { select: { id: true, name: true } },
+  // A ficha do contrato aponta para a proposta de origem: `proposalId` sozinho
+  // não dá nome nem versão para o link.
+  proposal: { select: { id: true, number: true, version: true } },
 } as const;
 
 @Injectable()
@@ -53,6 +56,14 @@ export class PrismaContractRepository implements ContractRepository {
   findByClient(clientId: string) {
     return this.prisma.db.contract.findMany({
       where: { clientId },
+      include: withPayments,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findByProposalIds(proposalIds: string[]) {
+    return this.prisma.db.contract.findMany({
+      where: { proposalId: { in: proposalIds } },
       include: withPayments,
       orderBy: { createdAt: 'desc' },
     });

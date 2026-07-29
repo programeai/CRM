@@ -28,6 +28,13 @@ export interface ContractRepository {
     filter: ContractListFilter,
   ): Promise<{ data: ContractWithPayments[]; total: number }>;
   findByClient(clientId: string): Promise<ContractWithPayments[]>;
+  /**
+   * Contratos de qualquer uma das propostas informadas. Recebe uma LISTA
+   * porque a pergunta do negócio é sobre a cadeia de versões (mesmo `number`),
+   * não sobre uma linha: duas versões da mesma proposta não podem gerar dois
+   * contratos.
+   */
+  findByProposalIds(proposalIds: string[]): Promise<ContractWithPayments[]>;
   update(
     id: string,
     data: Prisma.ContractUpdateInput,
