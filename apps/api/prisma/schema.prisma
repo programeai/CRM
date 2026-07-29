@@ -488,7 +488,10 @@ model Deal {
 model Proposal {
   id           String         @id @default(uuid())
   ownerId      String // denormalizado p/ RLS (== Client.ownerId)
-  number       String         @unique // PROP-2026-0042
+  // O número identifica a CADEIA, não a linha: todas as versões de uma proposta
+  // compartilham o mesmo `number` e se distinguem por `version` (ver
+  // `newVersion`). Por isso o unique é o PAR — ver `@@unique` no fim do model.
+  number       String // PROP-2026-0042
   version      Int            @default(1)
   parentId     String? // versão anterior
   parent       Proposal?      @relation("ProposalVersions", fields: [parentId], references: [id])
@@ -506,6 +509,25 @@ model Proposal {
   validUntil   DateTime?
   discount     Decimal?       @db.Decimal(12, 2)
   total        Decimal        @db.Decimal(12, 2) // calculado no backend
+  // ⚠ Em proposta de plano RECURRING, `total` significa VALOR MENSAL (Σ dos
+  // itens é a mensalidade). Quem soma `total` de várias propostas mistura
+  // grandezas — é o caso de DashboardRepository.proposalsOpen.
+  // --- plano de cobrança (estrutura que deriva o Contract) ------------------
+  // Só a ESTRUTURA e os PRAZOS. Nenhum valor sai daqui: os valores vêm de
+  // `total` na derivação (finance/application/proposal-plan.ts). Os prazos são
+  // OFFSETS EM DIAS relativos ao aceite, nunca datas absolutas — o plano é
+  // escrito antes de existir aceite, e a derivação ancora em `decidedAt`.
+  // Nullable no banco só pelo histórico já gravado; obrigatório no DTO.
+  billingType           BillingType? // RECURRING | INSTALLMENTS | ONE_TIME
+  startOffsetDays       Int? // dias após o aceite: startDate (REC) | 1ª parcela (INST) | vencimento (ONE)
+  // RECURRING
+  billingDay            Int? // 1–28 (dia do mês, não offset — Contract.billingDay é assim)
+  durationMonths        Int? // null = tempo indeterminado
+  // INSTALLMENTS
+  downPaymentPercent    Decimal? @db.Decimal(5, 2) // 0–100, exclusivo com downPaymentAmount
+  downPaymentAmount     Decimal? @db.Decimal(12, 2) // exclusivo com downPaymentPercent
+  downPaymentOffsetDays Int? // dias após o aceite p/ a entrada
+  installments          Int? // qtd de parcelas (sem contar a entrada)
   items        ProposalItem[]
   projects     Project[]
   contracts    Contract[]
@@ -515,6 +537,13 @@ model Proposal {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
+  // Uma linha por (cadeia, versão). Substitui o `@unique` que estava em
+  // `number` sozinho e que tornava o versionamento IMPOSSÍVEL: `newVersion`
+  // grava o mesmo `number` com `version + 1` e batia em P2002 sempre, então
+  // `POST /proposals/:id/new-version` respondia 500 em toda proposta.
+  // O índice também cobre as buscas por `number` sozinho (prefixo à esquerda),
+  // que é o que `findVersionsByNumber` faz.
+  @@unique([number, version])
   @@index([clientId, status])
   @@index([ownerId])
   @@index([validUntil, status]) // ← gatilho (b), varredura cross-owner
@@ -598,7 +627,13 @@ model Contract {
   client            Client         @relation(fields: [clientId], references: [id])
   projectId         String?
   project           Project?       @relation(fields: [projectId], references: [id])
-  proposalId        String?
+  // Um contrato por proposta: é a idempotência da derivação (dois cliques no
+  // botão "Gerar contrato" não podem virar dois contratos). No Postgres NULLs
+  // são distintos, então este @unique numa coluna nullable já vale "no máximo
+  // um contrato por proposta E quantos contratos se quiser sem proposta" — não
+  // é preciso índice parcial. A regra mais forte (um contrato por CADEIA de
+  // versões) fica no ContractsService: `number` não existe aqui.
+  proposalId        String?        @unique
   proposal          Proposal?      @relation(fields: [proposalId], references: [id])
   description       String
   billingType       BillingType // RECURRING | INSTALLMENTS | ONE_TIME
