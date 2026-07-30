@@ -3,11 +3,17 @@
 # chamada "traefik-proxy" e de um resolver ACME configurado — o nome do resolver
 # vem de ACME_RESOLVER (ver .env.example).
 #
-# As imagens vêm do Docker Hub (publicadas pelo workflow de build) e as
-# variáveis do arquivo .env que o workflow de deploy gera no diretório de deploy
-# (ver .github/workflows/build.yml e .github/workflows/deploy.yml).
-# IMAGE_TAG é escolhida no disparo do deploy: `latest` ou o SHA de um commit
-# (rollback). O default local é `latest`.
+# As imagens vêm do Docker Hub — públicas, sob `programeai` (publicadas pelo
+# workflow de build) — e as variáveis do arquivo .env que o workflow de deploy
+# gera no diretório de deploy (ver .github/workflows/build.yml e
+# .github/workflows/deploy.yml).
+#
+# IMAGE_TAG é escolhida no disparo do deploy e vale a pena fixar:
+#   - `2026.07.30` — versão CalVer, imutável (recomendado, inclusive no rollback);
+#   - `<sha completo>` — endereço exato de um commit;
+#   - `latest` — HEAD da main, muda embaixo de você no próximo build. Default.
+#
+# Num fork que publica as próprias imagens, defina CRM_IMAGE_NAMESPACE no .env.
 # Este arquivo NÃO faz build: para desenvolvimento use `pnpm dev` +
 # docker-compose.yml (só o Postgres local).
 #
@@ -29,7 +35,7 @@ x-log-rotacionado: &log-rotacionado
 services:
   # Front (bundle do Vite servido por nginx). Recebe tudo que não é /api.
   web:
-    image: ${DOCKERHUB_USERNAME}/crm-web:${IMAGE_TAG:-latest}
+    image: ${CRM_IMAGE_NAMESPACE:-programeai}/crm-web:${IMAGE_TAG:-latest}
     container_name: crm-web
     restart: unless-stopped
     depends_on:
@@ -60,7 +66,7 @@ services:
   # não há CORS nem cookie cross-site. O router usa prioridade 10 contra a 1 do
   # front, garantindo que /api chegue aqui e todo o resto no nginx.
   api:
-    image: ${DOCKERHUB_USERNAME}/crm-api:${IMAGE_TAG:-latest}
+    image: ${CRM_IMAGE_NAMESPACE:-programeai}/crm-api:${IMAGE_TAG:-latest}
     container_name: crm-api
     restart: unless-stopped
     depends_on:
