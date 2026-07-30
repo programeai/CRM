@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag das imagens a publicar: `latest` ou o SHA completo do commit (rollback)"
+        description: "Tag das imagens: a versão CalVer (ex. `2026.07.30`), `latest` ou o SHA completo do commit"
         required: true
         default: latest
         type: string
@@ -18,18 +18,25 @@ concurrency:
   group: deploy-producao
   cancel-in-progress: false
 
+# Mesmo namespace público do workflow de build.
+env:
+  DOCKERHUB_NAMESPACE: programeai
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Quando a tag é um SHA, usa o compose DAQUELE commit — o arquivo de deploy
-      # acompanha a imagem, senão um rollback subiria imagem antiga com compose
-      # novo. Com `latest`, usa a ref de onde o workflow foi disparado.
+      # O compose tem que vir do MESMO commit da imagem, senão um rollback
+      # subiria imagem antiga com compose novo. Três casos:
+      #   - `latest`     → a ref de onde o workflow foi disparado;
+      #   - CalVer       → a tag git `v<versão>` que o build criou (o `.` no meio
+      #                    é o que distingue: SHA nunca tem ponto);
+      #   - SHA completo → o próprio commit.
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag == 'latest' && github.ref || inputs.tag }}
+          ref: ${{ inputs.tag == 'latest' && github.ref || (contains(inputs.tag, '.') && format('v{0}', inputs.tag) || inputs.tag) }}
 
       # Estes dois não têm default em lugar nenhum: ACME_RESOLVER errado quebraria
       # o TLS e DEPLOY_DIR vazio faria o compose rodar no home do usuário. Falhar
@@ -48,23 +55,25 @@ jobs:
             exit 1
           fi
 
+      # As imagens são públicas, então isto não é sobre acesso: é o limite de pull
+      # anônimo do Docker Hub, que uma VPS com IP compartilhado estoura fácil.
+      # Autenticado, a conferência abaixo não depende dessa cota.
       - name: Login no Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Falha aqui (e não na VPS) se a tag não existe — ex.: SHA digitado errado
-      # ou build que ainda não terminou.
+      # Falha aqui (e não na VPS) se a tag não existe — ex.: versão digitada
+      # errada ou build que ainda não terminou.
       - name: Conferir se as imagens existem no registry
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           TAG: ${{ inputs.tag }}
         run: |
           set -e
           for imagem in crm-api crm-web; do
-            echo "Conferindo ${DOCKERHUB_USERNAME}/${imagem}:${TAG}..."
-            if ! docker manifest inspect "${DOCKERHUB_USERNAME}/${imagem}:${TAG}" > /dev/null 2>&1; then
+            echo "Conferindo ${DOCKERHUB_NAMESPACE}/${imagem}:${TAG}..."
+            if ! docker manifest inspect "${DOCKERHUB_NAMESPACE}/${imagem}:${TAG}" > /dev/null 2>&1; then
               echo "::error::Imagem ${imagem}:${TAG} não existe no Docker Hub. Rode o workflow de build antes."
               exit 1
             fi
@@ -97,7 +106,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           # Passa os segredos por env (nunca interpola direto no script).
-          envs: IMAGE_TAG,DOCKERHUB_USERNAME,CRM_DOMAIN,ACME_RESOLVER,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,APP_DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,TURNSTILE_SECRET_KEY,REGISTRATION_ENABLED,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASSWORD,MAIL_FROM,LEAD_INTAKE_TOKEN,LEAD_INTAKE_OWNER_EMAIL,BILLING_ENABLED,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_PRICE_ID
+          envs: IMAGE_TAG,CRM_DOMAIN,ACME_RESOLVER,POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,APP_DB_PASSWORD,JWT_ACCESS_SECRET,JWT_REFRESH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,TURNSTILE_SECRET_KEY,REGISTRATION_ENABLED,SMTP_HOST,SMTP_PORT,SMTP_SECURE,SMTP_USER,SMTP_PASSWORD,MAIL_FROM,LEAD_INTAKE_TOKEN,LEAD_INTAKE_OWNER_EMAIL,BILLING_ENABLED,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,STRIPE_PRICE_ID
           script: |
             set -e
             cd ${{ secrets.DEPLOY_DIR }}
@@ -106,7 +115,6 @@ jobs:
             umask 077
             cat > .env <<EOF
             IMAGE_TAG=${IMAGE_TAG}
-            DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
             CRM_DOMAIN=${CRM_DOMAIN}
             ACME_RESOLVER=${ACME_RESOLVER}
             POSTGRES_USER=${POSTGRES_USER}
@@ -153,8 +161,9 @@ jobs:
 
             docker compose -f docker-compose.prod.yml ps
         env:
+          # O namespace das imagens não vai no .env da VPS: o compose já traz
+          # `programeai` como default (as imagens são públicas).
           IMAGE_TAG: ${{ inputs.tag }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           CRM_DOMAIN: ${{ secrets.CRM_DOMAIN }}
           ACME_RESOLVER: ${{ secrets.ACME_RESOLVER }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}

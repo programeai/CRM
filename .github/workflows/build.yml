@@ -3,6 +3,18 @@ name: Build - Imagens de produção
 # Publica as imagens no Docker Hub a cada push na main. NÃO faz deploy:
 # a publicação na VPS é manual, pelo workflow "Deploy na VPS".
 #
+# As imagens são PÚBLICAS e o namespace é constante (env DOCKERHUB_NAMESPACE
+# abaixo), não secret: quem autohospeda precisa conseguir ler o nome da imagem no
+# repositório e usá-lo sem adivinhar. Os secrets DOCKERHUB_USERNAME/TOKEN servem
+# só para autenticar o push (a conta que publica pode não ter o nome do
+# namespace). Num fork, troque o valor de DOCKERHUB_NAMESPACE.
+#
+# Três tags por build, cada uma com um papel:
+#  - `AAAA.MM.DD[.N]` (CalVer, fuso de São Paulo) — versão legível e imutável;
+#    o `.N` distingue o 2º build do mesmo dia em diante.
+#  - `<sha completo>` — endereço exato do commit, usado pelo rollback.
+#  - `latest` — sempre o HEAD da main.
+#
 # Eficiência (minutos de Actions são cobrados por job, arredondados para cima):
 #  1. `paths-ignore` barra o push antes de alocar runner — commit só de docs,
 #     spec ou compose não gasta 1 minuto sequer.
@@ -50,8 +62,13 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# `contents: write` só para empurrar a tag git da versão (passo final).
 permissions:
-  contents: read
+  contents: write
+
+# Namespace público das imagens. Constante de propósito — ver o cabeçalho.
+env:
+  DOCKERHUB_NAMESPACE: programeai
 
 jobs:
   construir:
@@ -203,7 +220,51 @@ jobs:
         run: apps/api/scripts/validar-migrations-com-dados.sh
 
       # -----------------------------------------------------------------------
-      # Build e push das imagens que mudaram (tags `latest` e `<sha>`).
+      # Versão CalVer: AAAA.MM.DD para o primeiro build do dia, AAAA.MM.DD.N do
+      # segundo em diante. O N vem do próprio registry (API pública do Docker
+      # Hub, sem autenticação): contar as tags do dia é o que garante que uma
+      # versão já publicada nunca seja sobrescrita — e sobrescrever versão é o
+      # que faria "2026.07.30" deixar de significar algo.
+      #
+      # Fuso de São Paulo, não UTC: a data da tag tem que ser a mesma que o
+      # mantenedor vê no calendário. Em UTC, um push às 22h viraria o dia
+      # seguinte.
+      #
+      # Registry vazio, repositório ainda privado ou Hub fora do ar caem todos no
+      # mesmo lugar: nenhuma tag encontrada → primeira versão do dia. Só custa uma
+      # colisão de nome no pior caso, e o `latest`/sha do build seguem corretos.
+      # -----------------------------------------------------------------------
+      - name: Calcular versão CalVer
+        id: versao
+        run: |
+          set -uo pipefail
+          data="$(TZ=America/Sao_Paulo date +%Y.%m.%d)"
+
+          # Maior sufixo já publicado hoje, entre as duas imagens (elas andam em
+          # lockstep: todo build publica a mesma versão nas duas).
+          maior=0
+          for imagem in crm-api crm-web; do
+            url="https://hub.docker.com/v2/repositories/${DOCKERHUB_NAMESPACE}/${imagem}/tags?page_size=100&name=${data}"
+            resposta="$(curl -fsS --max-time 20 "$url" 2>/dev/null || true)"
+            [ -n "$resposta" ] || continue
+
+            n="$(printf '%s' "$resposta" | jq -r --arg data "$data" '
+              [ .results[]?.name
+                | select(. == $data or startswith($data + "."))
+                | if . == $data then 1 else ((ltrimstr($data + ".") | tonumber?) // 0) end
+              ] | max // 0' 2>/dev/null || echo 0)"
+            case "$n" in ''|*[!0-9]*) n=0 ;; esac
+            if [ "$n" -gt "$maior" ]; then maior="$n"; fi
+          done
+
+          if [ "$maior" -eq 0 ]; then versao="$data"; else versao="${data}.$((maior + 1))"; fi
+
+          echo "versao=$versao" >> "$GITHUB_OUTPUT"
+          echo "criado_em=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "Versão desta publicação: $versao"
+
+      # -----------------------------------------------------------------------
+      # Build e push das imagens que mudaram (tags `<calver>`, `<sha>`, `latest`).
       # -----------------------------------------------------------------------
       - name: Login no Docker Hub
         uses: docker/login-action@v3
@@ -223,8 +284,19 @@ jobs:
           file: apps/api/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/crm-api:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-api:${{ steps.versao.outputs.versao }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-api:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-api:latest
+          # Procedência na própria imagem: `docker inspect` responde de qual
+          # commit e de qual versão ela saiu, sem depender do Docker Hub.
+          labels: |
+            org.opencontainers.image.title=ProgrameAi CRM — API
+            org.opencontainers.image.description=API do ProgrameAi CRM (NestJS + Prisma)
+            org.opencontainers.image.source=https://github.com/programeai/CRM
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.version=${{ steps.versao.outputs.versao }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.versao.outputs.criado_em }}
           cache-from: type=gha,scope=crm-api
           cache-to: type=gha,mode=max,scope=crm-api
 
@@ -237,8 +309,17 @@ jobs:
           file: apps/web/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/crm-web:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-web:${{ steps.versao.outputs.versao }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-web:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/crm-web:latest
+          labels: |
+            org.opencontainers.image.title=ProgrameAi CRM — Front
+            org.opencontainers.image.description=Interface do ProgrameAi CRM (React + Vite, servida por nginx)
+            org.opencontainers.image.source=https://github.com/programeai/CRM
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.version=${{ steps.versao.outputs.versao }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.versao.outputs.criado_em }}
           cache-from: type=gha,scope=crm-web
           cache-to: type=gha,mode=max,scope=crm-web
           build-args: |
@@ -247,15 +328,17 @@ jobs:
 
       # -----------------------------------------------------------------------
       # Mantém a garantia que o workflow de deploy assume: TODO sha que passou
-      # por aqui tem as duas imagens. A imagem não reconstruída recebe o sha
-      # novo apontando para o mesmo manifest do `latest` — é uma cópia de
-      # ponteiro no registry (segundos), não um rebuild.
+      # por aqui tem as duas imagens — e agora também a versão CalVer, para que
+      # `2026.07.30` signifique o estado completo do CRM naquele build, não só a
+      # metade que mudou. A imagem não reconstruída recebe as duas tags novas
+      # apontando para o mesmo manifest do `latest` — é uma cópia de ponteiro no
+      # registry (segundos), não um rebuild.
       # -----------------------------------------------------------------------
-      - name: Alinhar tag do sha nas imagens não reconstruídas
+      - name: Alinhar tags nas imagens não reconstruídas
         if: steps.detectar.outputs.api == 'false' || steps.detectar.outputs.web == 'false'
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SHA: ${{ github.sha }}
+          VERSAO: ${{ steps.versao.outputs.versao }}
           API_RECONSTRUIDA: ${{ steps.detectar.outputs.api }}
           WEB_RECONSTRUIDA: ${{ steps.detectar.outputs.web }}
         run: |
@@ -265,28 +348,108 @@ jobs:
             reconstruida="${par##*:}"
             [ "$reconstruida" = "false" ] || continue
 
-            origem="${DOCKERHUB_USERNAME}/${imagem}:latest"
+            origem="${DOCKERHUB_NAMESPACE}/${imagem}:latest"
             if ! docker manifest inspect "$origem" > /dev/null 2>&1; then
-              echo "::warning::${imagem}:latest não existe no registry; o sha ${SHA} ficará sem essa imagem."
+              echo "::warning::${imagem}:latest não existe no registry; ${VERSAO} e o sha ${SHA} ficarão sem essa imagem."
               continue
             fi
-            echo "Tagueando ${imagem}:${SHA} a partir de latest (sem rebuild)."
-            docker buildx imagetools create -t "${DOCKERHUB_USERNAME}/${imagem}:${SHA}" "$origem"
+            echo "Tagueando ${imagem}:${VERSAO} e ${imagem}:${SHA} a partir de latest (sem rebuild)."
+            docker buildx imagetools create \
+              -t "${DOCKERHUB_NAMESPACE}/${imagem}:${VERSAO}" \
+              -t "${DOCKERHUB_NAMESPACE}/${imagem}:${SHA}" \
+              "$origem"
           done
 
-      # Deixa o SHA à mão: é o valor a colar no input do workflow de deploy.
+      # -----------------------------------------------------------------------
+      # As imagens de um projeto open source têm que ser puxáveis por qualquer
+      # pessoa, sem login. Repositório novo no Docker Hub pode nascer privado
+      # (depende da conta/plano), então em vez de confiar no default: confere
+      # anonimamente e, se estiver privado, publica.
+      #
+      # Falha de API aqui é `::warning::`, nunca erro: as imagens já foram
+      # publicadas e derrubar o build não as tornaria públicas — o que resolve é
+      # o alerta com o link do botão.
+      # -----------------------------------------------------------------------
+      - name: Garantir que as imagens são públicas
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+
+          jwt=""
+          for imagem in crm-api crm-web; do
+            url="https://hub.docker.com/v2/repositories/${DOCKERHUB_NAMESPACE}/${imagem}/"
+
+            # Sem Authorization: só responde 200 se o repositório for público.
+            if curl -fsS --max-time 20 "$url" > /dev/null 2>&1; then
+              echo "${imagem}: público."
+              continue
+            fi
+
+            # O token do push serve como senha na API do Hub (precisa de escopo de
+            # escrita e de admin no repositório para alterar a visibilidade).
+            if [ -z "$jwt" ]; then
+              # Credenciais vêm de env (jq -n lê de `env`), nunca de argv: linha
+              # de comando é legível por qualquer processo do runner.
+              jwt="$(curl -fsS --max-time 20 -X POST https://hub.docker.com/v2/users/login \
+                -H 'Content-Type: application/json' \
+                -d "$(jq -nc '{username: env.DOCKERHUB_USERNAME, password: env.DOCKERHUB_TOKEN}')" 2>/dev/null \
+                | jq -r '.token // empty' 2>/dev/null)"
+            fi
+
+            if [ -n "$jwt" ] && curl -fsS --max-time 20 -X PATCH "$url" \
+                 -H "Authorization: JWT ${jwt}" \
+                 -H 'Content-Type: application/json' \
+                 -d '{"is_private": false}' > /dev/null 2>&1; then
+              echo "${imagem}: estava privado, tornado público."
+              continue
+            fi
+
+            echo "::warning::Não foi possível confirmar que ${DOCKERHUB_NAMESPACE}/${imagem} \
+            é público. Torne-o público na mão em \
+            https://hub.docker.com/repository/docker/${DOCKERHUB_NAMESPACE}/${imagem}/settings \
+            — enquanto estiver privado, quem autohospeda não consegue puxar a imagem."
+          done
+
+      # -----------------------------------------------------------------------
+      # Tag git da versão. Faz o CalVer existir também no repositório, o que dá
+      # duas coisas: a pergunta "qual commit é a 2026.07.30?" passa a ter resposta
+      # em https://github.com/programeai/CRM/tags, e o workflow de deploy
+      # consegue fazer checkout do compose DAQUELE commit quando alguém faz
+      # rollback informando a versão.
+      #
+      # Depois do push das imagens, de propósito: tag git sem imagem publicada
+      # seria uma versão que não existe. Falha aqui não invalida o build.
+      # -----------------------------------------------------------------------
+      - name: Tag git da versão
+        env:
+          VERSAO: ${{ steps.versao.outputs.versao }}
+        run: |
+          set -uo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git tag -a "v${VERSAO}" -m "Imagens ${DOCKERHUB_NAMESPACE}/crm-{api,web}:${VERSAO}" 2>/dev/null \
+             && git push origin "v${VERSAO}" 2>/dev/null; then
+            echo "Tag v${VERSAO} criada."
+          else
+            echo "::warning::Não foi possível criar a tag git v${VERSAO} (já existe?). As imagens foram publicadas normalmente."
+          fi
+
+      # Deixa a versão e o SHA à mão: são os valores a colar no input do deploy.
       - name: Resumo
         env:
           API: ${{ steps.detectar.outputs.api }}
           WEB: ${{ steps.detectar.outputs.web }}
           MOTIVO: ${{ steps.detectar.outputs.motivo }}
+          VERSAO: ${{ steps.versao.outputs.versao }}
         run: |
           rotulo() { [ "$1" = "true" ] && echo "reconstruída" || echo "reaproveitada de \`latest\` (sem rebuild)"; }
           {
-            echo "### Imagens publicadas"
+            echo "### Versão publicada: \`${VERSAO}\`"
             echo ""
-            echo "- \`crm-api:${{ github.sha }}\` — $(rotulo "$API")"
-            echo "- \`crm-web:${{ github.sha }}\` — $(rotulo "$WEB")"
+            echo "- \`${DOCKERHUB_NAMESPACE}/crm-api:${VERSAO}\` — $(rotulo "$API")"
+            echo "- \`${DOCKERHUB_NAMESPACE}/crm-web:${VERSAO}\` — $(rotulo "$WEB")"
             echo ""
             # `[ ... ] && echo` sozinho abortaria o step: o shell dos steps roda
             # com `-e` e o status do teste falso é o status do comando completo.
@@ -294,8 +457,9 @@ jobs:
               echo "Build completo: ${MOTIVO}."
               echo ""
             fi
-            echo 'As reconstruídas também foram tagueadas como `latest`.'
+            echo "Cada imagem recebeu três tags: \`${VERSAO}\` (versão imutável),"
+            echo '`${{ github.sha }}` (commit) e `latest` (HEAD da main).'
             echo ""
             echo 'Para publicar na VPS: workflow **Deploy na VPS** → Run workflow →'
-            echo 'tag `latest` (ou `${{ github.sha }}` para fixar esta versão).'
+            echo "tag \`${VERSAO}\` (recomendado — fixa esta versão) ou \`latest\`."
           } >> "$GITHUB_STEP_SUMMARY"
