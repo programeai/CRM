@@ -196,13 +196,53 @@ As migrations são aplicadas automaticamente a cada start da API.
 Então o [`docker-compose.prod.yml`](./docker-compose.prod.yml) é a base mais
 próxima do que você quer: é o deploy usado pelo mantenedor, com imagens vindas
 do Docker Hub e o TLS delegado a um Traefik já configurado (rede externa
-`traefik-proxy` + resolver ACME). Ele **não** funciona copiado e colado — as
-imagens estão sob o `DOCKERHUB_USERNAME` de quem publicou. Troque `image:` por
-`build:` como no selfhost, ou publique as suas. Contrato de variáveis em
-[`.env.example`](./.env.example) e pipeline em
-[docs/deploy.md](./docs/deploy.md).
+`traefik-proxy` + resolver ACME). As imagens são **públicas**, então ele funciona
+sem publicar nada — só preencha o `.env` e escolha a `IMAGE_TAG`:
+
+```bash
+docker pull programeai/crm-api:2026.07.30    # ou :latest
+docker pull programeai/crm-web:2026.07.30
+```
+
+Contrato de variáveis em [`.env.example`](./.env.example), tags disponíveis em
+[Imagens Docker](#imagens-docker) e pipeline em
+[docs/deploy.md](./docs/deploy.md). As imagens são construídas para **amd64**;
+em VPS ARM use o caminho da autohospedagem, que compila localmente.
 
 </details>
+
+## Imagens Docker
+
+Duas imagens públicas no Docker Hub, publicadas juntas a cada push na `main`:
+
+| Imagem | Conteúdo |
+| --- | --- |
+| [`programeai/crm-api`](https://hub.docker.com/r/programeai/crm-api) | API NestJS + Prisma (aplica as migrations no start) |
+| [`programeai/crm-web`](https://hub.docker.com/r/programeai/crm-web) | Bundle do Vite servido por nginx |
+
+Cada publicação recebe três tags, com papéis diferentes:
+
+| Tag | Significado | Quando usar |
+| --- | --- | --- |
+| `2026.07.30` | **Versão CalVer** — data da publicação, com `.2`, `.3`… no segundo build do mesmo dia. Nunca é reescrita. | Produção. É o que se fixa no `.env` e o que se informa num rollback. |
+| `<sha completo>` | O commit exato que originou a imagem. | Rastreabilidade e rollback para um commit específico. |
+| `latest` | O `HEAD` da `main` no momento. Muda embaixo de você no próximo build. | Testar rápido, nunca produção. |
+
+As duas imagens sempre carregam **as mesmas tags no mesmo build**, mesmo quando
+só uma foi reconstruída — então `crm-api:2026.07.30` e `crm-web:2026.07.30` são o
+mesmo estado do CRM, e nunca uma combinação que nunca existiu.
+
+A versão publicada também vira uma tag git (`v2026.07.30`) em
+[Tags](https://github.com/programeai/CRM/tags): dali sai o commit exato de
+qualquer versão. A própria imagem também responde, sem depender do Docker Hub:
+
+```bash
+docker image inspect programeai/crm-api:latest \
+  --format '{{index .Config.Labels "org.opencontainers.image.version"}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
+
+Arquitetura: **linux/amd64**. Em ARM (Ampere, Graviton, Apple Silicon) compile
+pelo caminho da [autohospedagem](#autohospedagem).
 
 ## Documentação
 

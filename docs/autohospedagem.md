@@ -224,6 +224,23 @@ entrypoint. Nada de manual.
 
 > Tire um backup antes de atualizar. Migration não tem botão de desfazer.
 
+**Prefere não compilar?** As imagens do projeto são públicas no Docker Hub e
+versionadas por data (`programeai/crm-api` e `programeai/crm-web` — tags e
+significado de cada uma no [README](../README.md#imagens-docker)). Para usá-las em
+vez do `--build`, troque o bloco `build:` de cada serviço por `image:` com a
+versão que você quer fixar:
+
+```yaml
+  api:
+    image: programeai/crm-api:2026.07.30    # em vez de build:
+```
+
+Duas condições: as imagens são **linux/amd64** (em VPS ARM continue no `--build`)
+e são construídas com `VITE_API_URL=/api/v1` — se você mudou alguma `VITE_*`,
+compile, porque essas variáveis entram no bundle em build-time. E fixe uma versão,
+não `latest`: `latest` acompanha a `main` e pode trazer migration nova sem você
+ter pedido.
+
 ### Backup do banco
 
 Dump pontual:
@@ -270,15 +287,16 @@ o banco inteiro** — não rode isso numa instância com dados.
 | | `docker-compose.selfhost.yml` | `docker-compose.prod.yml` |
 | --- | --- | --- |
 | **Para quem** | Quem clona o repositório e quer subir a própria instância | O mantenedor, via GitHub Actions |
-| **Imagens** | Compiladas na VPS, do código do repositório | Puxadas de um Docker Hub específico |
+| **Imagens** | Compiladas na VPS, do código do repositório (qualquer arquitetura) | Puxadas do Docker Hub — públicas, `programeai/crm-*`, só amd64 |
 | **Reverse proxy / TLS** | Incluído (Caddy, automático) | Traefik **já configurado no host**, com resolver ACME |
 | **Pré-requisito na VPS** | Só Docker | Rede externa `traefik-proxy` + resolver ACME + secrets no GitHub |
 | **Configuração** | `.env` na raiz | `.env` gerado pelo workflow de deploy a partir de secrets |
 
 Já tem um Traefik rodando e não quer um segundo proxy? Aí o
-[`docker-compose.prod.yml`](../docker-compose.prod.yml) é a base certa — troque
-os blocos `image:` por `build:` como no selfhost e siga o
-[docs/deploy.md](./deploy.md).
+[`docker-compose.prod.yml`](../docker-compose.prod.yml) é a base certa e funciona
+sem publicar imagem nenhuma: as do projeto são públicas — basta preencher o `.env`
+e escolher a `IMAGE_TAG` (em ARM, troque os blocos `image:` por `build:` como no
+selfhost). Siga o [docs/deploy.md](./deploy.md).
 
 ## Segurança da sua instância
 

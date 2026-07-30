@@ -59,7 +59,7 @@ Mínimo para subir:
 
 | Secret | Observação |
 | --- | --- |
-| `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | publicação das imagens |
+| `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` | publicação das imagens (token com escopo de **escrita**; ver "Imagens públicas") |
 | `SSH_HOST`, `SSH_USER`, `SSH_PORT`, `SSH_KEY` | acesso à VPS |
 | `CRM_DOMAIN` | host público, ex.: `crm.programeai.com.br` |
 | `ACME_RESOLVER` | nome do resolver ACME do seu Traefik |
@@ -95,9 +95,10 @@ São **dois workflows separados**: build automático, deploy no botão. Push na
 Automático a cada push na `main` (ou manual). Job único, para não pagar setup
 duas vezes — minutos de Actions são cobrados **por job, arredondados para cima**.
 
-Ordem dos steps: detectar apps afetados → testes da API (portão) → build e push
-de `crm-api` / `crm-web` no Docker Hub, com as tags `latest` e `<sha do commit>` e
-cache do Actions por imagem.
+Ordem dos steps: detectar apps afetados → testes da API (portão) → calcular a
+versão CalVer → build e push de `crm-api` / `crm-web` no Docker Hub (com cache do
+Actions por imagem) → garantir que os repositórios estão públicos → criar a tag
+git da versão.
 
 O portão de qualidade é só `pnpm --filter api test`. Compilar API e front aqui
 seria trabalho duplicado: os Dockerfiles já rodam `nest build` e
@@ -123,17 +124,75 @@ front, e `reconstruir: web` faz isso pagando metade dos minutos.
 > depende do `latest` existir para tagear a imagem que ele não reconstrói; até lá
 > esse step só emite `::warning::` e o sha fica sem uma das imagens.
 
-A imagem **não** reconstruída ainda recebe a tag do sha novo, apontando para o
-mesmo manifest do `latest` (`docker buildx imagetools create` — cópia de ponteiro
-no registry, segundos, sem rebuild). Isso preserva a garantia que o rollback
-usa: **todo sha que passou pelo build tem as duas imagens**.
+A imagem **não** reconstruída ainda recebe as tags novas (versão e sha),
+apontando para o mesmo manifest do `latest` (`docker buildx imagetools create` —
+cópia de ponteiro no registry, segundos, sem rebuild). Isso preserva a garantia
+que o rollback usa: **toda versão e todo sha que passaram pelo build têm as duas
+imagens** — nunca uma combinação de API e front que nunca existiu junta.
 
 Consequência a ter em mente: sha de commit que o `paths-ignore` barrou (um commit
 só de docs, por exemplo) **não** tem imagem. Rollback nesse sha falha no step de
 conferência do deploy, com erro explícito — use o sha do último commit de código.
 
-O resumo da execução mostra o SHA publicado e o que foi reconstruído ou
+O resumo da execução mostra a versão publicada e o que foi reconstruído ou
 reaproveitado — é o valor a colar no deploy.
+
+### Versionamento das imagens
+
+Cada publicação recebe três tags, e a diferença entre elas é o que dá rollback
+confiável:
+
+| Tag | Significado | Muda? |
+| --- | --- | --- |
+| `2026.07.30` | **Versão CalVer** — data da publicação no fuso de São Paulo, com `.2`, `.3`… do segundo build do mesmo dia em diante | nunca |
+| `<sha completo>` | o commit exato que originou a imagem | nunca |
+| `latest` | o `HEAD` da `main` no momento | a cada build |
+
+Por que CalVer e não SemVer: o CRM é publicado a cada push na `main`, não em
+releases planejados — não há um momento no fluxo em que alguém decida
+"isto é um minor". Data resolve o que importa (ordenar e nomear sem ambiguidade)
+sem cerimônia nenhuma. Em compensação a versão **não** comunica quebra de
+compatibilidade; mudança que exige atenção vai no `CHANGELOG`/release notes.
+
+O `N` do sufixo vem do próprio registry: o step lista as tags do dia pela API
+pública do Docker Hub e usa a próxima livre. É isso que garante que uma versão
+já publicada nunca seja sobrescrita — se o Hub estiver inacessível, o step cai no
+primeiro nome do dia em vez de falhar o build.
+
+Cada versão também vira uma **tag git** `v2026.07.30` apontando para o commit,
+criada depois do push das imagens. Serve para responder "qual código é a
+2026.07.30" e é dela que o deploy tira o compose correto num rollback por versão.
+As imagens ainda carregam labels OCI (`version`, `revision`, `source`,
+`licenses`), então dá para descobrir a origem sem sair do host:
+
+```bash
+docker image inspect programeai/crm-api:latest \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+```
+
+### Imagens públicas
+
+`programeai/crm-api` e `programeai/crm-web` são **públicas** — puxar não exige
+login, que é o mínimo para um projeto AGPL: sem isso o
+[`docker-compose.prod.yml`](../docker-compose.prod.yml) não serviria para mais
+ninguém. Por isso o namespace é uma **constante** (`DOCKERHUB_NAMESPACE` no topo
+dos dois workflows), não um secret: nome de imagem não é segredo, e esconder o
+nome só quebra quem tenta reproduzir o deploy. Os secrets `DOCKERHUB_*` ficam
+apenas para autenticar o push.
+
+Um step ao fim do build confere anonimamente se cada repositório responde e, se
+estiver privado, publica via API do Hub — repositório novo pode nascer privado
+dependendo da conta. Falha ali é `::warning::`, não erro: as imagens já foram
+publicadas, e o que resolve é o link para o botão de visibilidade que o alerta
+traz. Se o aviso aparecer, o token provavelmente não tem escopo de escrita ou a
+conta não é admin do repositório.
+
+Num **fork** que publique as próprias imagens: troque `DOCKERHUB_NAMESPACE` nos
+dois workflows e defina `CRM_IMAGE_NAMESPACE` no `.env` da VPS.
+
+As imagens são construídas só para **linux/amd64**. Em host ARM, use o
+`docker-compose.selfhost.yml`, que compila localmente
+(ver [autohospedagem.md](./autohospedagem.md)).
 
 ### 2. Deploy — `.github/workflows/deploy.yml`
 
@@ -141,10 +200,14 @@ reaproveitado — é o valor a colar no deploy.
 
 | Input | Valor |
 | --- | --- |
-| `tag` | `latest` (default, última imagem da `main`) ou o SHA completo de um commit |
+| `tag` | a versão CalVer (ex.: `2026.07.30` — **recomendado**, fixa o que sobe), `latest` (default, última imagem da `main`) ou o SHA completo de um commit |
 
-O workflow confere se a tag existe no Docker Hub (falha rápido em SHA digitado
-errado ou build ainda em andamento), copia o compose, escreve o `.env` no
+O compose vem do commit certo em cada caso: `latest` usa a ref do disparo, uma
+versão usa a tag git `v<versão>` e um SHA usa o próprio commit — senão um rollback
+subiria imagem antiga com compose novo.
+
+O workflow confere se a tag existe no Docker Hub (falha rápido em versão digitada
+errada ou build ainda em andamento), copia o compose, escreve o `.env` no
 diretório de `DEPLOY_DIR` a partir dos secrets e roda `pull` + `up -d` +
 `docker image prune -af`.
 
@@ -268,10 +331,12 @@ UPDATE "User" SET "deletionScheduledFor" = now() + interval '30 days'
 
 ### Rollback
 
-Toda imagem é tagueada com o SHA do commit, então voltar uma versão é rodar o
-workflow **Deploy na VPS** com `tag` = SHA do commit bom. Nada de `docker tag` na
-mão: o `IMAGE_TAG` no `.env` da VPS passa a apontar para aquela imagem, e o
-compose usado é o daquele commit.
+Toda imagem é tagueada com a versão CalVer e com o SHA do commit, então voltar
+uma versão é rodar o workflow **Deploy na VPS** com `tag` = a versão boa (ex.
+`2026.07.29`) — ou o SHA, se o alvo é um commit específico. Nada de `docker tag`
+na mão: o `IMAGE_TAG` no `.env` da VPS passa a apontar para aquela imagem, e o
+compose usado é o daquele commit. As versões já publicadas estão em
+[Tags](https://github.com/programeai/CRM/tags) e nos resumos dos builds.
 
 Migrations **não** são revertidas automaticamente — se o deploy problemático
 aplicou migration, avalie o `down` manual antes de voltar a imagem.
@@ -280,7 +345,7 @@ Se precisar mesmo agir direto na VPS (GitHub fora do ar, por exemplo):
 
 ```bash
 cd <dir-de-deploy>          # o mesmo valor do secret DEPLOY_DIR
-sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<sha-anterior>/' .env
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<versão-anterior>/' .env   # ex. 2026.07.29
 docker compose -f docker-compose.prod.yml pull api web
 docker compose -f docker-compose.prod.yml up -d
 ```
