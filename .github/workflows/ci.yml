@@ -17,21 +17,18 @@ name: CI - Pull request
 # Se você mudar o portão aqui, mude no build.yml também — gate de PR diferente do
 # gate de publicação é pior que a duplicação.
 on:
+  # SEM `paths-ignore`, ao contrário do build.yml — e de propósito. Os três jobs
+  # daqui são status checks exigidos pela proteção da `main`, e check exigido que
+  # não dispara fica "Expected — waiting for status to be reported" para sempre:
+  # um PR só de documentação travaria sem merge possível, exceto por bypass de
+  # admin. Filtro de caminho e check obrigatório não combinam.
+  #
+  # O custo de rodar o portão inteiro num PR de documentação é ~4 minutos de
+  # espera e zero em dinheiro: minutos de Actions são gratuitos em repositório
+  # público. O build.yml mantém o `paths-ignore` porque lá ninguém espera nada —
+  # nenhum check depende dele.
   pull_request:
     branches: [main]
-    # Mesma lista do build.yml: commit só de documentação não aloca runner.
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "specs/**"
-      - ".claude/**"
-      - ".agents/**"
-      - ".gitignore"
-      - ".env.example"
-      - ".env.selfhost.example"
-      - "docker/caddy/**"
-      - LICENSE
-      - NOTICE
 
 # PR que recebe push novo descarta a execução anterior.
 concurrency:
