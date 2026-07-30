@@ -61,6 +61,14 @@ Tipos comuns: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`.
 - Se mexer em endpoints, atualize `apps/api/ENDPOINTS.md` no mesmo PR.
 - Rode `pnpm --filter api build` e os testes antes de enviar.
 
+Ao abrir o PR, o workflow **CI - Pull request** roda sozinho: testes unitários e
+e2e da API, validação das migrations contra um banco com dados, e o build das duas
+imagens Docker (sem publicar nada). Os três checks precisam estar verdes para o
+merge — e valem igual para PR vindo de fork, porque o CI não usa nenhum secret.
+
+A `main` não aceita push direto de colaborador nem force-push: toda mudança entra
+por PR.
+
 ## Licenciamento das contribuições
 
 O projeto é distribuído sob a **[GNU AGPL v3](./LICENSE)**, e sua contribuição

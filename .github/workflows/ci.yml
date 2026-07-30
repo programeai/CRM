@@ -1,0 +1,148 @@
+name: CI - Pull request
+
+# Portão de qualidade de PR. Roda em PR para a `main` e NÃO publica nada: nem
+# imagem no Docker Hub, nem tag, nem deploy. Quem publica é o "Build - Imagens de
+# produção", só depois do merge.
+#
+# Existe por dois motivos:
+#  1. É o status check que a proteção da `main` exige antes do merge. Sem ele,
+#     "exigir checagem verde" não tem o que checar.
+#  2. PR de fork não recebe secrets. Este workflow foi escrito para não precisar
+#     de nenhum — então contribuição externa é avaliada com o mesmo rigor que a
+#     interna, em vez de ficar vermelha por falta de credencial.
+#
+# Duplicação consciente: os steps de teste repetem os do build.yml. Unificar num
+# `workflow_call` criaria um job extra lá, e aquele arquivo é deliberadamente um
+# job único (minutos de Actions são cobrados por job, arredondados para cima).
+# Se você mudar o portão aqui, mude no build.yml também — gate de PR diferente do
+# gate de publicação é pior que a duplicação.
+on:
+  pull_request:
+    branches: [main]
+    # Mesma lista do build.yml: commit só de documentação não aloca runner.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "specs/**"
+      - ".claude/**"
+      - ".agents/**"
+      - ".gitignore"
+      - ".env.example"
+      - ".env.selfhost.example"
+      - "docker/caddy/**"
+      - LICENSE
+      - NOTICE
+
+# PR que recebe push novo descarta a execução anterior.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Portão da API: os mesmos três passos do build.yml, na mesma ordem.
+  # ---------------------------------------------------------------------------
+  testes:
+    name: Testes da API
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: crm_user
+          POSTGRES_PASSWORD: crm_password
+          POSTGRES_DB: crm_db
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U crm_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências da API
+        run: pnpm install --filter api --frozen-lockfile
+
+      # O ts-jest checa tipos, então os tipos do Prisma Client precisam existir.
+      - name: Gerar Prisma Client
+        run: pnpm --filter api exec prisma generate
+
+      - name: Testes da API
+        run: pnpm --filter api test
+
+      - name: Testes e2e da API
+        run: pnpm --filter api test:e2e
+
+      # Migration de backfill se comporta diferente com dado, e o e2e acima roda
+      # contra banco recém-criado — foi essa lacuna que deixou uma migration sair
+      # verde e derrubar a produção por 11 horas em 27/07/2026.
+      - name: Migrations contra banco com dados
+        env:
+          DATABASE_URL: postgresql://crm_user:crm_password@localhost:5435/crm_db?schema=public
+        run: apps/api/scripts/validar-migrations-com-dados.sh
+
+  # ---------------------------------------------------------------------------
+  # As duas imagens compilam? `push: false` — o registry não é tocado. É aqui que
+  # `nest build` e `tsc -b && vite build` são exercidos: o front não tem suíte de
+  # teste, então este job é o único portão dele.
+  #
+  # Job separado dos testes de propósito: em repositório público os minutos de
+  # Actions são gratuitos, então paralelizar é só PR mais rápido.
+  # ---------------------------------------------------------------------------
+  imagens:
+    # Nome explícito com só `matrix.app`: sem isto o GitHub anexa TODOS os valores
+    # da entrada da matriz ao nome do check (`… (api, apps/api/Dockerfile)`), e é
+    # por nome que a proteção da `main` referencia o status check.
+    name: Build da imagem (${{ matrix.app }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: api
+            dockerfile: apps/api/Dockerfile
+          - app: web
+            dockerfile: apps/web/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Sem `secrets` em lugar nenhum, para o job valer igual em PR de fork.
+      # VITE_TURNSTILE_SITE_KEY fica vazia: a chave do captcha é pública e o
+      # bundle daqui nunca é publicado — o que importa é o build passar.
+      - name: Build sem publicar
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          build-args: |
+            VITE_API_URL=/api/v1
+          cache-from: type=gha,scope=crm-${{ matrix.app }}
+          # `mode=min` e não `max`: o cache de PR não deve competir com o do
+          # build de publicação pelo limite de 10 GB do cache do Actions.
+          cache-to: type=gha,mode=min,scope=ci-crm-${{ matrix.app }}
