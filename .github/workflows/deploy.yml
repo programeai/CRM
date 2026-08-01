@@ -59,7 +59,7 @@ jobs:
       # anônimo do Docker Hub, que uma VPS com IP compartilhado estoura fácil.
       # Autenticado, a conferência abaixo não depende dessa cota.
       - name: Login no Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
