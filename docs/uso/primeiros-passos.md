@@ -145,6 +145,10 @@ Quando esses avisos chegam:
 Sem `SMTP_HOST` na instância, o canal de e-mail é marcado como *ignorado* — não é
 falha, é canal desligado. As notificações no app continuam funcionando.
 
+Para mandar aviso a um sistema de fora (Slack, Telegram, webhook), o formato do
+que o CRM envia e as regras de entrega estão em **Ajuda → Notificações**
+(`/ajuda/notificacoes`).
+
 ## 7. Se você recebe lead de fora do CRM
 
 **Administração → Captação** (permissão `integracao:gerenciar`).
@@ -152,7 +156,12 @@ falha, é canal desligado. As notificações no app continuam funcionando.
 Crie um canal para cada origem externa ("Site institucional", "n8n"). O canal
 guarda quem atende o lead e como ele é classificado, e emite a **chave** que
 autentica a entrega. A chave aparece **uma única vez**, na criação — quem perde,
-rotaciona. Detalhes técnicos da entrega ficam em
+rotaciona.
+
+O endereço, os campos aceitos e as respostas de erro estão dentro do próprio app,
+em **Ajuda → Captação de leads** (`/ajuda/captacao`) — é a página para mandar a
+quem vai configurar o outro lado, e o endereço ali já vem montado com o host da
+instância. A referência da rota para quem lê código fica em
 [`apps/api/ENDPOINTS.md`](../../apps/api/ENDPOINTS.md) → "Leads (ingestão
 externa)".
 
