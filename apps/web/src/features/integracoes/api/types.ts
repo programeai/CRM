@@ -37,3 +37,16 @@ export interface CanalBody {
   assigneeId?: string | null;
   sourceId?: string | null;
 }
+
+/** Um item do catálogo de escopos (`GET /integracoes/escopos`). */
+export interface Escopo {
+  key: string;
+  label: string;
+  description: string;
+}
+
+/** Corpo de criação de chave avulsa (`POST /integracoes/chaves`). */
+export interface CreateChaveBody {
+  nome: string;
+  escopos: string[];
+}
