@@ -13,6 +13,47 @@ import {
   Sub,
 } from '@/components/ui/prose';
 
+/**
+ * Tabela de prazos de retenção. Local a esta página: é a única que precisa
+ * apresentar três colunas de texto corrido, e a `TabelaDoc` das páginas de ajuda
+ * mora em `features/ajuda` (uma feature não importa o interior de outra).
+ *
+ * Os números aqui têm de bater com as constantes de
+ * `apps/api/src/modules/retention/domain/retencao.ts`, `access-records.service.ts`,
+ * `sessions-cleanup.job.ts` e `account-deletion.ts`. Mudar um prazo no código sem
+ * mudar aqui torna esta Política falsa.
+ */
+function TabelaDePrazos({ linhas }: { linhas: [string, string, string][] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full border-collapse text-left">
+        <thead>
+          <tr className="border-b bg-muted/40">
+            <th className="px-3 py-2 text-xs font-semibold">Categoria</th>
+            <th className="px-3 py-2 text-xs font-semibold">Prazo</th>
+            <th className="px-3 py-2 text-xs font-semibold">Base</th>
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map(([categoria, prazo, base]) => (
+            <tr key={categoria} className="border-b last:border-b-0">
+              <td className="px-3 py-2 align-top text-[0.8125rem] font-medium">
+                {categoria}
+              </td>
+              <td className="px-3 py-2 align-top text-[0.8125rem] whitespace-nowrap">
+                {prazo}
+              </td>
+              <td className="px-3 py-2 align-top text-[0.8125rem] text-muted-foreground">
+                {base}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const SECOES: Secao[] = [
   {
     id: 'controlador',
@@ -65,6 +106,33 @@ const SECOES: Secao[] = [
             que responde aos titulares desses dados.
           </Item>
         </Lista>
+        <Sub>O registro de consentimento dos seus clientes</Sub>
+        <P>
+          O CRM oferece um <Forte>livro-razão de consentimento</Forte>: você registra
+          o que cada cliente ou contato autorizou, quando, por qual meio e sob qual
+          texto — uma linha por finalidade, e a revogação entra como registro novo,
+          preservando o anterior. É a ferramenta para você cumprir o ônus de{' '}
+          <Forte>comprovar</Forte> que o consentimento foi obtido (art. 8º, § 2º da
+          LGPD).
+        </P>
+        <P>
+          Nesses registros, <Forte>o controlador é você</Forte> e nós somos{' '}
+          <Forte>operador</Forte>: nós guardamos a prova, você decide o que pedir,
+          como pedir e o que fazer com a resposta. O registro entra no seu arquivo
+          de portabilidade e é apagado no expurgo da conta, junto do resto.
+        </P>
+        <Destaque>
+          <P>
+            <Forte>
+              O CRM registra o consentimento; ele não comunica em seu nome.
+            </Forte>{' '}
+            Nenhum e-mail, SMS ou WhatsApp sai do CRM para os seus clientes e
+            contatos — toda mensagem que o sistema envia vai para você ou para a sua
+            equipe. O livro-razão é o que você consulta <Forte>antes</Forte> de
+            comunicar pelas suas próprias ferramentas, e honrar a revogação nelas é
+            responsabilidade sua.
+          </P>
+        </Destaque>
       </>
     ),
   },
@@ -319,6 +387,52 @@ const SECOES: Secao[] = [
             são invalidados no primeiro uso.
           </Item>
         </Lista>
+        <Sub>Os prazos que esta instância pratica</Sub>
+        <P>
+          Além do que a conta guarda enquanto existir, algumas categorias têm prazo
+          próprio e são apagadas por rotina automática, todos os dias. Os prazos
+          abaixo são os mesmos para todas as contas — eles não são configuráveis por
+          instalação, justamente para que esta Política possa declará-los.
+        </P>
+        <TabelaDePrazos
+          linhas={[
+            [
+              'Lixeira (registros arquivados)',
+              '180 dias',
+              'Prazo em que um arquivamento por engano ainda é lembrado. Decisão de produto (LGPD art. 16).',
+            ],
+            [
+              'Notificações e entregas',
+              '90 dias',
+              'A central é operacional, não histórico: o fato que originou o aviso fica na trilha.',
+            ],
+            [
+              'Trilha de auditoria',
+              '5 anos',
+              'Prazo geral de prescrição das pretensões comerciais. Menos esvaziaria o art. 37 da LGPD (registro das operações).',
+            ],
+            [
+              'Registros de acesso (IP)',
+              '6 meses',
+              'Obrigação legal — Marco Civil art. 15. Mantidos mesmo após o encerramento (LGPD art. 16, I).',
+            ],
+            [
+              'Sessões vencidas',
+              '30 dias',
+              'Depois de expirada, a sessão não serve para nada além de auditoria de curto prazo.',
+            ],
+            [
+              'Carência de encerramento',
+              '30 dias',
+              'Janela para você cancelar o pedido de exclusão. Protege contra exclusão por sequestro de conta.',
+            ],
+            [
+              'Backups do banco',
+              '30 dias',
+              'Rotação. Um dado apagado pode sobreviver num backup não expirado por até esse prazo.',
+            ],
+          ]}
+        />
       </>
     ),
   },
@@ -337,6 +451,14 @@ const SECOES: Secao[] = [
             sessão com token de acesso de curta duração e renovação por cookie{' '}
             <code className="font-mono text-[0.85em]">httpOnly</code>, revogável a
             qualquer momento;
+          </Item>
+          <Item>
+            <strong className="font-medium text-foreground">
+              verificação em duas etapas (2FA/TOTP) disponível
+            </strong>{' '}
+            para qualquer pessoa com acesso ao CRM, com códigos de recuperação de
+            uso único; o segredo do segundo fator é guardado cifrado (AES-256-GCM),
+            e não em texto;
           </Item>
           <Item>
             isolamento no banco por linha (RLS), de modo que consultas não alcancem
