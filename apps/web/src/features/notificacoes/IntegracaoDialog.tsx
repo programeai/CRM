@@ -128,9 +128,15 @@ function montarUrlTelegram(token: string, chatId: string): string {
 export function IntegracaoDialog({
   open,
   onOpenChange,
+  onSegredoGerado,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Chamado quando a criação gerou segredo de assinatura (só no kind WEBHOOK).
+   * Quem exibe é a tela, num diálogo próprio — nunca empilhado sobre este.
+   */
+  onSegredoGerado: (resultado: { segredo: string; rotulo: string }) => void;
 }) {
   const criar = useCriarIntegracao();
 
@@ -151,9 +157,10 @@ export function IntegracaoDialog({
   const ehTelegram = watch('kind') === 'TELEGRAM';
 
   const onSubmit = async (v: Values) => {
+    const rotulo = v.label.trim();
     try {
-      await criar.mutateAsync({
-        label: v.label.trim(),
+      const { segredo } = await criar.mutateAsync({
+        label: rotulo,
         kind: v.kind,
         url: ehTelegram
           ? montarUrlTelegram(v.token!.trim(), v.chatId!.trim())
@@ -164,6 +171,9 @@ export function IntegracaoDialog({
         'Integração criada. Use "Testar e ativar" para começar a receber.',
       );
       onOpenChange(false);
+      // Só o kind WEBHOOK gera segredo. Fecha este diálogo antes de a tela abrir
+      // o de exibição única: nunca dois modais empilhados.
+      if (segredo) onSegredoGerado({ segredo, rotulo });
     } catch (err) {
       toast.error(extractApiMessage(err, 'Falha ao criar a integração.'));
     }

@@ -67,3 +67,13 @@ export interface CriarIntegracaoBody {
   url: string;
   types?: NotificationType[];
 }
+
+/**
+ * Resposta da criação de integração: a **única** que carrega o segredo bruto.
+ * `segredo` é `null` nos kinds que não verificam assinatura (Slack, Discord,
+ * Telegram) — gerar segredo para eles seria teatro.
+ */
+export interface IntegracaoCriada {
+  destino: DestinoDeNotificacao;
+  segredo: string | null;
+}

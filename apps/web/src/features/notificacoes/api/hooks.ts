@@ -108,3 +108,14 @@ export function useVerificarDestino() {
     onSuccess: () => invalidateDestinos(qc),
   });
 }
+
+/**
+ * Troca o segredo de assinatura do destino de webhook. Não invalida a lista: a
+ * resposta não muda nada de exibível — o segredo nunca aparece em
+ * `GET /targets`, e é a tela que mostra o valor novo uma única vez.
+ */
+export function useRotacionarSegredo() {
+  return useMutation({
+    mutationFn: (id: string) => notificacoesApi.rotateSecret(id),
+  });
+}
