@@ -42,7 +42,14 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
       isGlobal: true,
       validationSchema: envValidationSchema,
     }),
-    ThrottlerModule.forRoot({ throttlers: [{ ttl: 60000, limit: 100 }] }),
+    // `errorMessage`: sem ela o 429 sai como "ThrottlerException: Too many
+    // requests" — e este é o corpo que a rota pública de ingestão devolve a um
+    // sistema de terceiro.
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60000, limit: 100 }],
+      errorMessage:
+        'Muitas requisições em pouco tempo. Aguarde um instante e tente de novo.',
+    }),
     ScheduleModule.forRoot(),
     // generateId + idGenerator: o id do contexto CLS é o mesmo `x-request-id`
     // que o `contextoDaRequisicao` (middleware Express, roda antes) colocou na

@@ -1,5 +1,4 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -8,6 +7,7 @@ import { AppModule } from './app.module';
 import { JsonLogger } from './shared/logging/json-logger';
 import { registrarLog } from './shared/logging/log';
 import { contextoDaRequisicao } from './shared/logging/request-context.middleware';
+import { ValidationPipeEmPtBr } from './shared/validation/validacao-em-pt-br';
 
 /**
  * Erros fora do ciclo de requisição (timer, listener, promessa solta) não passam
@@ -70,7 +70,7 @@ async function bootstrap() {
   app.use(helmet({ hsts: false }));
   app.use(cookieParser());
   app.useGlobalPipes(
-    new ValidationPipe({
+    new ValidationPipeEmPtBr({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,

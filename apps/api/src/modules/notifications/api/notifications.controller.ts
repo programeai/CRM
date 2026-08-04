@@ -6,7 +6,6 @@ import {
   HttpCode,
   NotFoundException,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -22,6 +21,7 @@ import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 import { CreateNotificationTargetDto } from './dto/create-notification-target.dto';
 import { CreateWebhookTargetDto } from './dto/create-webhook-target.dto';
 import { UpdateNotificationTargetDto } from './dto/update-notification-target.dto';
+import { idDeRota } from '../../../shared/validation/validacao-em-pt-br';
 
 /**
  * Central de notificações. **Sem `@RequirePermission`, de propósito**: a caixa é
@@ -104,7 +104,7 @@ export class NotificationsController {
   verifyTarget(
     @CurrentOwnerId() ownerId: string,
     @CurrentUserId() userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
   ) {
     return this.targets.verificar(ownerId, userId, id);
   }
@@ -113,7 +113,7 @@ export class NotificationsController {
   updateTarget(
     @CurrentOwnerId() ownerId: string,
     @CurrentUserId() userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
     @Body() dto: UpdateNotificationTargetDto,
   ) {
     return this.targets.atualizar(ownerId, userId, id, dto);
@@ -124,7 +124,7 @@ export class NotificationsController {
   async deleteTarget(
     @CurrentOwnerId() ownerId: string,
     @CurrentUserId() userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
   ) {
     await this.targets.excluir(ownerId, userId, id);
   }
@@ -134,7 +134,7 @@ export class NotificationsController {
   async read(
     @CurrentOwnerId() ownerId: string,
     @CurrentUserId() userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
   ) {
     const ok = await this.notifications.marcarLida(ownerId, userId, id);
     // 404 (não 403): notificação de outra pessoa não deve nem revelar que existe.

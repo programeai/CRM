@@ -1,15 +1,9 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { CurrentOwnerId } from '../../../shared/current-user.decorator';
 import { RequirePermission } from '../../access/require-permission.decorator';
 import { IntegrationKeysService } from '../application/integration-keys.service';
 import { INTEGRATION_SCOPES } from '../domain/integration-scope';
+import { idDeRota } from '../../../shared/validation/validacao-em-pt-br';
 
 /**
  * Chaves de integração do owner. Não há POST de criação avulsa: chave nasce
@@ -39,7 +33,7 @@ export class IntegracoesController {
   @RequirePermission('integracao:gerenciar')
   rotacionar(
     @CurrentOwnerId() ownerId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
   ) {
     return this.keys.rotacionar(ownerId, id);
   }
@@ -49,7 +43,7 @@ export class IntegracoesController {
   @RequirePermission('integracao:gerenciar')
   revogar(
     @CurrentOwnerId() ownerId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
   ) {
     return this.keys.revogar(ownerId, id);
   }

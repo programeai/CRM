@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -14,6 +13,7 @@ import { RequirePermission } from '../../access/require-permission.decorator';
 import { LeadIntakeChannelsService } from '../application/lead-intake-channels.service';
 import { CreateLeadIntakeChannelDto } from './dto/create-lead-intake-channel.dto';
 import { UpdateLeadIntakeChannelDto } from './dto/update-lead-intake-channel.dto';
+import { idDeRota } from '../../../shared/validation/validacao-em-pt-br';
 
 /**
  * Canais de captação do owner: quem recebe lead de fora, com que responsável e
@@ -47,7 +47,7 @@ export class LeadIntakeChannelsController {
   @RequirePermission('integracao:gerenciar')
   update(
     @CurrentOwnerId() ownerId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', idDeRota) id: string,
     @Body() dto: UpdateLeadIntakeChannelDto,
   ) {
     return this.service.update(ownerId, id, dto);
@@ -56,10 +56,7 @@ export class LeadIntakeChannelsController {
   @Delete(':id')
   @RequirePermission('integracao:gerenciar')
   @HttpCode(204)
-  remove(
-    @CurrentOwnerId() ownerId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  remove(@CurrentOwnerId() ownerId: string, @Param('id', idDeRota) id: string) {
     return this.service.delete(ownerId, id);
   }
 }
