@@ -141,10 +141,16 @@ describe('IntegrationKeysService', () => {
   });
 
   describe('autenticar', () => {
-    it('autentica pelo hash e devolve o ownerId da chave', async () => {
+    it('autentica pelo hash e devolve ownerId, keyId e o NOME da chave', async () => {
       repo.findByHashPeloSistema.mockResolvedValue(chave());
       const resultado = await service.autenticar('crm_valor', 'lead:receber');
-      expect(resultado).toEqual({ ownerId: OWNER, keyId: 'chave-1' });
+      // `keyName` existe para virar `actorName` na trilha da API pública:
+      // escrita por máquina tem de nomear a credencial que agiu.
+      expect(resultado).toEqual({
+        ownerId: OWNER,
+        keyId: 'chave-1',
+        keyName: 'Site',
+      });
       expect(repo.findByHashPeloSistema).toHaveBeenCalledWith(
         createHash('sha256').update('crm_valor').digest('hex'),
       );

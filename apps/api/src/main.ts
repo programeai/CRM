@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { PublicApiModule } from './modules/public-api/public-api.module';
 import { JsonLogger } from './shared/logging/json-logger';
 import { registrarLog } from './shared/logging/log';
 import { contextoDaRequisicao } from './shared/logging/request-context.middleware';
@@ -35,6 +37,59 @@ function capturarErrosDoProcesso() {
     // log acima pode ser perdida justamente no erro mais importante.
     setTimeout(() => process.exit(1), 200).unref();
   });
+}
+
+/**
+ * Contrato de máquina da API PÚBLICA — e só dela.
+ *
+ * `include: [PublicApiModule]` é a linha que importa: sem ela o documento traria
+ * as 200+ rotas internas, publicando a superfície inteira do CRM a quem só
+ * precisa criar um cliente. É uma decisão de segurança, não de estética.
+ *
+ * Só o JSON, sem Swagger UI (`swaggerUiEnabled: false`): a UI arrastaria briga
+ * com o CSP do helmet e duplicaria `/ajuda/api`, que é onde a documentação
+ * legível mora.
+ *
+ * Roda DEPOIS do `setGlobalPrefix('api/v1')`, então os caminhos do documento já
+ * saem prefixados — e é por isso que o `jsonDocumentUrl` é declarado com o
+ * prefixo inteiro à mão: ele é uma rota de Express, não uma rota do Nest.
+ */
+function publicarContratoDaApiPublica(app: NestExpressApplication): void {
+  const openapi = new DocumentBuilder()
+    .setTitle('API pública do CRM ProgrameAi')
+    .setDescription(
+      'Escrita servidor a servidor por chave de integração. Autenticação: ' +
+        'cabeçalho Authorization: Bearer com a chave (crm_…). Cada rota exige um ' +
+        'escopo próprio da chave. Só escrita: não há GET nesta superfície.',
+    )
+    .setVersion('1')
+    // `bearerFormat` explícito: o default do DocumentBuilder é "JWT", e a
+    // credencial aqui NÃO é um JWT — é a chave de integração opaca. Deixar o
+    // default faria o documento mentir sobre o que colar no cabeçalho.
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'crm_<64 hex>',
+        description:
+          'Chave de integração emitida em Administração → API. Aparece uma ' +
+          'única vez na criação; quem perde rotaciona.',
+      },
+      'chaveDeIntegracao',
+    )
+    .build();
+  SwaggerModule.setup(
+    'api/v1/public/docs',
+    app,
+    () =>
+      SwaggerModule.createDocument(app, openapi, {
+        include: [PublicApiModule],
+      }),
+    {
+      swaggerUiEnabled: false,
+      jsonDocumentUrl: 'api/v1/public/openapi.json',
+    },
+  );
 }
 
 async function bootstrap() {
@@ -80,6 +135,7 @@ async function bootstrap() {
     origin: config.get<string>('FRONTEND_URL'),
     credentials: true,
   });
+  publicarContratoDaApiPublica(app);
   const porta = config.get<number>('PORT') ?? 3000;
   await app.listen(porta);
   registrarLog('info', {

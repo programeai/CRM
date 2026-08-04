@@ -37,6 +37,14 @@ export interface EntradaDeSistema extends EntradaDeAuditoria {
   actorId?: string | null;
 }
 
+/** Registro de escrita por credencial de máquina (API pública). */
+export interface EntradaDeIntegracao extends EntradaDeAuditoria {
+  ownerId: string;
+  /** Nome da chave, como o owner a batizou ("ERP da produção"). */
+  keyName: string;
+  keyId: string;
+}
+
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -120,6 +128,36 @@ export class AuditService {
         erro instanceof Error ? erro.stack : undefined,
       );
     }
+  }
+
+  /**
+   * Registra escrita feita por chave de integração. Roda por `prisma.db`, ou
+   * seja **dentro da transação aberta por `executarComoOwner`**: a trilha
+   * commita junto com a escrita, ou nenhuma das duas commita — mesma garantia de
+   * `registrar`, sem depender do `AccessContext` que a rota pública não tem.
+   *
+   * `registrarPeloSistema` NÃO serve aqui: ele usa o client admin, que abre
+   * conexão própria e ficaria fora da transação.
+   *
+   * `actorId` recebe o id da CHAVE, não de um usuário. É consistente com
+   * `AuditLog.actorId` não ter FK, e é o que permite responder "o que esta
+   * credencial escreveu?" na tela de auditoria.
+   */
+  async registrarComoIntegracao(entrada: EntradaDeIntegracao): Promise<void> {
+    await this.prisma.db.auditLog.create({
+      data: {
+        ownerId: entrada.ownerId,
+        actorType: 'INTEGRACAO',
+        actorId: entrada.keyId,
+        actorName: entrada.keyName,
+        entity: entrada.entity,
+        entityId: entrada.entityId,
+        entityLabel: entrada.entityLabel,
+        action: entrada.action,
+        diff: this.montarDiff(entrada),
+        requestId: this.cls.getId() || null,
+      },
+    });
   }
 
   /** Junta o diff calculado ao `extra`, ou devolve `undefined` se não há nada. */

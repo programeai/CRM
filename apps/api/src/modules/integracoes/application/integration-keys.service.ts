@@ -163,7 +163,7 @@ export class IntegrationKeysService {
   async autenticar(
     valor: string,
     escopo: string,
-  ): Promise<{ ownerId: string; keyId: string }> {
+  ): Promise<{ ownerId: string; keyId: string; keyName: string }> {
     const chave = await this.repo.findByHashPeloSistema(this.hash(valor));
     if (!chave || chave.revokedAt) {
       // Nunca logar o valor recebido: a linha vive 30 dias num Grafana publicado.
@@ -184,7 +184,9 @@ export class IntegrationKeysService {
         'Esta chave de integração não tem permissão para esta operação.',
       );
     }
-    return { ownerId: chave.ownerId, keyId: chave.id };
+    // `keyName` sai daqui porque é ele que vira `actorName` na trilha de
+    // auditoria da API pública: escrita por máquina precisa nomear a credencial.
+    return { ownerId: chave.ownerId, keyId: chave.id, keyName: chave.name };
   }
 
   /** Marca o último uso. Chamado DENTRO do contexto de owner de quem usou. */
