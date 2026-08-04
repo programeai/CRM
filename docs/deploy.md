@@ -67,10 +67,28 @@ Mínimo para subir:
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | banco |
 | `APP_DB_PASSWORD` | senha da role `crm_app` (RLS) |
 | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | ≥32 caracteres cada |
+| `TOTP_ENCRYPTION_KEY` | **opcional** — 32 bytes em hex (64 caracteres). Em branco, o segundo fator fica indisponível na instância. Ver o aviso abaixo |
 
 Gere os segredos com `openssl rand -hex 32`. **`APP_DB_PASSWORD` não pode conter
 apóstrofo nem barra invertida** — ela entra literal num `ALTER ROLE` e o
 entrypoint aborta se encontrar esses caracteres.
+
+> ### ⚠ `TOTP_ENCRYPTION_KEY` entra no backup de segredo
+>
+> Ela cifra o segredo TOTP de cada pessoa. **Perdê-la depois de alguém ter ligado
+> o segundo fator inutiliza o 2FA de toda a base ao mesmo tempo** — os segredos
+> ficam irrecuperáveis, e a única saída é cada titular refazer o cadastro (que
+> ninguém consegue fazer sem entrar, e ninguém entra sem o segundo fator).
+>
+> Guarde-a onde você guarda `JWT_ACCESS_SECRET` e `JWT_REFRESH_SECRET`. Ela é
+> opcional: em branco, o 2FA simplesmente não existe na instância, e ligar depois
+> é aditivo. O que **não** é reversível é ligar, alguém usar, e depois perder a
+> chave.
+>
+> A rotação é possível sem invalidar nada — cada segredo guarda a `keyVersion`
+> que o cifrou, e o caminho é acrescentar a chave nova, decifrar pela versão de
+> cada linha e recifrar. O código para isso não existe ainda; o que existe é a
+> coluna que o torna possível.
 
 Secret com **`$`** é seguro, mas só porque o workflow de deploy escapa o `$`
 como `$$` ao gerar o `.env`. Sem esse escape o Compose interpreta o que vem
@@ -319,6 +337,39 @@ coisas cobrem isso, e as duas precisam ser conferidas:
    — e o job cuida do resto na próxima varredura.
 
 Sem este passo, a promessa de exclusão quebra no primeiro disaster recovery.
+
+### Rotinas agendadas (crons)
+
+Todas rodam **dentro do container da API** (`@nestjs/schedule`), não no cron do
+host, e todas declaram `timeZone: 'America/Sao_Paulo'` — o container roda em UTC, e
+sem isso a rotina "das 3h" sairia à meia-noite BRT.
+
+| Nome | Quando | O que faz |
+| --- | --- | --- |
+| `notificacoes-dispatch` | a cada minuto | entrega o outbox de notificações |
+| `webhooks-owner-dispatch` | a cada minuto | entrega o outbox de webhooks do owner |
+| `notificacoes-lembretes` | 6h BRT | gatilhos de prazo (follow-up, proposta, cobrança, demanda, oportunidade parada) |
+| `notificacoes-digest` | 8h BRT | resumo diário por e-mail |
+| **`retencao-faxina`** | **2h BRT** | expurga lixeira (180d), notificações (90d) e trilha (5 anos) |
+| `financeiro-cobrancas` | 3h BRT | gera mensalidade e vence o que passou do prazo |
+| `propostas-expiracao` | 3h BRT | expira proposta cuja validade passou |
+| `sessoes-faxina` | 3h BRT | apaga sessão vencida há mais de 30 dias |
+| `acessos-faxina` | 4h BRT | apaga registro de acesso com mais de 180 dias |
+| `conta-expurgo` | 5h BRT | apaga em definitivo a conta cuja carência de 30 dias venceu |
+
+A faxina de retenção roda às **2h** de propósito: antes das outras três que também
+tocam tabelas grandes, para não competir com elas.
+
+> **A primeira execução pode apagar muito de uma vez.** Numa instância antiga há
+> anos de `Notification` acumulada. Confira o volume antes de subir:
+>
+> ```sql
+> SELECT count(*) FROM "Notification" WHERE "createdAt" < now() - interval '90 days';
+> SELECT count(*) FROM "AuditLog"     WHERE "createdAt" < now() - interval '5 years';
+> ```
+>
+> Se for grande, apague em lotes à mão antes de deixar o cron assumir — um
+> `DELETE` de milhões de linhas numa transação só trava a tabela.
 
 **Interruptor de emergência.** Se o cron de expurgo (`AccountPurgeJob`, 5h)
 precisar ser parado sem deploy, empurre todos os agendamentos vigentes para a

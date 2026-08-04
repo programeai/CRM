@@ -50,12 +50,29 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.register`
 
 ### POST /auth/login
-- **Propósito:** Autenticar por e-mail e senha, emitindo um access token e um refresh token.
+- **Propósito:** Autenticar por e-mail e senha. **Duas respostas possíveis**, e é o CORPO que as distingue: a sessão, ou o desafio de segundo fator quando a conta tem 2FA ativo.
 - **Auth:** Pública (`@Public()`). Rate limit: 5 req/min.
 - **Body:** `{ email: string (e-mail), password: string (mín. 6) }`
-- **Resposta:** `200 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`) + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
-- **Erros:** `401 Credenciais inválidas`.
+- **Resposta:**
+  - **Sem 2FA:** `200 { accessToken: string }` + cookie `httpOnly` `refresh_token` (path `/api/v1/auth`) + cookie `httpOnly` `device_id` (path `/api/v1`, 400 dias).
+  - **Com 2FA ativo:** `200 { twoFactorRequired: true, desafio: string }` — **sem** `accessToken` e **sem** cookie de refresh (não há sessão ainda: emitir refresh antes do segundo fator seria dar a sessão sem o fator). O `desafio` é um JWT de 5 minutos que só serve em `POST /auth/login/2fa`.
+  - **200 e não 401 no ramo do 2FA, de propósito:** o interceptor de `apps/web/src/lib/api.ts` dispara o fluxo de refresh em todo `401` e, falhando, manda para `/login` — um `401` aqui poria a tela em laço. É essa escolha que permitiu não tocar o cliente HTTP.
+- **Erros:** `401 Credenciais inválidas` (também quando a conta é só-OAuth ou o convite não foi aceito — a resposta é genérica de propósito), `403` (colaborador desativado).
+- **Nota:** senha correta **sem** o segundo fator **não** gera linha em `AccessRecord`. A lei fala de registro de ACESSO, e isso ainda não é acesso — quem registra é `POST /auth/login/2fa`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.login`
+
+### POST /auth/login/2fa
+- **Propósito:** Segundo passo do login: troca o desafio + o código pela sessão. O `codigo` aceita **os dois** formatos — os 6 dígitos do autenticador e um código de recuperação (`A1B2C3D4-E5F6G7H8`, de uso único) —, e o service tenta nessa ordem.
+- **Auth:** Pública (`@Public()`). Rate limit: 5 req/min. O que autoriza é o `desafio`, que prova que a senha já foi aceita.
+- **Body:** `{ desafio: string (o JWT de POST /auth/login), codigo: string }`.
+- **Resposta:** `200 { accessToken: string }` + os mesmos cookies do login em um passo. Grava `AccessRecord` com `kind: 'LOGIN_2FA'`.
+- **Erros:**
+  - `401 A confirmação expirou. Entre com e-mail e senha de novo.` — desafio expirado (5 min), assinatura inválida, **ou um token de outro propósito**. O payload carrega `tipo: 'mfa'` e ele é conferido à mão: sem isso, um access token válido do mesmo usuário seria aceito como desafio e o segundo fator viraria decoração.
+  - `401 Código inválido ou expirado.` — código errado, reusado (anti-replay da RFC 6238 §5.2), código de recuperação já consumido, ou conta travada por tentativas falhas. **Não** gera linha em `AccessRecord`: a tabela só guarda sucesso (decisão da 19-A). A falha fica no log, em `mfa.codigo_recusado` e `mfa.login_recusado`.
+  - `400` (validação), `403` (colaborador desativado entre os dois passos).
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.login2fa`
+
+> **O desafio não abre rota autenticada.** Ele é assinado com `JWT_ACCESS_SECRET` (mesmo segredo do access token), então o `JwtAuthGuard` confere mais que a assinatura: recusa token que traga `tipo` e exige `sid` — todo access token nasce amarrado a uma sessão em `issueTokens`. Sem essa checagem, bastaria acertar a senha e usar o desafio como Bearer para contornar o segundo fator inteiro. Um e2e trava isso (`GET /auth/me` com o desafio → 401).
 
 ### POST /auth/forgot-password
 - **Propósito:** Iniciar a redefinição de senha: gera um token de uso único (validade 1h), persiste apenas o hash e envia por e-mail (SMTP) o link `{FRONTEND_URL}/redefinir-senha?token=…`. Sem SMTP configurado, o link é logado no console (ver `MailService`). **Vale também para a conta criada por login social** — é o único caminho pelo qual ela ganha uma senha utilizável (não existe rota de "definir senha" autenticada, por decisão de produto). Único descartado: convite de colaborador ainda não aceito (`acceptedAt` nulo), que tem o link do próprio convite.
@@ -104,6 +121,46 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Resposta:** `200 { ok: true }` + `Set-Cookie` limpando `refresh_token`.
 - **Erros:** `401`.
 - **Handler:** `modules/auth/auth.controller.ts` → `AuthController.logout`
+
+### GET /auth/2fa
+- **Propósito:** Estado do segundo fator para a tela de Segurança. `disponivel: false` significa que **a instância** não tem `TOTP_ENCRYPTION_KEY` configurada e o 2FA não existe aqui — mesmo contrato de "serviço opcional" de SMTP e captcha, e é o que mantém a autohospedagem subindo sem variável nova obrigatória.
+- **Auth:** Bearer (access token). Sem permissão — é dado da própria conta, como perfil e dispositivos. **Não** há gate por `isOwner`: o 2FA de alguém é de quem o liga, e um owner não configura (nem pode exigir) o segundo fator de um colaborador.
+- **Body:** —
+- **Resposta:** `200 { disponivel: boolean, ativo: boolean, codigosRestantes: number }`. `ativo` reflete `UserTotp.confirmedAt` — nunca a existência da linha: um cadastro iniciado e não concluído **não** exige segundo fator.
+- **Erros:** `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.status2fa`
+
+### POST /auth/2fa/setup
+- **Propósito:** Gerar o segredo TOTP e devolver o QR para o app autenticador. **Não liga o 2FA** — só `POST /auth/2fa/confirm` liga, e só com um código válido: sem essa separação, um QR que a pessoa não conseguiu ler trancaria a conta dela. Chamar de novo **substitui** o segredo não confirmado (é o caminho de "recomecei o cadastro"). O segredo é gravado **cifrado** em AES-256-GCM, com `keyVersion` para a rotação da chave ser possível antes de ser necessária.
+- **Auth:** Bearer (access token). Rate limit: 5/min.
+- **Body:** —
+- **Resposta:** `201 { qrDataUrl: string (data:image/png;base64,…), uri: string (otpauth://…), segredoBase32: string }` — os três são o **mesmo** segredo em codificações diferentes. O `segredoBase32` existe para quem digita à mão no app (prática universal: GitHub, AWS).
+- **Erros:** `422 O segundo fator não está disponível nesta instalação do CRM…` (sem `TOTP_ENCRYPTION_KEY`), `429`, `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.setup2fa`
+
+### POST /auth/2fa/confirm
+- **Propósito:** Confirmar com um código do autenticador e **ligar** o 2FA. Emite os 16 códigos de recuperação, **uma única vez** — o banco guarda só o sha256 deles.
+- **Auth:** Bearer (access token). Rate limit: 5/min.
+- **Body:** `{ codigo: string (6 dígitos) }`.
+- **Resposta:** `200 { codigosDeRecuperacao: string[16] }` (formato `A1B2C3D4-E5F6G7H8`, 128 bits de entropia cada).
+- **Erros:** `400` (código fora de 6 dígitos), `422 Comece o cadastro do segundo fator antes de confirmar.` / `422 Código inválido. Confira o app autenticador e tente de novo.`, `429`, `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.confirm2fa`
+
+### POST /auth/2fa/recovery-codes
+- **Propósito:** Regenerar os 16 códigos de recuperação, **invalidando os antigos**. Exige reautenticação (OWASP ASVS 3.7.1).
+- **Auth:** Bearer (access token). Rate limit: 3/min.
+- **Body:** `{ password?: string, codigo?: string }` — a senha **ou** um código válido do autenticador. Quem entrou por login social e nunca definiu senha usa o `codigo`.
+- **Resposta:** `200 { codigosDeRecuperacao: string[16] }`.
+- **Erros:** `403 Senha incorreta.` / `403 Código inválido ou expirado.` / `403 Confirme com a sua senha ou com um código do autenticador.` (**403 e nunca 401**: um 401 em rota autenticada dispara o refresh/logout do cliente HTTP, e uma senha errada no diálogo derrubaria a sessão em vez de mostrar a mensagem — mesmo precedente de `DELETE /account`), `422 Ative o segundo fator antes de gerar códigos de recuperação.`, `429`, `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.regenerarCodigos`
+
+### DELETE /auth/2fa
+- **Propósito:** Desligar o segundo fator. Apaga o segredo **e os códigos de recuperação** (os dois à mão: `UserTotpRecoveryCode` referencia `User`, não `UserTotp`, então não há cascata entre eles — e deixar códigos órfãos seria deixar credencial de acesso completo guardada sem uso). Exige reautenticação.
+- **Auth:** Bearer (access token). Rate limit: 3/min.
+- **Body:** `{ password?: string, codigo?: string }` — idem à rota acima.
+- **Resposta:** `204` (sem corpo).
+- **Erros:** `403` (mesmas três mensagens da rota acima), `429`, `401`.
+- **Handler:** `modules/auth/auth.controller.ts` → `AuthController.desativar2fa`
 
 ### GET /auth/sessions
 - **Propósito:** Listar as sessões ativas (dispositivos logados) do próprio usuário, da mais usada recentemente para a mais antiga. **Uma linha por aparelho**: o login novo revoga a sessão anterior do mesmo `device_id` (ver `modules/auth/device-cookie.ts`).
@@ -313,10 +370,9 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ### POST /leads/intake
 - **Propósito:** Receber um lead capturado FORA do CRM (site institucional, landing page) e materializá-lo como `Client` de status `LEAD` + `Contact` principal, notificando o owner na hora (`LEAD_RECEIVED`). Não cria oportunidade: o tipo de serviço só se conhece na conversa de diagnóstico. Telefone que já existe na workspace **não** abre segundo cadastro — a nota nova é empilhada no cliente existente e a resposta vem com `status: 'atualizado'`.
 - **Auth:** Pública (`@Public()`) fechada pelo `LeadIntakeKeyGuard`: header `Authorization: Bearer crm_…` com a **chave de integração** do owner (escopo `lead:receber`), emitida junto de um canal de captação em `POST /leads/canais`. A workspace de destino, o responsável do lead e a fonte de lead **vêm da chave apresentada** (via o canal que ela autentica) e nunca do corpo. Rate limit: 30 req/min por IP.
-  - **Caminho legado, em transição:** o guard também aceita o `LEAD_INTAKE_TOKEN` do ambiente, e nesse caso a conta de destino vem de `LEAD_INTAKE_OWNER_EMAIL`, sem canal, sem responsável e sem fonte de lead — exatamente o comportamento anterior à Fase 17-A. Ele existe porque o emissor (`site-v2`) vive em outro repositório; sai num PR próprio junto das duas variáveis. Uso do legado é observável no log por `lead.token_legado_aceito` (`warn`).
 - **Body:** `{ nome: string (2–120), whatsapp: string (10–11 dígitos, DDD + número, sem o 55), telefone?: string (E.164), email?: string, empresa?: string, cidade?: string, mensagem?: string (≤2000), origem: string (≤60), pagina?: string, recebidoEm?: string (ISO 8601), qualificacao?: object, resumo?: string (≤4000), cenario?: string (≤160) }` — campo não declarado responde `400` (o `ValidationPipe` global roda com `forbidNonWhitelisted`); `null` é aceito em qualquer opcional.
 - **Resposta:** `200 { status: 'criado' | 'atualizado', clientId: string }`.
-- **Erros:** `400` (validação), `401 Chave de integração inválida.` (ausente, desconhecida ou revogada), `403 Esta chave de integração não tem permissão para esta operação.` (chave sem o escopo `lead:receber`), `503 A ingestão de leads não está configurada nesta instância.` (**só no caminho legado**: token do ambiente presente e `LEAD_INTAKE_OWNER_EMAIL` ausente), `503 A conta que recebe os leads não existe nesta instância.` (**só no caminho legado**: e-mail configurado sem owner correspondente), `429` (rate limit).
+- **Erros:** `400` (validação), `401 Chave de integração inválida.` (ausente, desconhecida ou revogada), `403 Esta chave de integração não tem permissão para esta operação.` (chave sem o escopo `lead:receber`), `429` (rate limit). Os dois `503` do caminho legado (token de ambiente sem `LEAD_INTAKE_OWNER_EMAIL`, ou e-mail sem owner correspondente) **não existem mais**: a rota tem uma credencial só desde a Fase 19-B.
 - **Handler:** `modules/leads/api/leads-intake.controller.ts` → `LeadsIntakeController.receber`
 
 ---
@@ -361,23 +417,31 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 
 ## Integrações
 
-> Credencial de **máquina** por owner (servidor a servidor). O banco guarda apenas o sha256 do valor bruto, que só existe na resposta que o emitiu; `prefix` (`crm_` + 8 hex) fica em claro só para a pessoa reconhecer qual chave é qual na tela. **Recuperar chave perdida não existe** e não é omissão: quem perde rotaciona. Não há criação avulsa — chave nasce junto do registro que ela credencia (hoje, o canal de captação).
+> Credencial de **máquina** por owner (servidor a servidor). O banco guarda apenas o sha256 do valor bruto, que só existe na resposta que o emitiu; `prefix` (`crm_` + 8 hex) fica em claro só para a pessoa reconhecer qual chave é qual na tela. **Recuperar chave perdida não existe** e não é omissão: quem perde rotaciona. Duas portas de criação: o canal de captação (`POST /leads/canais`) emite chave com escopo `lead:receber`; `POST /integracoes/chaves` (aqui) emite chave avulsa para um sistema externo escrever no pipeline, com qualquer escopo exceto `lead:receber`.
 
 ### GET /integracoes/escopos
 - **Propósito:** Catálogo de escopos de chave de integração — o que uma chave PODE fazer. O front consome os rótulos em pt-BR daqui e não os duplica. Escopo **não** é permissão de pessoa: permissão limita quem usa o CRM pela interface, escopo limita o que uma credencial de máquina alcança.
 - **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
 - **Body:** —
-- **Resposta:** `200 [{ key: 'lead:receber', label: 'Receber lead', description: string }]`.
+- **Resposta:** `200 [{ key, label, description }]` — hoje `lead:receber`, `cliente:escrever`, `negociacao:escrever`, `atividade:escrever`, `tarefa:escrever`.
 - **Erros:** `403`, `401`.
 - **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.escopos`
 
 ### GET /integracoes/chaves
-- **Propósito:** Listar as chaves de integração do owner, mascaradas, com escopos, último uso bem-sucedido e data de revogação. Chave revogada continua na lista: a tela precisa dizer que ela existiu e morreu.
+- **Propósito:** Listar as chaves de integração do owner, mascaradas, com escopos, último uso bem-sucedido e data de revogação. Chave revogada continua na lista: a tela precisa dizer que ela existiu e morreu. Traz **todas** as chaves do owner, inclusive as dos canais de captação — a tela de API filtra pelo escopo.
 - **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
 - **Body:** —
 - **Resposta:** `200 [{ id, nome, mascarada, escopos: string[], criadaEm, ultimoUsoEm, revogadaEm }]`. O `keyHash` fica fora de todo `select` do repositório — o que não sai do banco não vaza.
 - **Erros:** `403`, `401`.
 - **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.list`
+
+### POST /integracoes/chaves
+- **Propósito:** Emitir chave de API **avulsa**, sem registro-mãe, para um sistema externo escrever no pipeline da workspace. Aceita qualquer escopo do catálogo **exceto** `lead:receber`, que pertence ao canal de captação — escopo fora do catálogo ou `lead:receber` recusa a requisição inteira (ao contrário da emissão pelo canal, que descarta escopo desconhecido em silêncio).
+- **Auth:** Bearer (access token). Permissão: `integracao:gerenciar`.
+- **Body:** `{ nome: string (2-80), escopos: string[] (não vazio) }`.
+- **Resposta:** `201 { chave: { id, nome, mascarada, escopos, criadaEm, ultimoUsoEm, revogadaEm }, valor: string }` — `valor` é o bruto (`crm_` + 64 hex), e esta é a única vez que ele existe.
+- **Erros:** `400` (nome inválido, lista vazia, escopo fora do catálogo ou `lead:receber`), `403`, `401`.
+- **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.criar`
 
 ### POST /integracoes/chaves/:id/rotacionar
 - **Propósito:** Trocar o segredo da **mesma** linha e devolver o valor novo, uma única vez. A chave anterior deixa de autenticar **imediatamente** — não há janela de convivência. Rotacionar uma chave revogada a reativa. O canal continua apontando para a mesma linha, sem religar FK.
@@ -394,6 +458,128 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 - **Resposta:** `200 { id, nome, mascarada, escopos, criadaEm, ultimoUsoEm, revogadaEm }`.
 - **Erros:** `400` (id não-uuid), `404 Chave de integração não encontrada.` (ou de outro owner), `403`, `401`.
 - **Handler:** `modules/integracoes/api/integracoes.controller.ts` → `IntegracoesController.revogar`
+
+---
+
+## API pública
+
+> A superfície de escrita **servidor a servidor**, para um sistema de fora gravar no pipeline da workspace. Quatro regras valem em todas as rotas desta seção:
+>
+> 1. **Autenticação por chave de integração**, no cabeçalho `Authorization: Bearer crm_…` (emitida em `POST /integracoes/chaves`). Não há sessão, cookie nem permissão de pessoa envolvida.
+> 2. **Um escopo por rota.** Chave sem o escopo responde `403`; chave inexistente ou revogada responde `401` — a mesma mensagem para os dois casos, para não vazar qual é.
+> 3. **O `ownerId` vem da chave, nunca do corpo.** Nenhum DTO desta seção aceita `ownerId`, e `forbidNonWhitelisted` recusa a requisição inteira se ele for enviado. Id de registro de outro owner responde `404`.
+> 4. **Rate limit de 120 requisições/minuto por CHAVE** (não por IP): dez integrações atrás do mesmo NAT não compartilham o teto, e uma chave abusiva atrás de IP rotativo não escapa dele.
+>
+> Só escrita: não há `GET`. Quem precisa ler usa a interface ou `GET /account/export`. O contrato de máquina é `GET /public/openapi.json`, e o guia de integrador é `docs/integracoes.md`. `v1` é estável: campo novo é aditivo e não quebra; quebra sai em `/api/v2`.
+
+### POST /public/clients
+- **Propósito:** Abrir cadastro de cliente (ou lead) na base da workspace. Campos deliberadamente menores que os do formulário interno: só o que a API se compromete a aceitar. Sem `assigneeId` (a integração não conhece os usuários da workspace) e sem endereço.
+- **Auth:** `Authorization: Bearer crm_…`. Escopo: `cliente:escrever`.
+- **Body:** `{ name: string (min 2), email?, phone?, document?, status?: ClientStatus, tags?: string[], notes? (máx 5000) }`.
+- **Resposta:** `201 { id, status }`.
+- **Erros:** `400` (validação, campo fora do contrato, CPF/CNPJ inválido), `401` (chave inválida/revogada/ausente), `403` (chave sem o escopo), `409` (documento já cadastrado), `429` (teto por chave).
+- **Handler:** `modules/public-api/api/public-api.controller.ts` → `PublicApiController.criarCliente`
+
+### POST /public/deals
+- **Propósito:** Abrir oportunidade no funil de um cliente existente. Sem `stageId`, nasce no primeiro estágio do funil do owner.
+- **Auth:** `Authorization: Bearer crm_…`. Escopo: `negociacao:escrever`.
+- **Body:** `{ clientId: uuid, title: string (min 2), serviceTypeId: uuid, stageId?: uuid, amount?, probability? (0-100), expectedClose?: ISO }`.
+- **Resposta:** `201 { id, stageId }`.
+- **Erros:** `400`, `401`, `403`, `404 Cliente não encontrado.` (ou de outro owner) / estágio ou tipo de serviço de outro owner, `429`.
+- **Handler:** `modules/public-api/api/public-api.controller.ts` → `PublicApiController.criarOportunidade`
+
+### POST /public/activities
+- **Propósito:** Lançar atividade no histórico de um cliente (contato feito, reunião, follow-up). Com `scheduledFor`, a atividade nasce agendada e entra nos lembretes de follow-up.
+- **Auth:** `Authorization: Bearer crm_…`. Escopo: `atividade:escrever`.
+- **Body:** `{ clientId: uuid, typeId: uuid, content: string, dealId?: uuid, scheduledFor?: ISO }`.
+- **Resposta:** `201 { id }`.
+- **Erros:** `400`, `401`, `403`, `404` (cliente, tipo de atividade ou oportunidade de outro owner), `429`.
+- **Handler:** `modules/public-api/api/public-api.controller.ts` → `PublicApiController.criarAtividade`
+
+### POST /public/tasks
+- **Propósito:** Abrir demanda no quadro de um projeto existente. Sem `checklist` (estrutura aninhada, que é contrato de UI) e sem `assigneeId`.
+- **Auth:** `Authorization: Bearer crm_…`. Escopo: `tarefa:escrever`.
+- **Body:** `{ projectId: uuid, title: string (min 2), description?, status?: TaskStatus, priority?: TaskPriority, dueDate?: ISO, tags?: string[] }`.
+- **Resposta:** `201 { id, status }`.
+- **Erros:** `400`, `401`, `403`, `404 Projeto não encontrado.` (ou de outro owner), `429`.
+- **Handler:** `modules/public-api/api/public-api.controller.ts` → `PublicApiController.criarDemanda`
+
+### GET /public/openapi.json
+- **Propósito:** Contrato de máquina (OpenAPI 3) da API pública, gerado dos DTOs de `modules/public-api/api/dto/` — então ele não desatualiza em relação ao que a API aceita. Importável em Insomnia/Postman/Bruno ou num gerador de cliente. Cobre **apenas** as quatro rotas de `/public`: o `include: [PublicApiModule]` do `main.ts` é decisão de segurança, não de estética — sem ele o documento publicaria as 200+ rotas internas do CRM. Não há Swagger UI (a UI arrastaria briga com o CSP do helmet e duplicaria `/ajuda/api`).
+- **Auth:** Nenhuma — é o contrato, não dado. Servido por rota do Express, fora dos guards.
+- **Body:** —
+- **Resposta:** `200` documento OpenAPI 3 em JSON.
+- **Erros:** —
+- **Handler:** `main.ts` → `publicarContratoDaApiPublica` (`SwaggerModule.setup`, `jsonDocumentUrl`)
+
+---
+
+## Webhooks
+
+> Webhook **da workspace**: o owner cadastra endereços que recebem os eventos de negócio (lead recebido, cobrança vencida, demanda atrasada). **Não confundir com `POST /notifications/targets/integrations`**, que é destino **do usuário** e carrega preferência de notificação — a distinção é a que o plano da Fase 9 mandou manter escrita, e é por isso que a outbox é uma tabela própria (`OwnerWebhookDelivery`), não `NotificationDelivery`.
+>
+> Regras que valem em toda a seção:
+>
+> 1. **Permissão própria: `webhook:gerenciar`.** Não reusa `notificacao:integrar` porque o risco é de outra ordem — o que sai por aqui é o evento da workspace inteira, não o aviso de uma pessoa, e o corpo carrega nome de cliente e valor de cobrança.
+> 2. **O segredo de assinatura nunca sai numa leitura.** Ele aparece uma única vez na criação e uma vez em cada rotação. `GET /webhooks` devolve só o **host** da URL, nunca o caminho (que é credencial).
+> 3. **Nasce inativo e não verificado.** Nenhum evento sai antes do ping de `POST /webhooks/:id/verify`, pelo mesmo motivo do destino de integração da Fase 9.
+> 4. **Entrega assinada, com retry.** `X-CRM-Signature: sha256=<hex>` sobre `<timestamp>.<corpo cru>`; 6 tentativas com backoff compartilhado (`shared/backoff.ts`), esgotando em ~10,6h. A outbox usa `FOR UPDATE SKIP LOCKED`.
+
+### GET /webhooks/eventos
+- **Propósito:** Catálogo de eventos de negócio que podem sair da workspace. O front consome os rótulos em pt-BR daqui e não os duplica. **É contrato público:** a chave de um evento nunca é renomeada (só entram nomes novos), porque renomear quebra a integração de quem consome.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ key, label, description }]` — hoje `lead.recebido`, `registro.atribuido`, `negociacao.parada`, `proposta.a_vencer`, `cobranca.a_vencer`, `cobranca.vencida`, `demanda.atrasada`, `atividade.a_fazer`.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.eventos`
+
+### GET /webhooks
+- **Propósito:** Listar os webhooks da workspace, com eventos assinados, estado e último uso bem-sucedido.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ id, nome, host, eventos: string[], ativo, verificadoEm, ultimoUsoEm, criadoEm }]`. `host` é só o host da URL; o **segredo** e o **caminho** ficam fora de toda resposta.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.list`
+
+### POST /webhooks
+- **Propósito:** Cadastrar um webhook. Nasce **inativo e não verificado**. Devolve o segredo de assinatura, e esta é a única vez que ele existe.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** `{ nome: string (2-80), url: string (HTTPS), eventos: string[] (não vazio, do catálogo) }`.
+- **Resposta:** `201 { webhook: { … }, segredo: string }` (`whsec_` + 64 hex).
+- **Erros:** `400` (validação, evento fora do catálogo), `409 Já existe um webhook com este nome.`, `422 O endereço precisa usar HTTPS.` / `422 O endereço precisa usar a porta padrão do HTTPS (443).` / `422 Este endereço aponta para a rede interna e não pode ser usado.` (bloqueio de SSRF, com resolução de DNS) / `422 Não foi possível resolver este endereço. Confira o domínio.`, `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.criar`
+
+### PATCH /webhooks/:id
+- **Propósito:** Alterar nome, URL, eventos assinados ou o estado (ativo). **Trocar a URL derruba a verificação** e desativa o webhook: o CRM não sabe se o endereço novo responde, e manter ativo faria as entregas irem para um destino nunca testado.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** `{ nome?, url?, eventos?, ativo? }` — todos opcionais.
+- **Resposta:** `200 { id, nome, host, eventos, ativo, verificadoEm, ultimoUsoEm, criadoEm }`.
+- **Erros:** `400` (id não-uuid, validação), `404 Webhook não encontrado.` (ou de outro owner), `409`, `422` (mesmas travas de URL do POST), `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.atualizar`
+
+### POST /webhooks/:id/verify
+- **Propósito:** Entregar um evento de teste (`webhook.teste`) no endereço e, se ele responder 2xx, marcar o webhook como verificado e ativo. O ping **já vai assinado**, para o receptor poder conferir a verificação antes de valer para evento real.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 { … }` (com `verificadoEm` preenchido e `ativo: true`).
+- **Erros:** `400` (id não-uuid), `404 Webhook não encontrado.`, `422 Não foi possível entregar no endereço: <motivo>` (a URL **nunca** aparece no motivo), `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.verificar`
+
+### POST /webhooks/:id/rotate-secret
+- **Propósito:** Trocar o segredo de assinatura e devolver o novo, **uma única vez**. A assinatura anterior deixa de casar **imediatamente** — não há janela de convivência. A URL não é tocada.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 { webhook: { … }, segredo: string }`.
+- **Erros:** `400` (id não-uuid), `404 Webhook não encontrado.`, `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.rotacionar`
+
+### DELETE /webhooks/:id
+- **Propósito:** Excluir o webhook. As entregas ainda na fila vão junto (FK em cascata) — quem desligou não quer que o acumulado continue saindo da workspace.
+- **Auth:** Bearer (access token). Permissão: `webhook:gerenciar`.
+- **Body:** —
+- **Resposta:** `204` (sem corpo).
+- **Erros:** `400` (id não-uuid), `404 Webhook não encontrado.`, `403`, `401`.
+- **Handler:** `modules/webhooks/api/owner-webhooks.controller.ts` → `OwnerWebhooksController.excluir`
 
 ---
 
@@ -1065,6 +1251,53 @@ Métricas agregadas do dono autenticado (posse via `client.ownerId`). Somente le
 
 ---
 
+## Consentimento
+
+> Livro-razão de consentimento dos **titulares** (`Client`/`Contact`) — o que cada pessoa autorizou, quando, por qual meio e **sob qual texto**. Cinco propriedades, e todas são exigência da LGPD, não preferência de modelagem:
+>
+> 1. **Append-only NO BANCO.** `GRANT SELECT, INSERT` + `REVOKE UPDATE, DELETE` para `crm_app`, no molde do `AuditLog`. Não há `PATCH` nem `DELETE` nesta seção, e a interface do repositório também não os declara: o banco os recusa, e prometer o que o banco proíbe é pior do que não ter. Um livro-razão que a aplicação pode reescrever não é prova de nada, e o art. 8º § 2º põe o ônus dessa prova no controlador.
+> 2. **Revogar é `POST` com `granted: false`.** Art. 8º § 5º: a revogação preserva "ratificados os tratamentos realizados sob amparo do consentimento anteriormente manifestado" — sobrescrever apagaria a prova de que o consentimento existiu.
+> 3. **Uma linha por FINALIDADE.** Art. 8º § 4º: "as autorizações genéricas para o tratamento de dados pessoais serão nulas". Não existe um booleano de "aceitou tudo".
+> 4. **A versão do texto vem do catálogo, nunca do corpo.** Aceitar `textVersion` pela requisição deixaria registrar consentimento a um texto que nunca foi exibido.
+> 5. **Permissões reusadas** (`cliente:ver`/`cliente:gerenciar`): consentimento é parte do cadastro do titular. Uma chave nova significaria "papel que só mexe em consentimento", que não é um conceito do produto.
+>
+> **O CRM não envia nada aos titulares** — todo destinatário do `MailService` é `User`. Isto é o livro-razão que o owner consulta ANTES de comunicar por fora; não é uma lista de opt-out de envio, e não há `List-Unsubscribe` nem página pública de descadastro.
+
+### GET /consentimentos/finalidades
+- **Propósito:** Catálogo de finalidades de tratamento com base em consentimento. O front consome os rótulos em pt-BR daqui e não os duplica. Não inclui o que **dispensa** consentimento (execução de contrato e procedimentos preliminares a pedido do titular, art. 7º, V): cobrança e aviso de vencimento não dependem de autorização, e oferecê-los aqui ensinaria errado.
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Body:** —
+- **Resposta:** `200 [{ key, label, description }]` — hoje `comunicacao_marketing`, `comunicacao_whatsapp`, `compartilhamento_terceiro`, `retencao_pos_contrato`.
+- **Erros:** `403`, `401`.
+- **Handler:** `modules/consent/api/consent.controller.ts` → `ConsentController.finalidades`
+
+### GET /consentimentos/texto
+- **Propósito:** O texto vigente de uma finalidade, com o **controlador preenchido** — e o controlador desses dados é o **owner**, não a ProgrameAi (que é operadora): o nome e o e-mail saem da conta do owner. A tela exibe isto ANTES de registrar, e é o que faz o consentimento ser *informado* (art. 9º: finalidade, forma e duração, controlador, contato, uso compartilhado, responsabilidades e direitos do art. 18).
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Query:** `purpose` (do catálogo).
+- **Resposta:** `200 { version: string, text: string }`.
+- **Erros:** `400` (finalidade fora do catálogo), `403`, `401`.
+- **Handler:** `modules/consent/api/consent.controller.ts` → `ConsentController.texto`
+
+### GET /consentimentos
+- **Propósito:** O histórico completo de um titular **e** a situação vigente por finalidade. A situação é resolvida pela manifestação mais recente de cada finalidade; o histórico traz **tudo**, inclusive o que foi revogado depois — é o ponto do append-only.
+- **Auth:** Bearer (access token). Permissão: `cliente:ver` ou `cliente:gerenciar`.
+- **Query:** `subjectType` (`CLIENT` | `CONTACT`), `subjectId` (uuid).
+- **Resposta:** `200 { situacao: [{ purpose, granted, occurredAt, textVersion }], historico: [{ id, subjectType, subjectId, purpose, granted, textVersion, channel, evidence, informedRetention, recordedByName, occurredAt, createdAt }] }`.
+- **Erros:** `400` (query inválida), `404` (titular inexistente **ou de outro owner** — `subjectId` não tem FK, então quem fecha é o `findOne` de clientes/contatos), `403`, `401`.
+- **Handler:** `modules/consent/api/consent.controller.ts` → `ConsentController.historico`
+
+### POST /consentimentos
+- **Propósito:** Registrar uma manifestação. **`granted: false` é a revogação** — é esta rota, e não um `DELETE`, que a registra.
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
+- **Body:** `{ subjectType: 'CLIENT' | 'CONTACT', subjectId: uuid, purpose: string (do catálogo), granted: boolean, channel: string (2-60), evidence?: string (≤500), informedRetention?: string (≤200), occurredAt?: ISO 8601 }`. **`textVersion` não entra** — ver a propriedade 4 acima. Sem `occurredAt`, vale agora.
+- **Resposta:** `201 { id, subjectType, subjectId, purpose, granted, textVersion, channel, evidence, informedRetention, recordedByName, occurredAt, createdAt }`.
+- **Erros:** `400` (finalidade fora do catálogo, campo inválido), `404` (titular de outro owner), `403`, `401`.
+- **Nota:** **não** há trilha de auditoria destes registros, e não é esquecimento: a tabela **é** a trilha. Duplicá-la no `AuditLog` guardaria a mesma PII de terceiro duas vezes.
+- **Handler:** `modules/consent/api/consent.controller.ts` → `ConsentController.registrar`
+
+---
+
 ## Conta (LGPD)
 
 Os direitos do titular sobre a própria conta. **Todas as rotas desta seção exigem
@@ -1364,9 +1597,17 @@ Cada usuário tem N **destinos** (`UserNotificationTarget`), e o opt-in é uma m
 - **Propósito:** Criar um destino de integração (`WEBHOOK`, `SLACK`, `DISCORD` ou `TELEGRAM`). Nasce **não verificado e inativo**: nenhuma entrega sai antes do ping de `POST /notifications/targets/:id/verify`.
 - **Auth:** Bearer (access token). Permissão: `notificacao:integrar` (só esta rota e a de verificação são gateadas — as demais da seção são livres, porque a caixa é do próprio usuário).
 - **Body:** `{ label: string, kind: 'WEBHOOK' | 'SLACK' | 'DISCORD' | 'TELEGRAM', url: string, types?: NotificationType[] }`. O `kind` declara o **formato do payload**, não o domínio de destino — nenhum deles exige um host específico. No `TELEGRAM` a `url` é o `sendMessage` da Bot API com o `chat_id` na query (`https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<ID>`), montada pelo front a partir dos dois campos que o usuário preenche; o adapter move o `chat_id` para o corpo JSON. Sem `types`, o destino nasce com o catálogo inteiro (`TIPOS_PADRAO`).
-- **Resposta:** `201 DestinoNaApi` (com `verified: false`, `active: false` e `configResumo` = só o host).
+- **Resposta:** `201 { destino: DestinoNaApi, segredo: string | null }` — `destino` com `verified: false`, `active: false` e `configResumo` = só o host. `segredo` é o **segredo de assinatura HMAC** (`whsec_` + 64 hex) e existe **uma única vez, nesta resposta**: `GET /notifications/targets` nunca o devolve. É `null` em `SLACK`/`DISCORD`/`TELEGRAM`, que não verificam assinatura nenhuma — gerar segredo para eles seria teatro.
 - **Erros:** `400` (validação de formato), `422 O endereço precisa usar HTTPS.` / `422 O endereço precisa usar a porta padrão do HTTPS (443).` / `422 Este endereço aponta para a rede interna e não pode ser usado.` (bloqueio de SSRF: loopback, link-local — inclusive `169.254.169.254` do metadata de cloud —, privada e CGNAT, em IPv4 e IPv6) / `422 Não foi possível resolver este endereço. Confira o domínio.`, `403 Você não tem permissão para integrar notificações.`, `401`.
 - **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.createIntegration`
+
+### POST /notifications/targets/:id/rotate-secret
+- **Propósito:** Trocar o segredo de assinatura de um destino `WEBHOOK` e devolver o novo, **uma única vez**. A assinatura anterior deixa de casar **imediatamente** — não há janela de convivência (mesma decisão da chave de integração: manter duas assinaturas válidas exigiria enviar as duas no cabeçalho e o receptor aceitar qualquer uma, o que enfraquece a rotação em vez de facilitá-la). A URL não é tocada: rotacionar segredo não é recadastrar destino.
+- **Auth:** Bearer (access token). Permissão: `notificacao:integrar`.
+- **Body:** —
+- **Resposta:** `200 { segredo: string }` (`whsec_` + 64 hex).
+- **Erros:** `400` (id não-uuid), `404 Destino não encontrado.` (ou de outra pessoa — 404 e não 403, para não revelar que existe), `422 Só o destino de webhook usa segredo de assinatura.` (em `IN_APP`/`EMAIL`/`SLACK`/`DISCORD`/`TELEGRAM`), `403`, `401`.
+- **Handler:** `modules/notifications/api/notifications.controller.ts` → `NotificationsController.rotateSecret`
 
 ### POST /notifications/targets/:id/verify
 - **Propósito:** Enviar um ping de teste ao destino de integração e, se ele responder 2xx, marcá-lo como verificado e ativo. É o passo que faltava para o destino começar a receber.
