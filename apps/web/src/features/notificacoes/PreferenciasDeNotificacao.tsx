@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import {
   Bell,
+  BookOpen,
   Mail,
   MessageCircle,
   Plus,
@@ -10,13 +12,14 @@ import {
   Webhook,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { extractApiMessage } from '@/lib/api-error';
 import { useCan } from '@/hooks/use-can';
 import { translateNotificationChannelKind } from '@/lib/labels';
+import { cn } from '@/lib/utils';
 import {
   useAtualizarDestino,
   useDestinos,
@@ -119,6 +122,15 @@ export function PreferenciasDeNotificacao() {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
+          {/* `cn` obrigatório: sem o merge, o `border-transparent` da base do
+              botão vence o `border-border` da variante e o contorno some. */}
+          <Link
+            to="/ajuda/notificacoes"
+            className={cn(buttonVariants({ variant: 'outline' }))}
+          >
+            <BookOpen data-icon="inline-start" />
+            Como integrar
+          </Link>
           <Button
             type="button"
             variant="outline"

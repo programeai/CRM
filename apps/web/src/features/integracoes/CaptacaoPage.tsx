@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { KeyRound, Plus } from 'lucide-react';
+import { Link } from 'react-router';
+import { BookOpen, KeyRound, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CopyBox } from '@/components/ui/copy-box';
 import {
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/table';
 import { extractApiMessage } from '@/lib/api-error';
 import { formatDate } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import {
   useCanaisDeCaptacao,
   useDeleteCanal,
@@ -95,6 +97,15 @@ export default function CaptacaoPage() {
         title="Captação de leads"
         description="Por onde o lead entra no CRM sem ninguém digitar. Cada canal tem a própria chave: revogar um não derruba os outros."
       >
+        {/* `cn` obrigatório: sem o merge, o `border-transparent` da base do
+            botão vence o `border-border` da variante e o contorno desaparece. */}
+        <Link
+          to="/ajuda/captacao"
+          className={cn(buttonVariants({ variant: 'outline' }))}
+        >
+          <BookOpen data-icon="inline-start" />
+          Como integrar
+        </Link>
         <Button onClick={abrirCriacao}>
           <Plus data-icon="inline-start" />
           Novo canal

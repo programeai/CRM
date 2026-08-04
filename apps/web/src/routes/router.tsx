@@ -40,6 +40,9 @@ import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
 import ImportacaoPage from '@/features/dados/ImportacaoPage';
 import CaptacaoPage from '@/features/integracoes/CaptacaoPage';
+import AjudaLayout from '@/features/ajuda/AjudaLayout';
+import CaptacaoDocPage from '@/features/ajuda/CaptacaoDocPage';
+import NotificacoesDocPage from '@/features/ajuda/NotificacoesDocPage';
 import AdministracaoLayout, {
   AdministracaoIndex,
 } from '@/features/administracao/AdministracaoLayout';
@@ -107,6 +110,18 @@ export const router = createBrowserRouter([
               { path: 'dispositivos', element: <SessoesAtivas /> },
               { path: 'notificacoes', element: <PreferenciasDeNotificacao /> },
               { path: 'conta', element: <ContaTab /> },
+            ],
+          },
+          // Ajuda de integração: páginas de leitura, sem dado da workspace —
+          // fora do gating pelo mesmo motivo que Configurações. Quem configura
+          // o canal e quem cola a URL do webhook são pessoas diferentes.
+          {
+            path: '/ajuda',
+            element: <AjudaLayout />,
+            children: [
+              { index: true, element: <Navigate to="captacao" replace /> },
+              { path: 'captacao', element: <CaptacaoDocPage /> },
+              { path: 'notificacoes', element: <NotificacoesDocPage /> },
             ],
           },
           {
