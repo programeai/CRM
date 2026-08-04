@@ -40,6 +40,16 @@ export const ADMIN_TABS: SectionTabItem[] = [
     permission: ['integracao:gerenciar'],
   },
   {
+    label: 'API',
+    to: '/administracao/api',
+    permission: ['integracao:gerenciar'],
+  },
+  {
+    label: 'Webhooks',
+    to: '/administracao/webhooks',
+    permission: ['webhook:gerenciar'],
+  },
+  {
     label: 'Auditoria',
     to: '/administracao/auditoria',
     permission: ['auditoria:ver'],

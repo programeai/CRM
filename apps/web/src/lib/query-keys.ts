@@ -99,6 +99,20 @@ export const queryKeys = {
   canaisDeCaptacao: {
     all: ['canais-de-captacao'] as const,
   },
+  integracoes: {
+    escopos: ['integracoes', 'escopos'] as const,
+    chaves: ['integracoes', 'chaves'] as const,
+  },
+  webhooks: {
+    all: ['webhooks'] as const,
+    eventos: ['webhooks', 'eventos'] as const,
+  },
+  consentimentos: {
+    finalidades: ['consentimentos', 'finalidades'] as const,
+    texto: (purpose: string) => ['consentimentos', 'texto', purpose] as const,
+    historico: (subjectType: string, subjectId: string) =>
+      ['consentimentos', subjectType, subjectId] as const,
+  },
   clientOptions: (search: string) => ['client-options', search] as const,
   workspaceMembers: ['workspace', 'members'] as const,
   auth: {
@@ -106,5 +120,6 @@ export const queryKeys = {
     registration: ['auth', 'registration'] as const,
     me: ['auth', 'me'] as const,
     sessions: ['auth', 'sessions'] as const,
+    segundoFator: ['auth', '2fa'] as const,
   },
 } as const;

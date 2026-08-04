@@ -17,6 +17,7 @@ import TimelineTab from '@/features/clientes/tabs/TimelineTab';
 import OportunidadesTab from '@/features/clientes/tabs/OportunidadesTab';
 import PropostasTab from '@/features/clientes/tabs/PropostasTab';
 import ProjetosTab from '@/features/clientes/tabs/ProjetosTab';
+import ConsentimentosTab from '@/features/clientes/tabs/ConsentimentosTab';
 import DashboardPage from '@/features/dashboard/DashboardPage';
 import PipelineBoardPage from '@/features/pipeline/PipelineBoardPage';
 import PropostasListPage from '@/features/propostas/PropostasListPage';
@@ -33,6 +34,7 @@ import ConfiguracoesLayout from '@/features/configuracoes/ConfiguracoesLayout';
 import ContaTab from '@/features/conta/ContaTab';
 import PerfilTab from '@/features/perfil/PerfilTab';
 import { SessoesAtivas } from '@/features/perfil/SessoesAtivas';
+import SegurancaPage from '@/features/seguranca/SegurancaPage';
 import { PreferenciasDeNotificacao } from '@/features/notificacoes/PreferenciasDeNotificacao';
 import ColaboradoresPage from '@/features/organizacao/ColaboradoresPage';
 import PapeisPage from '@/features/organizacao/PapeisPage';
@@ -40,9 +42,13 @@ import AuditoriaPage from '@/features/auditoria/AuditoriaPage';
 import LixeiraPage from '@/features/lixeira/LixeiraPage';
 import ImportacaoPage from '@/features/dados/ImportacaoPage';
 import CaptacaoPage from '@/features/integracoes/CaptacaoPage';
+import ApiPage from '@/features/integracoes/ApiPage';
 import AjudaLayout from '@/features/ajuda/AjudaLayout';
 import CaptacaoDocPage from '@/features/ajuda/CaptacaoDocPage';
 import NotificacoesDocPage from '@/features/ajuda/NotificacoesDocPage';
+import ApiDocPage from '@/features/ajuda/ApiDocPage';
+import WebhooksDocPage from '@/features/ajuda/WebhooksDocPage';
+import WebhooksPage from '@/features/webhooks/WebhooksPage';
 import AdministracaoLayout, {
   AdministracaoIndex,
 } from '@/features/administracao/AdministracaoLayout';
@@ -108,6 +114,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <PerfilTab /> },
               { path: 'dispositivos', element: <SessoesAtivas /> },
+              { path: 'seguranca', element: <SegurancaPage /> },
               { path: 'notificacoes', element: <PreferenciasDeNotificacao /> },
               { path: 'conta', element: <ContaTab /> },
             ],
@@ -122,6 +129,8 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="captacao" replace /> },
               { path: 'captacao', element: <CaptacaoDocPage /> },
               { path: 'notificacoes', element: <NotificacoesDocPage /> },
+              { path: 'api', element: <ApiDocPage /> },
+              { path: 'webhooks', element: <WebhooksDocPage /> },
             ],
           },
           {
@@ -139,6 +148,7 @@ export const router = createBrowserRouter([
                   { path: 'propostas', element: <PropostasTab /> },
                   { path: 'projetos', element: <ProjetosTab /> },
                   { path: 'contratos', element: <ContratosDoClienteTab /> },
+                  { path: 'consentimento', element: <ConsentimentosTab /> },
                 ],
               },
             ],
@@ -211,6 +221,15 @@ export const router = createBrowserRouter([
                     ),
                     children: [
                       { path: 'captacao', element: <CaptacaoPage /> },
+                      { path: 'api', element: <ApiPage /> },
+                    ],
+                  },
+                  {
+                    element: (
+                      <PermissionRoute permission={['webhook:gerenciar']} />
+                    ),
+                    children: [
+                      { path: 'webhooks', element: <WebhooksPage /> },
                     ],
                   },
                   {
