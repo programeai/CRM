@@ -108,6 +108,7 @@ services:
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:?defina APP_DB_PASSWORD no .env com openssl rand -hex 32}"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no .env com openssl rand -hex 32}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env com openssl rand -hex 32}"
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
       # Front e API compartilham a origem: FRONTEND_URL (CORS + link de
@@ -135,8 +136,6 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
       # Ingestão externa de lead: as duas juntas, ou /leads/intake fica 503.
-      LEAD_INTAKE_TOKEN: ${LEAD_INTAKE_TOKEN:-}
-      LEAD_INTAKE_OWNER_EMAIL: ${LEAD_INTAKE_OWNER_EMAIL:-}
       # Billing por Stripe: só faz sentido em instância que cobra assinatura.
       # Na autohospedagem, false desliga o gate e o Stripe nunca é inicializado.
       BILLING_ENABLED: ${BILLING_ENABLED:-false}

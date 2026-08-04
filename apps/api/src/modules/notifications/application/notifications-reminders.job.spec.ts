@@ -5,6 +5,7 @@ import type {
 } from '../domain/notification-triggers.repository';
 import type { NotificationRepository } from '../domain/notification.repository';
 import type { NotificationsService } from '../notifications.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 function alvo(overrides: Partial<AlvoDeLembrete> = {}): AlvoDeLembrete {
   return {
@@ -41,6 +42,7 @@ describe('NotificationsRemindersJob', () => {
       triggers,
       repo as unknown as NotificationRepository,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
   });
 

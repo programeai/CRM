@@ -16,7 +16,7 @@ import {
  */
 export class UpdateContractDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Descrição obrigatória.' })
   @MinLength(1, { message: 'Descrição obrigatória.' })
   description?: string;
 
@@ -26,7 +26,7 @@ export class UpdateContractDto {
   monthlyAmount?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsInt({ message: 'Dia de vencimento entre 1 e 28.' })
   @Min(1, { message: 'Dia de vencimento entre 1 e 28.' })
   @Max(28, { message: 'Dia de vencimento entre 1 e 28.' })
   billingDay?: number;

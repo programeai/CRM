@@ -145,6 +145,10 @@ Quando esses avisos chegam:
 Sem `SMTP_HOST` na instância, o canal de e-mail é marcado como *ignorado* — não é
 falha, é canal desligado. As notificações no app continuam funcionando.
 
+Para mandar aviso a um sistema de fora (Slack, Telegram, webhook), o formato do
+que o CRM envia e as regras de entrega estão em **Ajuda → Notificações**
+(`/ajuda/notificacoes`).
+
 ## 7. Se você recebe lead de fora do CRM
 
 **Administração → Captação** (permissão `integracao:gerenciar`).
@@ -152,9 +156,69 @@ falha, é canal desligado. As notificações no app continuam funcionando.
 Crie um canal para cada origem externa ("Site institucional", "n8n"). O canal
 guarda quem atende o lead e como ele é classificado, e emite a **chave** que
 autentica a entrega. A chave aparece **uma única vez**, na criação — quem perde,
-rotaciona. Detalhes técnicos da entrega ficam em
+rotaciona.
+
+O endereço, os campos aceitos e as respostas de erro estão dentro do próprio app,
+em **Ajuda → Captação de leads** (`/ajuda/captacao`) — é a página para mandar a
+quem vai configurar o outro lado, e o endereço ali já vem montado com o host da
+instância. A referência da rota para quem lê código fica em
 [`apps/api/ENDPOINTS.md`](../../apps/api/ENDPOINTS.md) → "Leads (ingestão
 externa)".
+
+## 8. Ligue a verificação em duas etapas
+
+**Configurações → Segurança** (não precisa de permissão: é a sua própria conta).
+
+Com o 2FA ligado, entrar passa a pedir a senha **e** um código de 6 dígitos do seu
+app autenticador (Google Authenticator, 1Password, Authy, Bitwarden). Quem
+descobrir a sua senha ainda não entra.
+
+1. Clique em **Ativar 2FA** e leia o QR com o app. Não conseguiu ler? Use "Não
+   consigo ler o QR" e digite o segredo à mão.
+2. Digite o código que o app mostrar. **É só aí que o 2FA liga** — um QR que você
+   não conseguiu ler não tranca a sua conta.
+3. **Guarde os 16 códigos de recuperação.** Copie ou baixe o `.txt`; eles aparecem
+   uma única vez.
+
+> **Os códigos de recuperação são a sua saída se você perder o celular.** Cada um
+> serve uma vez. Sem eles e sem o app, **ninguém recupera o acesso** — não há
+> caminho de suporte que devolva uma conta com 2FA e sem os dois. Guarde-os fora
+> do celular: gerenciador de senhas, ou impressos.
+
+Cada pessoa liga o 2FA para si. **O owner não pode exigi-lo do time** nem
+configurá-lo por alguém — é decisão de cada titular sobre a própria conta.
+
+Se a aba disser "não está disponível nesta instalação", falta a chave de cifra do
+segundo fator no servidor (`TOTP_ENCRYPTION_KEY`) — ver
+[autohospedagem.md](../autohospedagem.md).
+
+## 9. Registre o consentimento dos seus clientes
+
+Na ficha do cliente, aba **Consentimento** (e, para cada contato, o ícone de escudo
+na aba Contatos).
+
+O CRM guarda **o que cada titular autorizou**: uma linha por finalidade
+(comunicação de marketing, contato por WhatsApp, compartilhamento com terceiro,
+retenção após o contrato), com o meio pelo qual ele se manifestou, a data e **a
+versão do texto que foi mostrado a ele**.
+
+Três coisas que valem entender antes de usar:
+
+- **Revogar não apaga nada.** A revogação entra como registro novo, e a
+  manifestação anterior continua no histórico. É o que a LGPD manda preservar
+  (art. 8º, § 5º) — e é o que faz o registro servir de prova.
+- **Não há "aceitou tudo".** Autorização genérica é nula por lei (art. 8º, § 4º),
+  então cada finalidade é registrada por si.
+- **O texto é exibido antes de você confirmar**, e é a versão dele que fica
+  gravada. Se o texto mudar, os registros antigos continuam apontando para o que
+  foi mostrado na época.
+
+> **O CRM registra; ele não comunica.** Nenhum e-mail ou WhatsApp sai do CRM para
+> os seus clientes — este é o livro-razão que você consulta **antes** de disparar
+> pelas suas ferramentas. Honrar a revogação nelas é o seu passo.
+
+O que você registra aqui entra no seu arquivo de portabilidade (Configurações →
+Conta → Exportar meus dados) e é apagado no encerramento da conta.
 
 ## Antes de considerar a instância pronta
 
@@ -164,6 +228,8 @@ externa)".
 - [ ] **Autocadastro fechado** (`REGISTRATION_ENABLED=false`) — senão qualquer
       pessoa com o endereço cria conta na sua instância
 - [ ] Backup do banco agendado — ver [autohospedagem.md](../autohospedagem.md)
+- [ ] **Verificação em duas etapas ligada** na sua conta, com os códigos de
+      recuperação guardados fora do celular
 
 ## Próximo passo
 

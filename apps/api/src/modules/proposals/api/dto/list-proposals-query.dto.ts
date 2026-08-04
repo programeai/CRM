@@ -4,7 +4,7 @@ import { PaginationQueryDto } from '../../../../shared/dto/pagination-query.dto'
 
 export class ListProposalsQueryDto extends PaginationQueryDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Busca inválida.' })
   search?: string;
   @IsOptional()
   @IsUUID('4', { message: 'Cliente inválido.' })

@@ -23,6 +23,16 @@ export class ContactsService {
     return this.repo.findManyByClient(clientId);
   }
 
+  /**
+   * Um contato do owner. Fronteira pública do módulo para quem precisa validar a
+   * posse antes de gravar algo que aponte para ele — hoje o livro-razão de
+   * consentimento (`modules/consent`), que aceita `Client` **ou** `Contact` como
+   * titular e não pode confiar no id que vem do corpo.
+   */
+  findOne(ownerId: string, contactId: string): Promise<Contact> {
+    return this.loadOwned(ownerId, contactId);
+  }
+
   async create(
     ownerId: string,
     clientId: string,

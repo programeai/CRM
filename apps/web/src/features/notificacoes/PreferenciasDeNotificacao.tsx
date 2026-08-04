@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import {
   Bell,
+  BookOpen,
+  KeyRound,
   Mail,
   MessageCircle,
   Plus,
@@ -10,17 +13,29 @@ import {
   Webhook,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CopyBox } from '@/components/ui/copy-box';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { extractApiMessage } from '@/lib/api-error';
 import { useCan } from '@/hooks/use-can';
 import { translateNotificationChannelKind } from '@/lib/labels';
+import { cn } from '@/lib/utils';
 import {
   useAtualizarDestino,
   useDestinos,
   useExcluirDestino,
+  useRotacionarSegredo,
   useVerificarDestino,
 } from './api/hooks';
 import { DestinoEmailDialog } from './DestinoEmailDialog';
@@ -31,6 +46,14 @@ import type {
   NotificationChannelKind,
   NotificationType,
 } from './api/types';
+
+/** O segredo recém-gerado, exibido uma única vez. */
+interface SegredoNovo {
+  segredo: string;
+  rotulo: string;
+  /** Rotação avisa que a assinatura anterior morreu; criação, não. */
+  rotacionado: boolean;
+}
 
 const ICONE: Record<NotificationChannelKind, typeof Bell> = {
   IN_APP: Bell,
@@ -52,6 +75,7 @@ export function PreferenciasDeNotificacao() {
   const atualizar = useAtualizarDestino();
   const excluir = useExcluirDestino();
   const verificar = useVerificarDestino();
+  const rotacionar = useRotacionarSegredo();
   // O backend é a autoridade (403 pelo AccessGuard); aqui só evitamos mostrar a
   // ação que não seria aceita.
   const { can } = useCan();
@@ -60,6 +84,22 @@ export function PreferenciasDeNotificacao() {
   const [excluindo, setExcluindo] = useState<DestinoDeNotificacao | null>(null);
   const [novoAberto, setNovoAberto] = useState(false);
   const [integracaoAberta, setIntegracaoAberta] = useState(false);
+  const [rotacionando, setRotacionando] =
+    useState<DestinoDeNotificacao | null>(null);
+  const [segredoNovo, setSegredoNovo] = useState<SegredoNovo | null>(null);
+
+  const confirmarRotacao = async () => {
+    if (!rotacionando) return;
+    try {
+      const { segredo } = await rotacionar.mutateAsync(rotacionando.id);
+      const rotulo = rotacionando.label;
+      setRotacionando(null);
+      // Diálogo PRÓPRIO, nunca empilhado sobre o de confirmação.
+      setSegredoNovo({ segredo, rotulo, rotacionado: true });
+    } catch (err) {
+      toast.error(extractApiMessage(err, 'Falha ao rotacionar o segredo.'));
+    }
+  };
 
   const confirmarVerificacao = async (destino: DestinoDeNotificacao) => {
     try {
@@ -119,6 +159,15 @@ export function PreferenciasDeNotificacao() {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
+          {/* `cn` obrigatório: sem o merge, o `border-transparent` da base do
+              botão vence o `border-border` da variante e o contorno some. */}
+          <Link
+            to="/ajuda/notificacoes"
+            className={cn(buttonVariants({ variant: 'outline' }))}
+          >
+            <BookOpen data-icon="inline-start" />
+            Como integrar
+          </Link>
           <Button
             type="button"
             variant="outline"
@@ -193,6 +242,20 @@ export function PreferenciasDeNotificacao() {
                         {verificar.isPending ? 'Testando…' : 'Testar e ativar'}
                       </Button>
                     )}
+                    {/* Só o kind WEBHOOK verifica assinatura: Slack, Discord e
+                        Telegram não têm onde conferir, e um botão de segredo ali
+                        seria uma ação sem consequência. */}
+                    {destino.kind === 'WEBHOOK' && podeIntegrar && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRotacionando(destino)}
+                      >
+                        <KeyRound data-icon="inline-start" />
+                        Rotacionar segredo
+                      </Button>
+                    )}
                     <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                       <Checkbox
                         checked={destino.active}
@@ -235,6 +298,9 @@ export function PreferenciasDeNotificacao() {
         <IntegracaoDialog
           open={integracaoAberta}
           onOpenChange={setIntegracaoAberta}
+          onSegredoGerado={({ segredo, rotulo }) =>
+            setSegredoNovo({ segredo, rotulo, rotacionado: false })
+          }
         />
       )}
 
@@ -249,6 +315,65 @@ export function PreferenciasDeNotificacao() {
         pending={excluir.isPending}
         onConfirm={() => void confirmarExclusao()}
       />
+
+      <ConfirmDialog
+        open={!!rotacionando}
+        onOpenChange={(open) => !open && setRotacionando(null)}
+        title="Rotacionar o segredo deste webhook?"
+        description="A assinatura passa a ser calculada com o segredo novo imediatamente. Quem estiver verificando com o antigo passa a recusar as entregas até você trocar o valor do outro lado."
+        confirmLabel="Rotacionar"
+        pendingLabel="Rotacionando…"
+        destructive
+        pending={rotacionar.isPending}
+        onConfirm={() => void confirmarRotacao()}
+      />
+
+      {/* Diálogo próprio: NUNCA empilhado sobre o de confirmação da rotação. */}
+      <Dialog
+        open={!!segredoNovo}
+        onOpenChange={(open) => !open && setSegredoNovo(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {segredoNovo?.rotacionado
+                ? 'Segredo rotacionado'
+                : 'Segredo de assinatura'}
+            </DialogTitle>
+            <DialogDescription>
+              {segredoNovo?.rotacionado
+                ? `Este é o segredo novo de "${segredoNovo.rotulo}". O anterior já não vale — troque o valor no receptor agora.`
+                : `Use este segredo para verificar o cabeçalho X-CRM-Signature das entregas de "${segredoNovo?.rotulo ?? 'este webhook'}", e confirmar que elas vieram do CRM.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            {segredoNovo && (
+              <CopyBox
+                value={segredoNovo.segredo}
+                copiedLabel="Segredo copiado."
+              >
+                Copie agora. Esta é a única vez que o segredo aparece — se
+                perder, rotacione para gerar outro.
+              </CopyBox>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Como verificar a assinatura está em{' '}
+              <Link
+                to="/ajuda/notificacoes#assinatura"
+                className="font-medium text-primary hover:underline"
+              >
+                Ajuda → Notificações
+              </Link>
+              .
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" onClick={() => setSegredoNovo(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

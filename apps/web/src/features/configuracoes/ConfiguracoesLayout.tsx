@@ -12,6 +12,10 @@ import { useCan } from '@/hooks/use-can';
 const TABS: SectionTabItem[] = [
   { label: 'Perfil', to: '/configuracoes', end: true },
   { label: 'Dispositivos', to: '/configuracoes/dispositivos' },
+  // Segurança fica ao lado de Dispositivos, e sem gate por `isOwner`: o segundo
+  // fator é da própria conta, e o owner **não** pode exigi-lo de um colaborador
+  // (isso criaria um estado "logado mas obrigado a configurar" em toda rota).
+  { label: 'Segurança', to: '/configuracoes/seguranca' },
   { label: 'Notificações', to: '/configuracoes/notificacoes' },
 ];
 

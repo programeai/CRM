@@ -20,6 +20,8 @@ import { PrismaTaskRepository } from './infra/prisma-task.repository';
     { provide: PROJECT_REPOSITORY, useClass: PrismaProjectRepository },
     { provide: TASK_REPOSITORY, useClass: PrismaTaskRepository },
   ],
-  exports: [ProjectsService], // consumido pelo PipelineModule na Fase 4 (criar-ao-ganhar)
+  // `ProjectsService`: consumido pelo PipelineModule na Fase 4 (criar-ao-ganhar).
+  // `TasksService`: consumido pelo PublicApiModule na Fase 19-B (POST /public/tasks).
+  exports: [ProjectsService, TasksService],
 })
 export class ProjectsModule {}

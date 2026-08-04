@@ -1,20 +1,14 @@
-import { NOTIFICATION_TYPE_LABELS } from '@/lib/labels';
+import { NOTIFICATION_TYPES } from '@/lib/labels';
 import type { NotificationType } from './api/types';
 
 /**
- * Os tipos, na ordem do catálogo — o map de rótulos é a fonte da ordem. A
- * tupla (em vez de `NotificationType[]`) é o que deixa `z.enum(TIPOS)` valer no
- * schema do diálogo de integração.
- */
-export const TIPOS = Object.keys(NOTIFICATION_TYPE_LABELS) as [
-  NotificationType,
-  ...NotificationType[],
-];
-
-/**
- * Alterna um tipo mantendo a ordem do catálogo: o `filter` sobre `TIPOS` (em vez
- * de um `push`) é o que impede a lista de embaralhar quando alguém desmarca e
- * remarca. Os dois diálogos de cadastro usam este mesmo passo.
+ * Alterna um tipo mantendo a ordem do catálogo: o `filter` sobre
+ * `NOTIFICATION_TYPES` (em vez de um `push`) é o que impede a lista de
+ * embaralhar quando alguém desmarca e remarca. Os dois diálogos de cadastro
+ * usam este mesmo passo.
+ *
+ * A lista de tipos e as descrições moraram aqui até a página de ajuda passar a
+ * precisar das duas: subiram para `@/lib/labels`, junto dos rótulos.
  */
 export function alternarTipo(
   atuais: NotificationType[],
@@ -22,23 +16,5 @@ export function alternarTipo(
 ): NotificationType[] {
   return atuais.includes(tipo)
     ? atuais.filter((t) => t !== tipo)
-    : TIPOS.filter((t) => t === tipo || atuais.includes(t));
+    : NOTIFICATION_TYPES.filter((t) => t === tipo || atuais.includes(t));
 }
-
-/**
- * Quando cada aviso sai — a linha de apoio embaixo do rótulo, no mesmo formato
- * do catálogo de permissões. Sem número de dias: as janelas de proposta e de
- * cobrança são constantes do backend (`DIAS_PROPOSTA`/`DIAS_COBRANCA`) e um "3
- * dias" escrito aqui envelheceria calado.
- */
-export const DESCRICAO_DO_TIPO: Record<NotificationType, string> = {
-  FOLLOW_UP_DUE: 'Follow-up da timeline agendado para hoje.',
-  DEAL_STALE:
-    'Oportunidade parada no mesmo estágio — o mesmo limite do selo "Esfriando" no quadro.',
-  PROPOSAL_EXPIRING: 'Alguns dias antes de uma proposta expirar.',
-  PAYMENT_DUE: 'Alguns dias antes de uma cobrança vencer.',
-  PAYMENT_OVERDUE: 'Cobrança que passou do vencimento sem baixa.',
-  TASK_OVERDUE: 'Demanda com prazo vencido e ainda não concluída.',
-  RECORD_ASSIGNED: 'Alguém define você como responsável por um registro.',
-  LEAD_RECEIVED: 'Um lead entra por integração (site, landing page).',
-};

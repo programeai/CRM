@@ -1,14 +1,17 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import { translateNotificationType } from '@/lib/labels';
-import { DESCRICAO_DO_TIPO, TIPOS } from './tipos';
+import {
+  NOTIFICATION_TYPES,
+  NOTIFICATION_TYPE_DESCRIPTIONS,
+  translateNotificationType,
+} from '@/lib/labels';
 import type { NotificationType } from './api/types';
 
 /**
  * Os eventos entregáveis, no mesmo formato do catálogo de permissões do
  * `PapelFormDialog`: contador à direita do rótulo, caixa com borda e, em cada
  * linha, o rótulo com a descrição do quando embaixo. Serve os dois cadastros —
- * e-mail e integração —, que escolhem os mesmos seis tipos.
+ * e-mail e integração —, que escolhem entre os mesmos tipos.
  */
 export function ListaDeEventos({
   selecionados,
@@ -31,7 +34,7 @@ export function ListaDeEventos({
       </div>
 
       <div className="space-y-2 rounded-lg border p-3">
-        {TIPOS.map((tipo) => (
+        {NOTIFICATION_TYPES.map((tipo) => (
           <label
             key={tipo}
             className="flex cursor-pointer items-start gap-3 text-sm"
@@ -47,7 +50,7 @@ export function ListaDeEventos({
                 {translateNotificationType(tipo)}
               </span>
               <span className="block text-muted-foreground">
-                {DESCRICAO_DO_TIPO[tipo]}
+                {NOTIFICATION_TYPE_DESCRIPTIONS[tipo]}
               </span>
             </span>
           </label>

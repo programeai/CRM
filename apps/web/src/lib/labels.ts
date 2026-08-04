@@ -190,6 +190,40 @@ export const NOTIFICATION_TYPE_LABELS = {
 } as const;
 export const translateNotificationType = make(NOTIFICATION_TYPE_LABELS);
 
+/**
+ * Os tipos de notificação na ordem do catálogo — o map de rótulos acima é a
+ * fonte da ordem. A tupla (em vez de um array) é o que deixa `z.enum()` valer
+ * no schema dos diálogos de destino.
+ */
+export const NOTIFICATION_TYPES = Object.keys(NOTIFICATION_TYPE_LABELS) as [
+  keyof typeof NOTIFICATION_TYPE_LABELS,
+  ...(keyof typeof NOTIFICATION_TYPE_LABELS)[],
+];
+
+/**
+ * Quando cada aviso sai. Vive junto do rótulo porque tem dois consumidores em
+ * features distintas: a matriz de eventos em Configurações → Notificações e a
+ * página de ajuda que ensina a integrar.
+ *
+ * Sem número de dias: as janelas de proposta e de cobrança são constantes do
+ * backend (`DIAS_PROPOSTA`/`DIAS_COBRANCA`) e um "3 dias" escrito aqui
+ * envelheceria calado.
+ */
+export const NOTIFICATION_TYPE_DESCRIPTIONS: Record<
+  keyof typeof NOTIFICATION_TYPE_LABELS,
+  string
+> = {
+  FOLLOW_UP_DUE: 'Follow-up da timeline agendado para hoje.',
+  DEAL_STALE:
+    'Oportunidade parada no mesmo estágio — o mesmo limite do selo "Esfriando" no quadro.',
+  PROPOSAL_EXPIRING: 'Alguns dias antes de uma proposta expirar.',
+  PAYMENT_DUE: 'Alguns dias antes de uma cobrança vencer.',
+  PAYMENT_OVERDUE: 'Cobrança que passou do vencimento sem baixa.',
+  TASK_OVERDUE: 'Demanda com prazo vencido e ainda não concluída.',
+  RECORD_ASSIGNED: 'Alguém define você como responsável por um registro.',
+  LEAD_RECEIVED: 'Um lead entra por integração (site, landing page).',
+};
+
 export const NOTIFICATION_CHANNEL_KIND_LABELS = {
   IN_APP: 'Central de notificações',
   EMAIL: 'E-mail',
@@ -201,3 +235,15 @@ export const NOTIFICATION_CHANNEL_KIND_LABELS = {
 export const translateNotificationChannelKind = make(
   NOTIFICATION_CHANNEL_KIND_LABELS,
 );
+
+/**
+ * Tipo de titular do livro-razão de consentimento (Fase 19-B). As FINALIDADES
+ * **não** entram aqui: elas vêm de `GET /consentimentos/finalidades`, como as
+ * permissões e os escopos de integração — rótulo de catálogo do backend não é
+ * duplicado no front.
+ */
+export const CONSENT_SUBJECT_TYPE_LABELS = {
+  CLIENT: 'Cliente',
+  CONTACT: 'Contato',
+} as const;
+export const translateConsentSubjectType = make(CONSENT_SUBJECT_TYPE_LABELS);

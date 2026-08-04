@@ -9,6 +9,7 @@ import type {
   CriarDestinoBody,
   CriarIntegracaoBody,
   DestinoDeNotificacao,
+  IntegracaoCriada,
   Notificacao,
 } from './types';
 
@@ -37,12 +38,18 @@ export const notificacoesApi = {
     api.delete(`/notifications/targets/${id}`).then((r) => r.data),
 
   // --- integrações (webhook/slack): exigem `notificacao:integrar` ---
+  /** Devolve `{ destino, segredo }` — o segredo existe uma vez, aqui. */
   createIntegration: (body: CriarIntegracaoBody) =>
     api
-      .post<DestinoDeNotificacao>('/notifications/targets/integrations', body)
+      .post<IntegracaoCriada>('/notifications/targets/integrations', body)
       .then((r) => r.data),
   verifyTarget: (id: string) =>
     api
       .post<DestinoDeNotificacao>(`/notifications/targets/${id}/verify`)
+      .then((r) => r.data),
+  /** Troca o segredo de assinatura. A anterior para de casar na hora. */
+  rotateSecret: (id: string) =>
+    api
+      .post<{ segredo: string }>(`/notifications/targets/${id}/rotate-secret`)
       .then((r) => r.data),
 };

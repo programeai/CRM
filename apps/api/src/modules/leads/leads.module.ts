@@ -9,7 +9,6 @@ import { LeadsIntakeController } from './api/leads-intake.controller';
 import { LeadIntakeKeyGuard } from './api/lead-intake-key.guard';
 import { LeadIntakeChannelsService } from './application/lead-intake-channels.service';
 import { LeadsIntakeService } from './application/leads-intake.service';
-import { TokenLegadoService } from './application/token-legado.service';
 import { LEAD_INTAKE_CHANNEL_REPOSITORY } from './domain/lead-intake-channel.repository';
 import { PrismaLeadIntakeChannelRepository } from './infra/prisma-lead-intake-channel.repository';
 
@@ -36,7 +35,6 @@ import { PrismaLeadIntakeChannelRepository } from './infra/prisma-lead-intake-ch
   providers: [
     LeadsIntakeService,
     LeadIntakeChannelsService,
-    TokenLegadoService,
     LeadIntakeKeyGuard,
     {
       provide: LEAD_INTAKE_CHANNEL_REPOSITORY,

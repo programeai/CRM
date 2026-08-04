@@ -22,6 +22,6 @@ export class RegisterDto {
   // Token do captcha (Turnstile). Opcional aqui; a obrigatoriedade quando o
   // captcha está habilitado é aplicada no CaptchaService.
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Token do captcha inválido.' })
   captchaToken?: string;
 }

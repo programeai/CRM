@@ -4,6 +4,8 @@ import { ClientsService } from '../../clients/application/clients.service';
 import { ContactsService } from '../../contacts/application/contacts.service';
 import { IntegrationKeysService } from '../../integracoes/application/integration-keys.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { LeadIntakeChannelsService } from './lead-intake-channels.service';
 import { empilharNota, montarNotaDeLead } from './nota-de-lead';
@@ -64,6 +66,7 @@ export class LeadsIntakeService {
     private readonly canais: LeadIntakeChannelsService,
     private readonly members: WorkspaceMembersService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
   ) {}
 
   async receber(
@@ -101,6 +104,26 @@ export class LeadsIntakeService {
       },
     });
 
+    /*
+      Gêmeo do aviso interno, para FORA da workspace. `emitirPeloSistema` e
+      DEPOIS do commit, no mesmo lugar em que a notificação sai — pelo mesmo
+      motivo: evento com id de registro que ainda não existe é pior do que evento
+      atrasado. O corpo carrega o mínimo que serve a uma automação; contato do
+      lead (telefone, e-mail) NÃO entra, como no conteúdo neutro da Fase 9.
+    */
+    await this.webhooks.emitirPeloSistema({
+      ownerId,
+      evento: EVENTO_POR_TIPO.LEAD_RECEIVED,
+      entityId: gravado.clientId,
+      dados: {
+        leadNome: dto.nome,
+        origem: dto.origem,
+        cenario: dto.cenario ?? null,
+        reincidente: gravado.status === 'atualizado',
+        link: `/clientes/${gravado.clientId}`,
+      },
+    });
+
     // Sem nome, telefone ou e-mail: a linha vive 30 dias num Grafana publicado.
     this.logger.log({
       evento: gravado.status === 'criado' ? 'lead.ingerido' : 'lead.reingerido',
@@ -127,15 +150,9 @@ export class LeadsIntakeService {
       bem-sucedido da chave, e `lastUsedAt` responde "esta credencial ainda está
       viva?", não "quantos cadastros ela abriu?".
     */
-    if (contexto.keyId) {
-      await this.keys.registrarUso(ownerId, contexto.keyId);
-    }
+    await this.keys.registrarUso(ownerId, contexto.keyId);
 
-    // Caminho legado (`keyId` nulo): não há canal, então não há roteamento nem
-    // fonte de lead — exatamente o comportamento anterior a esta fase.
-    const canal = contexto.keyId
-      ? await this.canais.findByKeyId(ownerId, contexto.keyId)
-      : null;
+    const canal = await this.canais.findByKeyId(ownerId, contexto.keyId);
     const responsavelId = await this.resolverResponsavel(ownerId, canal);
 
     const telefone = dto.telefone?.trim() || `+55${dto.whatsapp}`;

@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -23,6 +24,9 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { Confirm2faDto } from './dto/confirm-2fa.dto';
+import { Login2faDto } from './dto/login-2fa.dto';
+import { Reautenticar2faDto } from './dto/reautenticar-2fa.dto';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 import { Public } from './public.decorator';
@@ -91,14 +95,47 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
+  @HttpCode(200)
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken } = await this.auth.login(
+    const r = await this.auth.login(
       dto.email,
       dto.password,
+      this.device(req, res),
+    );
+    /*
+      **200 com `twoFactorRequired`, e NÃO 401.** O interceptor de `lib/api.ts`
+      dispara o fluxo de refresh em todo 401 e, falhando, manda para /login — um
+      401 aqui poria a tela em laço. Quem decide o segundo passo é o front, pelo
+      CORPO da resposta.
+
+      Nenhum cookie é emitido neste ramo: não há sessão ainda, e emitir refresh
+      antes do segundo fator seria dar a sessão sem o fator.
+    */
+    if ('twoFactorRequired' in r) return r;
+    this.setRefreshCookie(res, r.refreshToken);
+    return { accessToken: r.accessToken };
+  }
+
+  /**
+   * Segundo passo do login. `@Public()` como o primeiro: quem chama ainda não tem
+   * sessão — o que ele tem é o desafio, que prova que a senha já foi aceita.
+   */
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('login/2fa')
+  @HttpCode(200)
+  async login2fa(
+    @Body() dto: Login2faDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken } = await this.auth.concluirLoginCom2fa(
+      dto.desafio,
+      dto.codigo,
       this.device(req, res),
     );
     this.setRefreshCookie(res, refreshToken);
@@ -199,6 +236,65 @@ export class AuthController {
   @Delete('sessions/:id')
   revokeSession(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.auth.revokeSession(userId, id);
+  }
+
+  // --- segundo fator (TOTP) -------------------------------------------------
+  //
+  // Todas são rotas da PRÓPRIA conta, como perfil e dispositivos: sem
+  // `@RequirePermission` e sem gate por `isOwner` — o 2FA de alguém é de quem o
+  // liga, e um owner não configura (nem exige) o segundo fator de um colaborador.
+
+  /** Estado do 2FA para a tela de Segurança. */
+  @Get('2fa')
+  status2fa(@CurrentUserId() userId: string) {
+    return this.auth.statusDoSegundoFator(userId);
+  }
+
+  /**
+   * Inicia o cadastro: gera o segredo e devolve o QR. **Não liga o 2FA** — só
+   * `POST /auth/2fa/confirm` liga, e só com um código válido. Sem essa separação,
+   * um QR que a pessoa não conseguiu ler trancaria a conta dela.
+   */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/setup')
+  setup2fa(@CurrentUserId() userId: string) {
+    return this.auth.iniciarSegundoFator(userId);
+  }
+
+  /** Confirma e liga. Devolve os códigos de recuperação, uma única vez. */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/confirm')
+  @HttpCode(200)
+  confirm2fa(@CurrentUserId() userId: string, @Body() dto: Confirm2faDto) {
+    return this.auth.confirmarSegundoFator(userId, dto.codigo);
+  }
+
+  /** Regenera os códigos. Invalida os antigos. Exige reautenticação. */
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('2fa/recovery-codes')
+  @HttpCode(200)
+  regenerarCodigos(
+    @CurrentUserId() userId: string,
+    @Body() dto: Reautenticar2faDto,
+  ) {
+    return this.auth.regenerarCodigosDeRecuperacao(userId, dto);
+  }
+
+  /**
+   * Desliga o 2FA. Exige reautenticação (OWASP ASVS 3.7.1) por senha OU por um
+   * código válido — e responde **`ForbiddenException`, nunca 401**: um 401 em
+   * rota autenticada dispara o refresh/logout do cliente HTTP, e uma senha errada
+   * no diálogo derrubaria a sessão em vez de mostrar a mensagem. Mesmo precedente
+   * de `AccountDeletionService.assertReautenticado`.
+   */
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Delete('2fa')
+  @HttpCode(204)
+  desativar2fa(
+    @CurrentUserId() userId: string,
+    @Body() dto: Reautenticar2faDto,
+  ) {
+    return this.auth.desativarSegundoFator(userId, dto);
   }
 
   /** Informa se o autocadastro está aberto, para a UI não oferecer o que a API recusa. */

@@ -9,9 +9,7 @@ import {
   type NotificationRepository,
   type PendingDelivery,
 } from '../domain/notification.repository';
-
-/** Espera entre tentativas, em minutos. O tamanho do array é o MÁXIMO de tentativas. */
-const BACKOFF_MIN = [1, 5, 30, 120, 480];
+import { proximaTentativa } from '../../../shared/backoff';
 
 export interface ResultadoDoLote {
   entregues: number;
@@ -90,11 +88,8 @@ export class NotificationsDispatcherService {
       return 'SENT';
     } catch (erro) {
       const attempts = p.attempts + 1;
-      const espera = BACKOFF_MIN[attempts - 1];
-      const proxima =
-        espera == null
-          ? null // esgotou: FAILED definitivo
-          : new Date(Date.now() + espera * 60_000);
+      // `null` = esgotou o backoff: FAILED definitivo.
+      const proxima = proximaTentativa(attempts, new Date());
       await this.repo.marcarFalha(p.id, attempts, proxima, this.mensagem(erro));
       // Sem título/corpo/config no log — o Grafana é público.
       this.logger.error({

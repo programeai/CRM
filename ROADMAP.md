@@ -142,12 +142,16 @@ acrescentar dependência.
 de dados da empresa pelo CNPJ (BrasilAPI), com máscaras controladas de CPF/CNPJ, telefone, CEP e UF.
 Registrado aqui porque não consta de spec nenhuma.
 
-**Da Fase 17-A**, dívida de transição com prazo externo: `POST /leads/intake` ainda aceita o
+**Da Fase 17-A**, dívida de transição **quitada na Fase 19-B**: `POST /leads/intake` aceitava o
 `LEAD_INTAKE_TOKEN` do ambiente como caminho legado, porque o emissor (`site-v2`) vive em outro
-repositório e cortar sem coordenar os dois deploys perderia lead sem erro visível no site. Remover as
-duas variáveis é PR próprio, **depois** que o site migrar para chave de integração; a consulta
-`{stack="crm"} | evento="lead.token_legado_aceito"` diz quando é seguro. Não é trabalho de terceiro:
-depende de acesso ao outro repo, ao Grafana e aos secrets do deploy.
+repositório e cortar sem coordenar os dois deploys perderia lead sem erro visível no site. As duas
+variáveis (`LEAD_INTAKE_TOKEN`, `LEAD_INTAKE_OWNER_EMAIL`) saíram do código, do compose e do workflow
+de deploy — a rota tem uma credencial só, a chave de integração.
+
+> **Antes de subir esse corte**, confirmar no Grafana que
+> `{stack="crm"} | evento="lead.token_legado_aceito"` retorna **zero nos últimos 30 dias**, e apagar os
+> dois secrets do repositório de deploy. Se a consulta trouxer qualquer linha, o `site-v2` ainda não
+> migrou e o corte perde lead.
 
 ---
 

@@ -20,5 +20,7 @@ export class ImportCommitDto {
   mapeamento: string;
 
   /** JSON de `DecisaoDeOrigem[]`. Ausente = nenhuma origem desconhecida a decidir. */
-  @IsOptional() @IsString() origens?: string;
+  @IsOptional()
+  @IsString({ message: 'Decisões de origem inválidas.' })
+  origens?: string;
 }

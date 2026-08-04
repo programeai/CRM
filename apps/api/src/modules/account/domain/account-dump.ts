@@ -4,7 +4,7 @@
  * esperar dele. Vai no manifest, por exigência prática de portabilidade (WP29:
  * "along with useful metadata").
  */
-export const VERSAO_DO_DUMP = 1;
+export const VERSAO_DO_DUMP = 2; // ← 2 na Fase 19-B: entrou `consentimentos`
 
 /**
  * O que o dump NÃO carrega, declarado no próprio arquivo. Metade por segurança
@@ -256,4 +256,26 @@ export interface AccountDump {
   contratos: ContratoExportado[];
   cobrancas: CobrancaExportada[];
   atividades: AtividadeExportada[];
+  /**
+   * O livro-razão de consentimento dos titulares (Fase 19-B). Entra no dump
+   * porque é dado que o CRM guarda **sobre pessoas**, e o titular da workspace
+   * tem direito a levá-lo — inclusive a prova de que o consentimento existiu, que
+   * é justamente o que o art. 8º § 2º manda o controlador poder demonstrar.
+   */
+  consentimentos: ConsentimentoExportado[];
+}
+
+/** Uma linha do livro-razão de consentimento, no dump. */
+export interface ConsentimentoExportado {
+  titularTipo: string;
+  titularId: string;
+  finalidade: string;
+  consentiu: boolean;
+  versaoDoTexto: string;
+  canal: string;
+  evidencia: string | null;
+  retencaoInformada: string | null;
+  registradoPor: string;
+  manifestadoEm: Date;
+  registradoEm: Date;
 }

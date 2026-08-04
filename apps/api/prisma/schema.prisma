@@ -13,37 +13,37 @@ datasource db {
 //     derivação de OVERDUE) em SPEC.md §4 ---
 
 model User {
-  id               String         @id @default(uuid())
-  name             String
-  email            String         @unique
+  id                         String                   @id @default(uuid())
+  name                       String
+  email                      String                   @unique
   /// Conta criada por OAuth nasce com uma senha ALEATÓRIA que ninguém conhece —
   /// não com `NULL`. É o que faz `POST /auth/forgot-password` funcionar para ela
   /// sem nenhum caso especial, e é por isso que a redefinição por e-mail é o
   /// único caminho para o login social ganhar uma senha utilizável.
   /// Segue nullable só pelo convite de colaborador ainda não aceito (`acceptedAt`
   /// nulo) e pelas contas OAuth criadas antes desta regra.
-  passwordHash     String?
+  passwordHash               String?
   /// Quando o TITULAR escolheu a senha (cadastro, aceite de convite ou
   /// redefinição). NULL = a senha guardada é a aleatória do OAuth, ou não há
   /// nenhuma. É este campo — nunca `passwordHash IS NOT NULL` — que responde
   /// "esta pessoa sabe uma senha?", pergunta que o `hasPassword` do `/auth/me` e
   /// a reautenticação do encerramento de conta fazem.
-  passwordSetAt    DateTime?
-  stripeCustomerId String?        @unique // billing (SaaS hospedado) — ausente na autohospedagem
+  passwordSetAt              DateTime?
+  stripeCustomerId           String?                  @unique // billing (SaaS hospedado) — ausente na autohospedagem
   // --- colaboração (ver modelos Role/CollaboratorInvite) ---
   // NULL = este usuário é um owner: dono da workspace, dos dados e da assinatura.
   // Preenchido = colaborador daquele owner. É este valor que vira `app.owner_id`
   // no RLS (ver AccessService + OwnerContextInterceptor), e não o próprio id.
-  ownerId          String?
-  owner            User?          @relation("Collaborators", fields: [ownerId], references: [id], onDelete: Cascade)
-  collaborators    User[]         @relation("Collaborators")
+  ownerId                    String?
+  owner                      User?                    @relation("Collaborators", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators              User[]                   @relation("Collaborators")
   // Papel do colaborador. NULL no owner — que tem todas as permissões por definição.
-  roleId           String?
-  role             Role?          @relation(fields: [roleId], references: [id])
+  roleId                     String?
+  role                       Role?                    @relation(fields: [roleId], references: [id])
   // Colaborador desativado não autentica e perde o acesso na requisição seguinte.
-  active           Boolean        @default(true)
+  active                     Boolean                  @default(true)
   // Quando o convite foi aceito (senha definida). NULL = convite pendente.
-  acceptedAt       DateTime?
+  acceptedAt                 DateTime?
   /// Encerramento agendado (Fase 19-A). Os dois campos andam juntos: nulos
   /// (conta normal) ou ambos preenchidos. Só um OWNER pode tê-los — colaborador
   /// não encerra workspace, ele é apagado junto no expurgo.
@@ -57,29 +57,34 @@ model User {
   /// Também são o tombstone que sobrevive a um restore de backup: um `User`
   /// restaurado com `deletionScheduledFor` no passado é expurgado de novo pelo
   /// cron seguinte, sem intervenção.
-  deletionRequestedAt  DateTime?
-  deletionScheduledFor DateTime?
-  createdAt        DateTime       @default(now())
-  oauthAccounts    OAuthAccount[]
-  passwordResetTokens PasswordResetToken[]
-  sessions         Session[]
-  subscription     Subscription?
-  ownedRoles         Role[]         @relation("OwnerRoles")
-  pipelineStages     PipelineStage[]
-  leadSourceCatalog  LeadSourceCatalog[]
-  serviceCatalog     ServiceCatalog[]
-  activityTypeCatalog ActivityTypeCatalog[]
-  lostReasonCatalog  LostReasonCatalog[]
-  assignedClients    Client[]
-  assignedDeals      Deal[]
-  assignedTasks      Task[]
-  assignedActivities Activity[]
-  invites            CollaboratorInvite[]
-  notifications        Notification[]
-  notificationTargets  UserNotificationTarget[]
-  integrationKeys    IntegrationKey[]
-  leadIntakeChannels LeadIntakeChannel[] @relation("OwnerLeadIntakeChannels")
-  assignedLeadIntakeChannels LeadIntakeChannel[] @relation("AssignedLeadIntakeChannels")
+  deletionRequestedAt        DateTime?
+  deletionScheduledFor       DateTime?
+  createdAt                  DateTime                 @default(now())
+  oauthAccounts              OAuthAccount[]
+  passwordResetTokens        PasswordResetToken[]
+  sessions                   Session[]
+  subscription               Subscription?
+  ownedRoles                 Role[]                   @relation("OwnerRoles")
+  pipelineStages             PipelineStage[]
+  leadSourceCatalog          LeadSourceCatalog[]
+  serviceCatalog             ServiceCatalog[]
+  activityTypeCatalog        ActivityTypeCatalog[]
+  lostReasonCatalog          LostReasonCatalog[]
+  assignedClients            Client[]
+  assignedDeals              Deal[]
+  assignedTasks              Task[]
+  assignedActivities         Activity[]
+  invites                    CollaboratorInvite[]
+  notifications              Notification[]
+  notificationTargets        UserNotificationTarget[]
+  integrationKeys            IntegrationKey[]
+  leadIntakeChannels         LeadIntakeChannel[]      @relation("OwnerLeadIntakeChannels")
+  assignedLeadIntakeChannels LeadIntakeChannel[]      @relation("AssignedLeadIntakeChannels")
+  ownerWebhooks              OwnerWebhook[]
+  ownerWebhookDeliveries     OwnerWebhookDelivery[]
+  totp                       UserTotp?
+  totpRecoveryCodes          UserTotpRecoveryCode[]
+  consentRecords             ConsentRecord[]
 
   @@index([ownerId])
   @@index([deletionScheduledFor])
@@ -136,23 +141,23 @@ model CollaboratorInvite {
 // aqui. Este modelo NÃO conhece lead: a configuração de captação vive em
 // `LeadIntakeChannel`.
 model IntegrationKey {
-  id         String    @id @default(uuid())
-  ownerId    String
-  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  ownerId           String
+  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   /// Nome dado por quem criou ("Site institucional", "n8n").
-  name       String
-  keyHash    String    @unique // sha256 do valor bruto
+  name              String
+  keyHash           String             @unique // sha256 do valor bruto
   /// Os 12 primeiros caracteres do valor bruto, em claro (`crm_` + 8 hex). É o
   /// que a interface exibe para a pessoa reconhecer qual chave é qual — os
   /// outros 224 bits de entropia continuam só no hash.
-  prefix     String
-  scopes     String[]  @default([])
+  prefix            String
+  scopes            String[]           @default([])
   /// Último uso BEM-SUCEDIDO (a transação da ingestão commitou).
-  lastUsedAt DateTime?
+  lastUsedAt        DateTime?
   /// Revogada: continua no banco para a trilha e para a tela dizerem o que
   /// aconteceu, mas não autentica mais nada.
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  revokedAt         DateTime?
+  createdAt         DateTime           @default(now())
   leadIntakeChannel LeadIntakeChannel?
 
   @@index([ownerId])
@@ -285,18 +290,18 @@ model Subscription {
 }
 
 model Client {
-  id         String       @id @default(uuid())
+  id         String             @id @default(uuid())
   ownerId    String // preparação p/ multiusuário
   name       String
   tradeName  String?
-  personType PersonType   @default(COMPANY) // INDIVIDUAL | COMPANY
+  personType PersonType         @default(COMPANY) // INDIVIDUAL | COMPANY
   document   String? // CPF/CNPJ
   email      String?
   phone      String?
   website    String?
   sourceId   String?
   source     LeadSourceCatalog? @relation(fields: [sourceId], references: [id], onDelete: Restrict)
-  status     ClientStatus @default(LEAD) // LEAD | ACTIVE | INACTIVE | LOST
+  status     ClientStatus       @default(LEAD) // LEAD | ACTIVE | INACTIVE | LOST
   tags       String[]
   notes      String?
   // --- endereço (opcional, campos simples) ---
@@ -313,15 +318,15 @@ model Client {
   // quem só enxerga os próprios (ver `shared/record-scope.ts`). `SetNull` porque
   // apagar um usuário não pode apagar o dado de negócio do owner.
   assigneeId String?
-  assignee   User?        @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignee   User?              @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   contacts   Contact[]
   activities Activity[]
   deals      Deal[]
   proposals  Proposal[]
   projects   Project[]
   contracts  Contract[]
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   @@index([ownerId, status])
   @@index([ownerId, archivedAt])
@@ -330,15 +335,15 @@ model Client {
 }
 
 model Contact {
-  id        String  @id @default(uuid())
-  ownerId   String // denormalizado p/ RLS (== Client.ownerId)
-  clientId  String
-  client    Client  @relation(fields: [clientId], references: [id])
-  name      String
-  role      String?
-  email     String?
-  phone     String?
-  isPrimary Boolean @default(false)
+  id         String    @id @default(uuid())
+  ownerId    String // denormalizado p/ RLS (== Client.ownerId)
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id])
+  name       String
+  role       String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean   @default(false)
   // --- soft delete (ver Client.archivedAt e o módulo trash) ---
   archivedAt DateTime?
 
@@ -380,12 +385,12 @@ model PipelineStage {
 
 /// Fontes de lead do owner. Substitui o enum fechado `LeadSource`.
 model LeadSourceCatalog {
-  id      String   @id @default(uuid())
-  ownerId String
-  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name    String
-  active  Boolean  @default(true)
-  clients Client[]
+  id                 String              @id @default(uuid())
+  ownerId            String
+  owner              User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name               String
+  active             Boolean             @default(true)
+  clients            Client[]
   leadIntakeChannels LeadIntakeChannel[]
 
   @@unique([ownerId, name])
@@ -448,32 +453,32 @@ model LostReasonCatalog {
 }
 
 model Deal {
-  id            String        @id @default(uuid())
+  id            String             @id @default(uuid())
   ownerId       String // denormalizado p/ RLS (== Client.ownerId)
   clientId      String
-  client        Client        @relation(fields: [clientId], references: [id])
+  client        Client             @relation(fields: [clientId], references: [id])
   stageId       String
-  stage         PipelineStage @relation(fields: [stageId], references: [id])
+  stage         PipelineStage      @relation(fields: [stageId], references: [id])
   title         String
   serviceTypeId String
-  serviceType   ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
-  amount        Decimal?      @db.Decimal(12, 2)
+  serviceType   ServiceCatalog     @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  amount        Decimal?           @db.Decimal(12, 2)
   probability   Int? // 0–100
   expectedClose DateTime?
   lostReasonId  String?
   lostReason    LostReasonCatalog? @relation(fields: [lostReasonId], references: [id], onDelete: Restrict)
   position      Int // ordenação na coluna
-  stageMovedAt  DateTime      @default(now()) // p/ indicador "esfriando"
+  stageMovedAt  DateTime           @default(now()) // p/ indicador "esfriando"
   // --- soft delete (ver Client.archivedAt e o módulo trash) ---
   archivedAt    DateTime?
   // Responsável pelo registro — ver Client.assigneeId.
   assigneeId    String?
-  assignee      User?         @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignee      User?              @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   proposals     Proposal[]
   projects      Project[] // back-relation p/ Project.deal (criar-ao-ganhar)
   activities    Activity[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([stageId, position])
   @@index([ownerId])
@@ -488,29 +493,29 @@ model Deal {
 }
 
 model Proposal {
-  id           String         @id @default(uuid())
-  ownerId      String // denormalizado p/ RLS (== Client.ownerId)
+  id                    String         @id @default(uuid())
+  ownerId               String // denormalizado p/ RLS (== Client.ownerId)
   // O número identifica a CADEIA, não a linha: todas as versões de uma proposta
   // compartilham o mesmo `number` e se distinguem por `version` (ver
   // `newVersion`). Por isso o unique é o PAR — ver `@@unique` no fim do model.
-  number       String // PROP-2026-0042
-  version      Int            @default(1)
-  parentId     String? // versão anterior
-  parent       Proposal?      @relation("ProposalVersions", fields: [parentId], references: [id])
-  versions     Proposal[]     @relation("ProposalVersions")
-  clientId     String
-  client       Client         @relation(fields: [clientId], references: [id])
-  dealId       String?
-  deal         Deal?          @relation(fields: [dealId], references: [id])
-  serviceTypeId String
-  serviceType  ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
-  status       ProposalStatus @default(DRAFT) // DRAFT | SENT | NEGOTIATING | ACCEPTED | REJECTED | EXPIRED
-  scope        String? // markdown
-  paymentTerms String?
-  deliveryTime String?
-  validUntil   DateTime?
-  discount     Decimal?       @db.Decimal(12, 2)
-  total        Decimal        @db.Decimal(12, 2) // calculado no backend
+  number                String // PROP-2026-0042
+  version               Int            @default(1)
+  parentId              String? // versão anterior
+  parent                Proposal?      @relation("ProposalVersions", fields: [parentId], references: [id])
+  versions              Proposal[]     @relation("ProposalVersions")
+  clientId              String
+  client                Client         @relation(fields: [clientId], references: [id])
+  dealId                String?
+  deal                  Deal?          @relation(fields: [dealId], references: [id])
+  serviceTypeId         String
+  serviceType           ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  status                ProposalStatus @default(DRAFT) // DRAFT | SENT | NEGOTIATING | ACCEPTED | REJECTED | EXPIRED
+  scope                 String? // markdown
+  paymentTerms          String?
+  deliveryTime          String?
+  validUntil            DateTime?
+  discount              Decimal?       @db.Decimal(12, 2)
+  total                 Decimal        @db.Decimal(12, 2) // calculado no backend
   // ⚠ Em proposta de plano RECURRING, `total` significa VALOR MENSAL (Σ dos
   // itens é a mensalidade). Quem soma `total` de várias propostas mistura
   // grandezas — é o caso de DashboardRepository.proposalsOpen.
@@ -526,18 +531,18 @@ model Proposal {
   billingDay            Int? // 1–28 (dia do mês, não offset — Contract.billingDay é assim)
   durationMonths        Int? // null = tempo indeterminado
   // INSTALLMENTS
-  downPaymentPercent    Decimal? @db.Decimal(5, 2) // 0–100, exclusivo com downPaymentAmount
-  downPaymentAmount     Decimal? @db.Decimal(12, 2) // exclusivo com downPaymentPercent
+  downPaymentPercent    Decimal?       @db.Decimal(5, 2) // 0–100, exclusivo com downPaymentAmount
+  downPaymentAmount     Decimal?       @db.Decimal(12, 2) // exclusivo com downPaymentPercent
   downPaymentOffsetDays Int? // dias após o aceite p/ a entrada
   installments          Int? // qtd de parcelas (sem contar a entrada)
-  items        ProposalItem[]
-  projects     Project[]
-  contracts    Contract[]
-  activities   Activity[]
-  sentAt       DateTime?
-  decidedAt    DateTime? // aceite/recusa
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  items                 ProposalItem[]
+  projects              Project[]
+  contracts             Contract[]
+  activities            Activity[]
+  sentAt                DateTime?
+  decidedAt             DateTime? // aceite/recusa
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   // Uma linha por (cadeia, versão). Substitui o `@unique` que estava em
   // `number` sozinho e que tornava o versionamento IMPOSSÍVEL: `newVersion`
@@ -566,26 +571,26 @@ model ProposalItem {
 }
 
 model Project {
-  id          String        @id @default(uuid())
-  ownerId     String // denormalizado p/ RLS (== Client.ownerId)
-  clientId    String
-  client      Client        @relation(fields: [clientId], references: [id])
-  proposalId  String?
-  proposal    Proposal?     @relation(fields: [proposalId], references: [id])
-  dealId      String?       // origem: deal ganho (dedupe de criar-ao-ganhar)
-  deal        Deal?         @relation(fields: [dealId], references: [id])
-  name        String
+  id            String         @id @default(uuid())
+  ownerId       String // denormalizado p/ RLS (== Client.ownerId)
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id])
+  proposalId    String?
+  proposal      Proposal?      @relation(fields: [proposalId], references: [id])
+  dealId        String? // origem: deal ganho (dedupe de criar-ao-ganhar)
+  deal          Deal?          @relation(fields: [dealId], references: [id])
+  name          String
   serviceTypeId String
-  serviceType ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
-  status      ProjectStatus @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
-  startDate   DateTime?
-  dueDate     DateTime?
+  serviceType   ServiceCatalog @relation(fields: [serviceTypeId], references: [id], onDelete: Restrict)
+  status        ProjectStatus  @default(ACTIVE) // ACTIVE | PAUSED | DONE | CANCELED
+  startDate     DateTime?
+  dueDate       DateTime?
   // --- soft delete (ver Client.archivedAt e o módulo trash) ---
-  archivedAt  DateTime?
-  tasks       Task[]
-  contracts   Contract[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  archivedAt    DateTime?
+  tasks         Task[]
+  contracts     Contract[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([dealId])
   @@index([ownerId])
@@ -679,14 +684,14 @@ model Payment {
 }
 
 model Activity {
-  id           String       @id @default(uuid())
+  id           String              @id @default(uuid())
   ownerId      String // denormalizado p/ RLS (== Client.ownerId)
   clientId     String
-  client       Client       @relation(fields: [clientId], references: [id])
+  client       Client              @relation(fields: [clientId], references: [id])
   dealId       String?
-  deal         Deal?        @relation(fields: [dealId], references: [id])
+  deal         Deal?               @relation(fields: [dealId], references: [id])
   proposalId   String?
-  proposal     Proposal?    @relation(fields: [proposalId], references: [id])
+  proposal     Proposal?           @relation(fields: [proposalId], references: [id])
   typeId       String
   type         ActivityTypeCatalog @relation(fields: [typeId], references: [id], onDelete: Restrict)
   content      String
@@ -694,8 +699,8 @@ model Activity {
   completedAt  DateTime?
   // Responsável pelo registro — ver Client.assigneeId.
   assigneeId   String?
-  assignee     User?        @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdAt    DateTime     @default(now())
+  assignee     User?               @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt    DateTime            @default(now())
 
   @@index([clientId, createdAt])
   @@index([ownerId])
@@ -735,6 +740,10 @@ model AuditLog {
   @@index([ownerId, createdAt])
   @@index([ownerId, entity, entityId, createdAt])
   @@index([ownerId, actorId, createdAt])
+  /// Serve à faxina por data de corte (Fase 19-B). Os índices acima têm
+  /// `ownerId` como coluna LÍDER, e prefixo à esquerda não serve a um filtro
+  /// CROSS-OWNER que só tem data — sem este, a varredura diária vira seq scan.
+  @@index([createdAt])
 }
 
 // --- enums do domínio ---
@@ -825,6 +834,7 @@ enum AuditActorType {
   CRON
   WEBHOOK
   SISTEMA
+  INTEGRACAO // ← Fase 19-B: escrita pela API pública, por chave de integração
 }
 
 /// Registro afetado. Cresce conforme a trilha cobre mais domínio.
@@ -840,10 +850,11 @@ enum AuditEntity {
   ROLE
   USER
   SUBSCRIPTION
-  ACTIVITY   // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
-  IMPORT     // ← Fase 14-A: a importação em massa, não o cliente/contato individual
+  ACTIVITY // ← Fase 9: alvo dos gatilhos de follow-up e de atribuição
+  IMPORT // ← Fase 14-A: a importação em massa, não o cliente/contato individual
   INTEGRATION // ← Fase 17-A: emissão e rotação de chave de integração
-  ACCOUNT     // ← Fase 19-A: a conta/workspace como um todo, não o colaborador (USER)
+  ACCOUNT // ← Fase 19-A: a conta/workspace como um todo, não o colaborador (USER)
+  WEBHOOK // ← Fase 19-B: webhook de saída do owner (cadastro, rotação, exclusão)
 }
 
 /// O que aconteceu. Verbo no infinitivo, no vocabulário do domínio.
@@ -869,10 +880,10 @@ enum AuditAction {
   ALTERAR_PAPEL
   EXPIRAR
   VENCER
-  IMPORTAR   // ← Fase 14-A: importação de clientes/contatos em massa
+  IMPORTAR // ← Fase 14-A: importação de clientes/contatos em massa
   ROTACIONAR // ← Fase 17-A: rotação de chave de integração
-  EXPORTAR   // ← Fase 19-A: portabilidade dos dados do titular
-  ENCERRAR   // ← Fase 19-A: pedido de encerramento da conta (o expurgo usa EXPURGAR)
+  EXPORTAR // ← Fase 19-A: portabilidade dos dados do titular
+  ENCERRAR // ← Fase 19-A: pedido de encerramento da conta (o expurgo usa EXPURGAR)
 }
 
 // --- registro de acesso (Fase 19-A) ---
@@ -886,6 +897,10 @@ enum AccessRecordKind {
   /// Aceite de convite de colaborador — o primeiro acesso daquela pessoa.
   ACEITE_DE_CONVITE
   LOGOUT
+  /// ← Fase 19-B: login que passou pelo segundo fator. Distingue do LOGIN comum
+  /// porque os dois são acessos bem-sucedidos de natureza diferente. Tentativa
+  /// FALHA de 2FA continua fora desta tabela (ver o docblock do modelo).
+  LOGIN_2FA
 }
 
 /// Registro de acesso à aplicação, na definição do Marco Civil (art. 5º, VIII):
@@ -973,33 +988,36 @@ enum NotificationDeliveryStatus {
 /// a central não faz join e o registro guarda o que era verdade na emissão —
 /// renomear um cliente não reescreve a notificação de ontem.
 model Notification {
-  id          String       @id @default(uuid())
-  ownerId     String
+  id         String                 @id @default(uuid())
+  ownerId    String
   /// Destinatário. CASCADE: apagar o usuário apaga as notificações dele (o
   /// oposto de `assigneeId`, que é dado de negócio do owner e usa SET NULL).
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        NotificationType
-  entity      AuditEntity
-  entityId    String
+  userId     String
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  entity     AuditEntity
+  entityId   String
   /// Título curto em pt-BR ("Cobrança a vencer em 3 dias").
-  title       String
+  title      String
   /// Uma frase de corpo em pt-BR. Texto puro — NUNCA HTML (quem renderiza é o adapter).
-  body        String
+  body       String
   /// Caminho relativo no front (`/propostas/<id>`). Null quando não há tela de destino.
-  link        String?
+  link       String?
   /// Contexto estruturado para o adapter usar sem reparsear o corpo.
-  data        Json?
+  data       Json?
   /// Idempotência dos gatilhos recorrentes: `PAYMENT_DUE:<id>:2026-08-01`.
   /// NULL no caminho do request — reatribuir um registro DEVE notificar de novo.
   /// Em Postgres, NULLs são distintos entre si, então o unique abaixo nunca
   /// colide para as notificações sem chave.
-  dedupeKey   String?
-  createdAt   DateTime     @default(now())
-  deliveries  NotificationDelivery[]
+  dedupeKey  String?
+  createdAt  DateTime               @default(now())
+  deliveries NotificationDelivery[]
 
   @@unique([userId, dedupeKey])
   @@index([ownerId, userId, createdAt])
+  /// Serve à faxina por data de corte (Fase 19-B). Mesma razão do índice de
+  /// `AuditLog`: a varredura é cross-owner e filtra só por `createdAt`.
+  @@index([createdAt])
 }
 
 /// Uma tentativa de entrega, num destino. É a linha do outbox.
@@ -1008,20 +1026,20 @@ model Notification {
 /// **D1** o inbox filtra AQUI (`kind='IN_APP'`, `readAt IS NULL`) e ordena por
 /// data, e sem a denormalização o índice não cobriria filtro + ordenação juntos.
 model NotificationDelivery {
-  id             String                 @id @default(uuid())
+  id             String                     @id @default(uuid())
   ownerId        String
   notificationId String
-  notification   Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notification   Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
   userId         String
-  createdAt      DateTime               @default(now())
+  createdAt      DateTime                   @default(now())
   /// SET NULL, não CASCADE: apagar um destino não pode apagar o histórico do
   /// inbox. O dispatch marca SKIPPED a pendente que ficou sem destino.
   targetId       String?
-  target         UserNotificationTarget? @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  target         UserNotificationTarget?    @relation(fields: [targetId], references: [id], onDelete: SetNull)
   kind           NotificationChannelKind
   status         NotificationDeliveryStatus @default(PENDING)
-  attempts       Int                    @default(0)
-  nextAttemptAt  DateTime               @default(now())
+  attempts       Int                        @default(0)
+  nextAttemptAt  DateTime                   @default(now())
   /// Mensagem de erro TRUNCADA da última tentativa. Nunca a config do destino.
   lastError      String?
   sentAt         DateTime?
@@ -1064,4 +1082,221 @@ model UserNotificationTarget {
   deliveries NotificationDelivery[]
 
   @@index([ownerId, userId])
+}
+
+// --- webhook de saída do owner (Fase 19-B) ---------------------------------
+//
+// É a fronteira OPOSTA à do `UserNotificationTarget`, e a distinção precisa
+// continuar escrita (aviso do plano da Fase 9): aquele é destino **do usuário**
+// (o Slack pessoal, o n8n de casa) e carrega a preferência de quem recebe
+// notificação; este é webhook **da workspace**, que o owner cadastra para os
+// eventos de negócio saírem para um sistema de terceiro. Reusar
+// `NotificationDelivery` para os dois acoplaria duas features que o roadmap
+// manda não confundir.
+
+/// Endereço da workspace que recebe evento de negócio.
+model OwnerWebhook {
+  id         String                 @id @default(uuid())
+  ownerId    String
+  owner      User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  /// Nome dado por quem cadastrou ("n8n de faturamento", "Zapier do comercial").
+  name       String
+  url        String
+  /// Segredo HMAC, **em claro**. Não é descuido: HMAC é simétrico, e assinar
+  /// exige o segredo em claro no momento do envio — hash é impossível por
+  /// construção. É consistente com `UserNotificationTarget.config`, que já
+  /// guarda a URL do Slack, que É credencial de escrita. (O segredo TOTP é
+  /// diferente e CIFRA, porque comprometê-lo é tomada de conta.)
+  ///
+  /// Nunca sai na resposta da API: `paraApi` devolve só o host da URL, e o
+  /// segredo aparece uma única vez, na criação e na rotação.
+  secret     String
+  /// Opt-in: quais eventos este webhook recebe. Vazio = nenhum. Mesmo desenho de
+  /// `Role.permissions` e `UserNotificationTarget.types` — String[] no próprio
+  /// registro. Os valores são as chaves de `domain/owner-webhook-event.ts`, que
+  /// é **contrato público**: renomear um item quebra integração de terceiro.
+  events     String[]               @default([])
+  /// Nasce `false` e só entrega depois do ping de verificação, como o destino de
+  /// integração da Fase 9: cadastrar um endereço que o CRM nunca alcançou
+  /// produziria só entregas falhas.
+  active     Boolean                @default(false)
+  verifiedAt DateTime?
+  /// Última entrega BEM-SUCEDIDA. Responde "este webhook ainda está vivo?".
+  lastUsedAt DateTime?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  deliveries OwnerWebhookDelivery[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId])
+}
+
+/// A linha do outbox do webhook do owner. Tabela própria, e não
+/// `NotificationDelivery`: ver a nota acima do `OwnerWebhook`.
+model OwnerWebhookDelivery {
+  id            String                @id @default(uuid())
+  /// Denormalizado do webhook, para a policy de RLS filtrar sem JOIN. A
+  /// invariante de `prisma/fixtures/invariantes.sql` afirma que ele nunca
+  /// divirja do `OwnerWebhook.ownerId`.
+  ownerId       String
+  owner         User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  webhookId     String
+  webhook       OwnerWebhook          @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  /// Chave do catálogo de eventos (`lead.recebido`, `cobranca.vencida`, …).
+  event         String
+  /// O corpo exato que sai no POST, montado na emissão. Guardado porque a
+  /// entrega acontece DEPOIS do commit: o estado do registro pode ter mudado
+  /// entre a emissão e a entrega, e o evento tem de contar o que aconteceu.
+  payload       Json
+  status        WebhookDeliveryStatus @default(PENDING)
+  attempts      Int                   @default(0)
+  nextAttemptAt DateTime              @default(now())
+  /// Diagnóstico truncado em 500. **Nunca** carrega a URL nem o segredo: esta
+  /// coluna é gravada no banco e pode acabar num log.
+  lastError     String?
+  sentAt        DateTime?
+  createdAt     DateTime              @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@index([ownerId, createdAt])
+}
+
+/// Própria, e não `NotificationDeliveryStatus`: `SKIPPED` (canal desligado por
+/// configuração) não existe aqui — webhook inativo não gera linha nenhuma.
+enum WebhookDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// --- segundo fator TOTP (Fase 19-B) ----------------------------------------
+//
+// FORA do RLS, no grupo de `User`/`Session`/`PasswordResetToken`, e por um motivo
+// mecânico: a verificação acontece no LOGIN, que é rota `@Public()` e roda sem
+// `app.owner_id`. Uma policy aqui fecharia a escrita — e RLS fail-closed não
+// estoura, ele grava zero linha e a rota responde sucesso. O isolamento é por
+// filtro de `userId`, como em `Session`.
+
+/// O segundo fator de UM usuário. Uma linha por pessoa (PK é o `userId`):
+/// múltiplos autenticadores não são um conceito desta fase.
+model UserTotp {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// O segredo TOTP, CIFRADO em AES-256-GCM (`shared/crypto/segredo-cifrado.ts`).
+  /// Não é hash: TOTP é HMAC simétrico e o verificador precisa do valor em claro
+  /// no momento da verificação — hash é impossível por construção, e a escolha
+  /// real é cifrado vs texto puro.
+  ///
+  /// `keyVersion` viaja com o dado desde o dia 1 para a rotação da chave de cifra
+  /// ser possível ANTES de ser necessária: sem ela, rotacionar significaria
+  /// invalidar o 2FA de toda a base de uma vez.
+  ciphertext String
+  iv         String
+  tag        String
+  keyVersion Int    @default(1)
+
+  /// Quando o titular provou que o autenticador está sincronizado.
+  /// **NULL = cadastro iniciado e nunca concluído, e NÃO exige segundo fator** —
+  /// é o que impede um QR que a pessoa não conseguiu ler de trancar a conta dela.
+  confirmedAt DateTime?
+
+  /// Último passo de 30s ACEITO. É a defesa de REPLAY: código já usado tem passo
+  /// menor ou igual a este e é recusado. Normativo (RFC 6238 §5.2: "The verifier
+  /// MUST NOT accept the second attempt of the OTP after the successful
+  /// validation has been issued for the first OTP"), e **nenhuma biblioteca
+  /// resolve** — o `otplib` só oferece o parâmetro `afterTimeStep` para comparar.
+  ///
+  /// `BigInt` porque é o número do passo (epoch/30), não um timestamp.
+  lastUsedStep BigInt?
+
+  /// Limite de tentativas por CONTA. O `@Throttle` limita por IP; isto limita a
+  /// conta — que é o que a NIST SP 800-63B pede. Sucesso zera `failedAttempts`.
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+/// Código de recuperação de uso único. Hash sha256 e `@unique` (não argon2) pela
+/// mesma razão de `PasswordResetToken.tokenHash`: o código chega SOZINHO no
+/// corpo, sem identificador ao lado, então a busca tem de ser um `findUnique`
+/// indexado — e não N `argon2.verify`, que a cada palpite errado custaria N
+/// derivações de KDF (o vetor de DoS por exaustão de CPU que a OWASP nomeia).
+///
+/// A entropia é escolhida ACIMA de 112 bits justamente para o hash rápido ser
+/// defensável (ASVS 6.5.2: "A standard hash function can be used if the secret
+/// has 112 bits of entropy or more") — ver `totp.constants.ts`.
+model UserTotpRecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  /// Consumido. O consumo é compare-and-swap (`updateMany where usedAt: null`),
+  /// não check-then-act: dois usos simultâneos do mesmo código passariam.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// --- livro-razão de consentimento (Fase 19-B) -------------------------------
+
+/// Manifestação de consentimento de um TITULAR (`Client`/`Contact`), registrada
+/// pelo owner. **Append-only no banco** (`GRANT SELECT, INSERT` + `REVOKE UPDATE,
+/// DELETE` para `crm_app`), no molde exato do `AuditLog`: um livro-razão que a
+/// própria aplicação pode reescrever não é prova de nada — e o art. 8º § 2º põe o
+/// ônus da prova do consentimento no controlador.
+///
+/// **Revogar é INSERIR outra linha** com `granted: false`, nunca dar `UPDATE` na
+/// anterior. O art. 8º § 5º manda que a revogação preserve "ratificados os
+/// tratamentos realizados sob amparo do consentimento anteriormente manifestado":
+/// sobrescrever apagaria a prova de que o consentimento existiu.
+///
+/// **Uma linha por FINALIDADE.** Art. 8º § 4º: "as autorizações genéricas para o
+/// tratamento de dados pessoais serão nulas". Um booleano de "aceitou tudo" seria
+/// nulo por lei.
+///
+/// O que este modelo NÃO é: uma lista de opt-out de envio. O CRM não envia nada a
+/// `Client`/`Contact` — todo destinatário do `MailService` é `User`. Isto é o
+/// livro-razão que o owner consulta ANTES de comunicar por fora.
+model ConsentRecord {
+  id                String             @id @default(uuid())
+  ownerId           String
+  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  subjectType       ConsentSubjectType
+  /// Id do `Client` ou do `Contact`. **Sem FK**, de propósito: a FK obrigaria
+  /// escolher uma das duas tabelas, e a prova não pode depender de o cadastro do
+  /// titular continuar existindo. A invariante de `invariantes.sql` afirma que o
+  /// titular, quando existe, é do MESMO owner.
+  subjectId         String
+  /// Chave do catálogo de `modules/consent/domain/consent-purpose.ts`.
+  purpose           String
+  /// `true` = consentiu; `false` = revogou.
+  granted           Boolean
+  /// Versão do texto apresentado (`domain/consent-text.ts`). É o que responde "a
+  /// QUE ele consentiu" — art. 9º § 1º e art. 8º § 6º.
+  textVersion       String
+  /// Como se manifestou: "formulario-site", "whatsapp", "telefone", "presencial".
+  channel           String
+  /// Evidência livre: id do envio do formulário, print, número de protocolo.
+  evidence          String?
+  /// Prazo de retenção INFORMADO ao titular. O guia da ANPD é explícito: a
+  /// ausência dessa informação viola a exigência de consentimento informado.
+  informedRetention String?
+  /// Quem registrou. **Sem FK**: apagar o colaborador não pode apagar a prova —
+  /// mesma decisão de `AuditLog.actorId`, e o nome fica denormalizado ao lado.
+  recordedByUserId  String?
+  recordedByName    String
+  /// Quando o TITULAR se manifestou — que pode ser antes de alguém digitar.
+  occurredAt        DateTime
+  createdAt         DateTime           @default(now())
+
+  @@index([ownerId, subjectType, subjectId, purpose, occurredAt])
+  @@index([ownerId, createdAt])
+}
+
+enum ConsentSubjectType {
+  CLIENT
+  CONTACT
 }

@@ -8,6 +8,7 @@ import type { ProjectsService } from './projects.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 describe('TasksService', () => {
   let repo: jest.Mocked<TaskRepository>;
@@ -41,6 +42,7 @@ describe('TasksService', () => {
       members as unknown as WorkspaceMembersService,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
   });
 

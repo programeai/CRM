@@ -4,6 +4,7 @@ import type { ContractRepository } from '../domain/contract.repository';
 import type { PaymentRepository } from '../domain/payment.repository';
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 describe('FinanceBillingJob', () => {
   let contracts: jest.Mocked<ContractRepository>;
@@ -39,6 +40,7 @@ describe('FinanceBillingJob', () => {
       payments,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
   });
 

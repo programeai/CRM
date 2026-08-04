@@ -58,6 +58,22 @@ O script copia [`.env.selfhost.example`](../.env.selfhost.example) para `.env`
 `JWT_REFRESH_SECRET` — com `openssl rand -hex 32`. Ele nunca sobrescreve um
 `.env` que já exista.
 
+**Segundo fator (2FA), opcional.** O script **não** sorteia
+`TOTP_ENCRYPTION_KEY`, e isso é de propósito: em branco, o segundo fator fica
+indisponível na instância (a aba Configurações → Segurança diz isso), como
+acontece com o e-mail sem SMTP e o captcha sem chave. Se você quiser 2FA, gere a
+chave e cole no `.env`:
+
+```bash
+openssl rand -hex 32
+```
+
+> **Guarde-a junto dos `JWT_*`, no mesmo backup de segredo.** Ela cifra o segredo
+> TOTP de cada pessoa — perdê-la **depois** de alguém ter ligado o 2FA inutiliza o
+> segundo fator de todas as contas ao mesmo tempo, e ninguém consegue refazer o
+> cadastro sem entrar. Ligar depois é seguro e aditivo; perder depois de ligado
+> não tem volta.
+
 **4. Preencha os dois valores que só você sabe**
 
 ```bash

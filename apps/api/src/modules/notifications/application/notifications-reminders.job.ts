@@ -11,6 +11,8 @@ import {
   type NotificationRepository,
 } from '../domain/notification.repository';
 import { NotificationsService } from '../notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import type { EventoDeNotificacao } from './notification-content';
 
 /**
@@ -64,6 +66,7 @@ export class NotificationsRemindersJob {
     @Inject(NOTIFICATION_REPOSITORY)
     private readonly repo: NotificationRepository,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
   ) {}
 
   /**
@@ -163,6 +166,25 @@ export class NotificationsRemindersJob {
             userId: alvo.userId,
             dedupeKey,
             evento: this.evento(tipo, alvo),
+          });
+          /*
+            Gêmeo do aviso interno, para FORA da workspace. Fica DENTRO do
+            `if (existentes.has(dedupeKey)) continue` acima, de propósito: o
+            dedupe da notificação também governa o webhook, senão um
+            reprocessamento manual mandaria o evento de novo para o sistema de
+            terceiro — que é justamente onde repetição custa.
+          */
+          await this.webhooks.emitirPeloSistema({
+            ownerId: alvo.ownerId,
+            evento: EVENTO_POR_TIPO[tipo],
+            entityId: alvo.entityId,
+            dados: {
+              titulo: alvo.label,
+              clienteNome: alvo.clienteNome,
+              dataAlvo: alvo.dataAlvo.toISOString(),
+              ...(alvo.valor !== undefined ? { valor: alvo.valor } : {}),
+              ...(alvo.estagio !== undefined ? { estagio: alvo.estagio } : {}),
+            },
           });
           emitidas++;
         } catch (erro) {

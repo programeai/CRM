@@ -8,7 +8,9 @@ import {
 
 export class CreateActivityDto {
   @IsUUID('4', { message: 'Cliente inválido.' }) clientId: string;
-  @IsOptional() @IsUUID('4') dealId?: string;
+  @IsOptional()
+  @IsUUID('4', { message: 'Oportunidade inválida.' })
+  dealId?: string;
   @IsUUID('4', { message: 'Tipo de atividade inválido.' })
   typeId: string;
   @IsString({ message: 'O conteúdo é obrigatório.' })

@@ -8,6 +8,7 @@ import {
   Wallet,
   FileSignature,
   ShieldCheck,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react"
 import { ADMIN_PERMISSIONS } from "@/features/administracao/tabs"
@@ -60,6 +61,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Sistema",
     items: [
       { to: "/administracao", label: "Administração", icon: ShieldCheck, permission: ADMIN_PERMISSIONS },
+      // Sem `permission`: as páginas de integração são leitura, e quem cola a
+      // URL do webhook no Slack não é quem administra a workspace.
+      { to: "/ajuda", label: "Ajuda", icon: BookOpen },
     ],
   },
 ]

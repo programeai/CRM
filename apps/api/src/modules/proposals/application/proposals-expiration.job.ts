@@ -6,6 +6,8 @@ import {
 } from '../domain/proposal.repository';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 
 /** Nome exibido na tela de auditoria para as rotinas diárias. */
 const ATOR_ROTINA = 'Rotina diária';
@@ -18,6 +20,7 @@ export class ProposalsExpirationJob {
     @Inject(PROPOSAL_REPOSITORY) private readonly repo: ProposalRepository,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
   ) {}
 
   /**
@@ -58,6 +61,19 @@ export class ProposalsExpirationJob {
           numero: p.number,
           clienteNome: p.clienteNome,
           dataAlvo: p.validUntil,
+        },
+      });
+      // Gêmeo do aviso interno, para FORA da workspace. `emitirPeloSistema`
+      // porque o cron roda cross-owner, sem `app.owner_id`.
+      await this.webhooks.emitirPeloSistema({
+        ownerId: p.ownerId,
+        evento: EVENTO_POR_TIPO.PROPOSAL_EXPIRING,
+        entityId: p.id,
+        dados: {
+          numero: p.number,
+          clienteNome: p.clienteNome,
+          validaAte: p.validUntil?.toISOString() ?? null,
+          link: `/propostas/${p.id}`,
         },
       });
     }

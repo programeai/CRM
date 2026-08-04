@@ -3,16 +3,25 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
 /**
- * Validação da URL de destino. É a trava que importa nesta feature, e o motivo é
- * o contrário do intuitivo: o risco **não** é alguém forjar um corpo falso para o
- * receptor — é um colaborador apontar o webhook para um servidor dele e sifonar
- * nome de cliente e valor de cobrança. Contra isso agem permissão + HTTPS +
- * bloqueio de IP privado + `verified`; assinatura HMAC não faria nada (por isso
- * ela fica para a Fase 19, junto da máquina de segredo com rotação).
+ * Validação da URL de destino de webhook. É a trava que importa, e o motivo é o
+ * contrário do intuitivo: o risco **não** é alguém forjar um corpo falso para o
+ * receptor — é apontar o webhook para um servidor próprio e sifonar nome de
+ * cliente e valor de cobrança. Contra isso agem permissão + HTTPS + bloqueio de
+ * IP privado + `verified`.
+ *
+ * **A assinatura HMAC (`shared/webhook-signature.ts`) NÃO substitui esta trava**,
+ * e nem foi para isso que ela entrou: ela protege o RECEPTOR contra corpo
+ * forjado; esta função protege a workspace contra exfiltração. São lados opostos
+ * do mesmo canal, e as duas continuam necessárias.
  *
  *  - HTTPS obrigatório;
  *  - resolve o host e recusa loopback, link-local, privado e reservado (SSRF);
  *  - recusa porta fora de 443.
+ *
+ * Vive em `shared/` porque tem **dois** consumidores em módulos diferentes: o
+ * destino de notificação do usuário (`modules/notifications`) e o webhook de
+ * saída do owner (`modules/webhooks`). Um módulo não acessa o interior de outro
+ * (`apps/api/CLAUDE.md`), e duplicar 90 linhas de defesa contra SSRF seria pior.
  */
 export async function validarUrlDeWebhook(url: string): Promise<void> {
   let parsed: URL;

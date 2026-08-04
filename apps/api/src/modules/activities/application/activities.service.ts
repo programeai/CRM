@@ -8,9 +8,12 @@ import { ClientsService } from '../../clients/application/clients.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { assigneeMudou } from '../../../shared/assignee-changed';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
+import type { OpcoesDeEscrita } from '../../../shared/opcoes-de-escrita';
 import type { CreateActivityDto } from '../api/dto/create-activity.dto';
 import type { UpdateActivityDto } from '../api/dto/update-activity.dto';
 import type { ListActivitiesQueryDto } from '../api/dto/list-activities-query.dto';
@@ -22,12 +25,14 @@ export class ActivitiesService {
     private readonly clients: ClientsService,
     private readonly members: WorkspaceMembersService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
     private readonly catalogos: CatalogosService,
   ) {}
 
   async create(
     ownerId: string,
     dto: CreateActivityDto,
+    opcoes: OpcoesDeEscrita = {},
   ): Promise<ActivityWithAssignee> {
     await this.clients.findOne(ownerId, dto.clientId); // garante posse
     await this.members.assertMember(ownerId, dto.assigneeId);
@@ -48,7 +53,7 @@ export class ActivitiesService {
     // Gatilho (f). Atividade não tem título: o rótulo é o começo do conteúdo,
     // mesmo desenho denormalizado da trilha de auditoria. Auto-atribuição é
     // descartada dentro do `notificar`.
-    if (dto.assigneeId) {
+    if (dto.assigneeId && opcoes.avisarResponsavel !== false) {
       await this.notifications.notificar({
         userId: dto.assigneeId,
         evento: {
@@ -57,6 +62,18 @@ export class ActivitiesService {
           entityId: criada.id,
           entityLabel: criada.content.slice(0, 80),
           clientId: criada.clientId,
+        },
+      });
+      // Gêmeo do aviso interno, para FORA da workspace. Mesma transação, mesmo
+      // "engole a própria falha": webhook não pode derrubar a operação.
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: criada.id,
+        dados: {
+          entidade: 'ACTIVITY',
+          titulo: criada.content.slice(0, 80),
+          responsavelId: dto.assigneeId,
+          link: `/clientes/${criada.clientId}/timeline`,
         },
       });
     }
@@ -136,6 +153,16 @@ export class ActivitiesService {
           entityId: id,
           entityLabel: atualizada.content.slice(0, 80),
           clientId: atualizada.clientId,
+        },
+      });
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: id,
+        dados: {
+          entidade: 'ACTIVITY',
+          titulo: atualizada.content.slice(0, 80),
+          responsavelId: dto.assigneeId,
+          link: `/clientes/${atualizada.clientId}/timeline`,
         },
       });
     }

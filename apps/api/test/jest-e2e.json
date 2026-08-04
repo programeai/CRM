@@ -1,5 +1,9 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
@@ -7,7 +11,12 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "globalSetup": "<rootDir>/global-setup.ts",
-  "setupFiles": ["<rootDir>/carregar-env.ts"],
+  "setupFiles": [
+    "<rootDir>/carregar-env.ts"
+  ],
   "maxWorkers": 1,
-  "testTimeout": 30000
+  "testTimeout": 30000,
+  "transformIgnorePatterns": [
+    "^(?!.*(@scure\\+base|@noble\\+hashes|otplib|@otplib\\+)).*/node_modules/"
+  ]
 }

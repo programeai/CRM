@@ -8,6 +8,7 @@ import type { ClientsService } from '../../clients/application/clients.service';
 import type { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { CatalogosService } from '../../catalogos/application/catalogos.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 describe('ActivitiesService', () => {
   let repo: jest.Mocked<ActivityRepository>;
@@ -36,6 +37,7 @@ describe('ActivitiesService', () => {
       clients as unknown as ClientsService,
       members as unknown as WorkspaceMembersService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
       catalogos as unknown as CatalogosService,
     );
   });

@@ -37,6 +37,9 @@ Consultas do dia a dia (**Explore → Loki**):
 | 404 de asset no front | `{stack="crm", service="web"} \| json \| status=404` |
 | Erros por tipo, na última hora | `sum by (evento) (count_over_time({stack="crm", level="error"}[1h]))` |
 | p95 por rota, na última hora | `quantile_over_time(0.95, {stack="crm", service="api"} \| evento="http.requisicao" \| json \| unwrap ms [1h]) by (rota)` |
+| Escrita pela API pública, por chave | `{stack="crm", service="api"} \| evento="api_publica.registro_criado" \| json \| chaveId="<id>"` |
+| Webhook de saída falhando em definitivo | `{stack="crm", service="api"} \| evento="webhook.entrega_falhou" \| json \| definitiva="true"` |
+| Um webhook específico, ponta a ponta | `{stack="crm", service="api"} \| json \| webhookId="<id>"` |
 
 ## Dashboard
 
@@ -108,18 +111,37 @@ longo do tempo. Os que existem hoje:
 | `digest.envio_falhou` | falha ao enviar o resumo para um usuário; o lote continua | `error` |
 | `lead.ingerido` / `lead.reingerido` | ingestão externa de lead: cadastro novo / telefone já conhecido (nota empilhada) | `info` |
 | `lead.token_recusado` | ingestão recusada por credencial ausente | `warn` |
-| `lead.token_legado_aceito` | ingestão aceita pelo `LEAD_INTAKE_TOKEN` do ambiente — caminho de transição, sem canal nem roteamento | `warn` |
-| `lead.owner_nao_configurado` / `lead.owner_nao_encontrado` | caminho legado sem `LEAD_INTAKE_OWNER_EMAIL` ou sem owner correspondente (a rota responde 503) | `error` |
 | `lead.responsavel_ignorado` | o responsável do canal não é mais membro da workspace: o lead entrou sem responsável | `warn` |
 | `lead.canal_criado` / `lead.canal_atualizado` / `lead.canal_excluido` | manutenção dos canais de captação | `info` |
 | `integracao.chave_emitida` / `integracao.chave_rotacionada` / `integracao.chave_revogada` | ciclo de vida da chave de integração — nunca carregam o valor, só `chaveId` e `prefixo` | `info` / `warn` / `warn` |
 | `integracao.chave_recusada` / `integracao.escopo_insuficiente` | chave inexistente/revogada (401) ou sem o escopo da rota (403) | `warn` |
+| `api_publica.registro_criado` | escrita bem-sucedida pela API pública — `recurso`, `registroId`, `chaveId` e `ms`; nunca nome, e-mail ou telefone | `info` |
+| `api_publica.credencial_ausente` | requisição à API pública sem `Authorization: Bearer` | `warn` |
+| `api_publica.rota_sem_escopo` | rota de `/public` sem `@EscopoExigido`: recusada por segurança. **É bug de rota nova**, não de quem chamou | `error` |
+| `webhook.cadastrado` / `webhook.verificado` / `webhook.rotacionado` / `webhook.excluido` | ciclo de vida do webhook de saída do owner — carregam `webhookId` e só o **host** da URL, nunca o caminho nem o segredo | `info` / `info` / `warn` / `warn` |
+| `webhook.emissao_falhou` | falha ao enfileirar um evento; a operação de negócio NÃO é derrubada | `error` |
+| `webhook.sem_contexto` | `emitir` chamado fora de requisição autenticada — bug de instrumentação: use `emitirPeloSistema` | `warn` |
+| `webhook.entrega_falhou` | falha ao entregar num webhook do owner; `definitiva: true` = o backoff esgotou (6 tentativas, ~10,6h) | `error` |
+| `webhook.lote_entregue` | varredura da outbox de webhooks (cron de 1 min) — só quando há o que entregar | `info` |
+| `mfa.cadastro_iniciado` | `POST /auth/2fa/setup` — **nunca** carrega o segredo nem o `otpauth://` | `info` |
+| `mfa.ativado` / `mfa.desativado` | o titular ligou/desligou o próprio segundo fator | `warn` |
+| `mfa.codigos_de_recuperacao_emitidos` | 16 códigos emitidos (na confirmação ou na regeneração) — só a quantidade, nunca os valores | `info` |
+| `mfa.codigo_recusado` | código de segundo fator recusado. **É esta linha, e não `AccessRecord`, que registra a falha** — a tabela de acesso só guarda sucesso, por decisão da 19-A. Traz `falhasConsecutivas`, nunca o código tentado | `warn` |
+| `mfa.conta_travada` | verificação recusada por trava de tentativas falhas (10 falhas → 15 min) | `warn` |
+| `mfa.codigo_de_recuperacao_usado` | segundo fator provado por código de recuperação, com quantos restam | `warn` |
+| `mfa.login_recusado` | o segundo fator foi recusado **no login** (o `mfa.codigo_recusado` acima cobre qualquer verificação). É a linha para vigiar tentativa de invasão em conta com 2FA | `warn` |
+| `consentimento.registrado` / `consentimento.revogado` | manifestação de titular registrada. Carrega finalidade, canal e versão do texto — **nunca** nome, e-mail ou telefone do titular | `info` |
 | `conta.dados_exportados` | dump de portabilidade gerado (`GET /account/export`) | `info` |
 | `conta.encerramento_solicitado` / `conta.encerramento_cancelado` | pedido/cancelamento de encerramento pelo titular | `warn` / `info` |
 | `conta.assinatura_marcada_para_nao_renovar` | rotina diária das 5h — `cancel_at_period_end` marcado no Stripe | `info` |
 | `conta.cancelamento_de_assinatura_falhou` | rotina diária das 5h — falha ao marcar `cancel_at_period_end`; tenta de novo amanhã | `error` |
 | `conta.expurgo_adiado` | rotina diária das 5h — falha ao cancelar a assinatura no Stripe; o owner é pulado sem apagar nada | `error` |
 | `conta.expurgada` | rotina diária das 5h BRT — conta e workspace apagadas em definitivo; **`warn`** de propósito, é irreversível | `warn` |
+| `retencao.lixeira_expurgada` | rotina diária das **2h BRT** — apaga o que está arquivado há mais de 180 dias, por tabela | `info` |
+| `retencao.notificacoes_expurgadas` | rotina das 2h — notificações e entregas com mais de 90 dias | `info` |
+| `retencao.auditoria_expurgada` | rotina das 2h — trilha com mais de 5 anos | `info` |
+| `retencao.registro_pulado` | registro além do prazo que **não** foi apagado porque ainda tem filho não arquivado. Não é erro (é a doutrina "nenhuma cascata"), mas sem esta linha "0 apagados" seria lido como "nada a fazer" | `info` |
+| `retencao.varredura_falhou` | uma das três varreduras falhou; **as outras continuam** | `error` |
 
 > **Todo horário de rotina nesta tabela é BRT.** O container roda em UTC (não há
 > `TZ` no compose nem no Dockerfile), então cada `@Cron` declara
@@ -128,10 +150,18 @@ longo do tempo. Os que existem hoje:
 > "das 3h" saíam à meia-noite BRT. Se você estiver caçando um evento pelo horário
 > em log antigo, é isso.
 
-> **Aposentado:** `lead.ingestao_desconfigurada` existia quando a ausência de
-> `LEAD_INTAKE_TOKEN` fechava a rota com 503. Desde a Fase 17-A a ingestão
-> autentica por chave de integração, e o token ausente é o estado normal — o
-> evento não é renomeado, apenas deixa de ser emitido.
+> **Aposentados** (não renomeados: nenhuma consulta histórica muda de
+> significado, eles simplesmente deixam de ser emitidos):
+>
+> - `lead.ingestao_desconfigurada` — existia quando a ausência de
+>   `LEAD_INTAKE_TOKEN` fechava a rota com 503. Desde a Fase 17-A a ingestão
+>   autentica por chave de integração, e o token ausente é o estado normal.
+> - `lead.token_legado_aceito` — a ingestão aceita pelo token de ambiente. Foi a
+>   consulta que autorizou o corte: a Fase 19-B só podia entrar depois de ela
+>   voltar **zero em 30 dias**, porque cortar antes perderia lead sem erro
+>   visível no site. Aposentado na Fase 19-B, junto do caminho legado.
+> - `lead.owner_nao_configurado` / `lead.owner_nao_encontrado` — os dois 503 do
+>   caminho legado (sem `LEAD_INTAKE_OWNER_EMAIL`, ou e-mail sem owner). Idem.
 
 ### Os campos do `http.requisicao`
 

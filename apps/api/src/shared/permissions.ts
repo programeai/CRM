@@ -199,6 +199,13 @@ export const PERMISSIONS: readonly PermissionMeta[] = [
       'Criar canais de captação e emitir, rotacionar e revogar as chaves que permitem a sistemas de fora gravar na workspace',
     category: 'Organização',
   },
+  {
+    key: 'webhook:gerenciar',
+    label: 'Gerenciar webhooks',
+    description:
+      'Cadastrar endereços que recebem os eventos de negócio da workspace. O conteúdo enviado carrega nome de cliente e valor de cobrança',
+    category: 'Organização',
+  },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]['key'];
