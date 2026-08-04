@@ -18,7 +18,8 @@ import {
   NOTIFICATION_CHANNELS,
   type CanalDeNotificacao,
 } from '../domain/notification-channel';
-import { validarUrlDeWebhook } from './webhook-url';
+import { validarUrlDeWebhook } from '../../../shared/webhook-url';
+import { gerarSegredoDeWebhook } from '../../../shared/webhook-signature';
 import type { CreateNotificationTargetDto } from '../api/dto/create-notification-target.dto';
 import type { CreateWebhookTargetDto } from '../api/dto/create-webhook-target.dto';
 import type { UpdateNotificationTargetDto } from '../api/dto/update-notification-target.dto';
@@ -39,6 +40,16 @@ export interface DestinoNaApi {
   verified: boolean;
   active: boolean;
   createdAt: Date;
+}
+
+/** Criação de integração: a única resposta que carrega o segredo bruto. */
+export interface IntegracaoCriada {
+  destino: DestinoNaApi;
+  /**
+   * Existe uma vez. `null` nos kinds que não verificam assinatura (Slack,
+   * Discord, Google Chat, Telegram).
+   */
+  segredo: string | null;
 }
 
 @Injectable()
@@ -83,20 +94,62 @@ export class NotificationTargetsService {
     ownerId: string,
     userId: string,
     dto: CreateWebhookTargetDto,
-  ): Promise<DestinoNaApi> {
+  ): Promise<IntegracaoCriada> {
     // A trava que importa: HTTPS, porta padrão e nada de rede interna (SSRF).
     await validarUrlDeWebhook(dto.url);
+    /*
+      Segredo só no kind WEBHOOK. Slack, Discord, Google Chat e Telegram **não
+      verificam assinatura nenhuma** (é o motivo 2 da decisão D4 da Fase 9):
+      gerar segredo para eles seria teatro, e um campo a mais na tela que ninguém
+      usa. Quem consome com n8n/Zapier é quem tem onde verificar.
+
+      O segredo entra na MESMA `config`, que já é documentada como portadora de
+      credencial e já nunca sai crua (`resumirConfig`) — sem migration.
+    */
+    const segredo = dto.kind === 'WEBHOOK' ? gerarSegredoDeWebhook() : null;
     const criado = await this.repo.criar({
       ownerId,
       userId,
       kind: dto.kind,
       label: dto.label,
-      config: { url: dto.url },
+      config: { url: dto.url, ...(segredo ? { secret: segredo } : {}) },
       types: dto.types ?? TIPOS_PADRAO,
       verified: false,
       active: false,
     });
-    return paraApi(criado);
+    return { destino: paraApi(criado), segredo };
+  }
+
+  /**
+   * Troca o segredo do destino e devolve o novo, uma vez. A assinatura anterior
+   * deixa de casar IMEDIATAMENTE — mesma decisão da chave de integração: não há
+   * janela de convivência, porque manter duas assinaturas válidas exigiria
+   * enviar as duas no header e o receptor aceitar qualquer uma, o que enfraquece
+   * a rotação em vez de facilitá-la.
+   *
+   * A URL não é tocada: rotacionar segredo não é recadastrar destino.
+   */
+  async rotacionarSegredo(
+    ownerId: string,
+    userId: string,
+    id: string,
+  ): Promise<{ segredo: string }> {
+    const destinos = await this.repo.findManyByUser(ownerId, userId);
+    const alvo = destinos.find((d) => d.id === id);
+    // 404 (não 403): destino de outra pessoa não deve nem revelar que existe.
+    if (!alvo) throw new NotFoundException('Destino não encontrado.');
+    if (alvo.kind !== 'WEBHOOK') {
+      throw new UnprocessableEntityException(
+        'Só o destino de webhook usa segredo de assinatura.',
+      );
+    }
+    const segredo = gerarSegredoDeWebhook();
+    const config = alvo.config as { url?: string };
+    const atualizado = await this.repo.atualizar(ownerId, userId, id, {
+      config: { url: config.url, secret: segredo },
+    });
+    if (!atualizado) throw new NotFoundException('Destino não encontrado.');
+    return { segredo };
   }
 
   /**

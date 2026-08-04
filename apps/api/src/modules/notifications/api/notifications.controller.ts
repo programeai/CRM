@@ -97,6 +97,21 @@ export class NotificationsController {
     return this.targets.criarIntegracao(ownerId, userId, dto);
   }
 
+  /**
+   * Troca o segredo de assinatura do destino de webhook. Devolve o novo **uma
+   * vez** — a assinatura anterior deixa de casar na hora, sem convivência.
+   */
+  @Post('targets/:id/rotate-secret')
+  @RequirePermission('notificacao:integrar')
+  @HttpCode(200)
+  rotateSecret(
+    @CurrentOwnerId() ownerId: string,
+    @CurrentUserId() userId: string,
+    @Param('id', idDeRota) id: string,
+  ) {
+    return this.targets.rotacionarSegredo(ownerId, userId, id);
+  }
+
   /** Ping de verificação: sem ele o destino nunca entrega (nasce `verified: false`). */
   @Post('targets/:id/verify')
   @RequirePermission('notificacao:integrar')

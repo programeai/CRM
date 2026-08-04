@@ -16,6 +16,8 @@ const CAMPOS_OMITIDOS = new Set([
   'stripeCustomerId',
   'stripeSubscriptionId',
   'document', // CPF/CNPJ: dado pessoal que a trilha não precisa repetir
+  'secret', // segredo HMAC do destino/webhook (Fase 19-B)
+  'config', // Json do destino de notificação: carrega URL-credencial e segredo
   'updatedAt', // muda em toda escrita; diria só "houve escrita"
   'createdAt',
   // Relações carregadas junto do registro (`ContractWithPayments`,
