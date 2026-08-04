@@ -11,6 +11,22 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().min(32).required(),
   JWT_ACCESS_TTL: Joi.string().default('15m'),
   JWT_REFRESH_TTL: Joi.string().default('7d'),
+  // Chave de cifra do segredo TOTP — 32 bytes em hex (64 caracteres). Gerar com
+  // `openssl rand -hex 32`.
+  //
+  // TOTP é HMAC simétrico: o verificador precisa do segredo EM CLARO no momento
+  // da verificação, então hash é impossível por construção e a escolha real é
+  // cifrado vs texto puro. Cifrado protege contra dump de banco (backup vazado,
+  // réplica exposta); não protege contra comprometimento do processo, porque a
+  // chave está na memória.
+  //
+  // **Em branco DESLIGA o 2FA na instância**, como SMTP_HOST desliga o e-mail e
+  // TURNSTILE_SECRET_KEY desliga o captcha: é o contrato de "serviço opcional" do
+  // projeto, e é o que mantém a autohospedagem funcionando sem variável nova
+  // obrigatória. Ligar depois é aditivo; **perder a chave depois de ligar
+  // inutiliza o segundo fator de toda a base ao mesmo tempo** — por isso ela
+  // entra no runbook de backup de segredo (docs/deploy.md).
+  TOTP_ENCRYPTION_KEY: Joi.string().hex().length(64).allow('').default(''),
   FRONTEND_URL: Joi.string().uri().required(),
   COOKIE_DOMAIN: Joi.string().default('localhost'),
   // Quantidade de proxies confiáveis à frente da API (`trust proxy` do Express).
@@ -47,20 +63,12 @@ export const envValidationSchema = Joi.object({
   SMTP_USER: Joi.string().allow('').default(''),
   SMTP_PASSWORD: Joi.string().allow('').default(''),
   MAIL_FROM: Joi.string().allow('').default(''),
-  // Ingestão externa de lead (POST /leads/intake) — opcional, e as DUAS são
-  // necessárias juntas: faltando qualquer uma a rota responde 503 em vez de
-  // aceitar lead sem saber onde gravar. O token é o segredo compartilhado com
-  // quem captura (o site); o e-mail é o do OWNER cuja workspace recebe.
-  // Gerar o token com `openssl rand -base64 48`. Mínimo de 32 caracteres: é a
-  // única credencial de uma rota pública de escrita.
-  LEAD_INTAKE_TOKEN: Joi.string().allow('').min(32).default(''),
-  // `tlds: false` porque a validação de TLD do Joi usa uma lista própria: com ela
-  // ligada, o boot morre em domínio interno (`@empresa.local`) e em qualquer TLD
-  // novo que a lista ainda não conheça. Aqui só interessa o formato.
-  LEAD_INTAKE_OWNER_EMAIL: Joi.string()
-    .email({ tlds: { allow: false } })
-    .allow('')
-    .default(''),
+  // A ingestão externa de lead (POST /leads/intake) NÃO tem variável de
+  // ambiente: ela autentica por chave de integração, com hash no banco e por
+  // owner (Fase 17-A). `LEAD_INTAKE_TOKEN` e `LEAD_INTAKE_OWNER_EMAIL` eram o
+  // caminho legado single-tenant e saíram na Fase 19-B, depois de o emissor
+  // migrar — deixá-las aqui como opcionais só sugeriria que ainda funcionam.
+  //
   // Billing (Stripe) — opcional: só é usado na instância SaaS hospedada pelo
   // owner. Na autohospedagem, BILLING_ENABLED fica false e o Stripe nunca
   // é inicializado (ver StripeService).
