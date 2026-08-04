@@ -31,7 +31,8 @@ import {
 import { extractApiMessage } from '@/lib/api-error';
 import { useCriarIntegracao } from './api/hooks';
 import { ListaDeEventos } from './ListaDeEventos';
-import { alternarTipo, TIPOS } from './tipos';
+import { NOTIFICATION_TYPES } from '@/lib/labels';
+import { alternarTipo } from './tipos';
 
 /** Rótulos dos serviços de integração — o `Select` precisa do map. */
 const KIND_INTEGRACAO = {
@@ -51,7 +52,7 @@ const schema = z
     // é o que o usuário tem em mãos. A URL sai destes dois no `onSubmit`.
     token: z.string().optional(),
     chatId: z.string().optional(),
-    types: z.array(z.enum(TIPOS)).min(1, 'Selecione ao menos um evento.'),
+    types: z.array(z.enum(NOTIFICATION_TYPES)).min(1, 'Selecione ao menos um evento.'),
   })
   .superRefine((v, ctx) => {
     if (v.kind === 'TELEGRAM') {
@@ -102,7 +103,7 @@ const VAZIO: Values = {
   url: '',
   token: '',
   chatId: '',
-  types: [...TIPOS],
+  types: [...NOTIFICATION_TYPES],
 };
 
 /**

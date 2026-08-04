@@ -24,12 +24,13 @@ import {
 import { extractApiMessage } from '@/lib/api-error';
 import { useCriarDestino } from './api/hooks';
 import { ListaDeEventos } from './ListaDeEventos';
-import { alternarTipo, TIPOS } from './tipos';
+import { NOTIFICATION_TYPES } from '@/lib/labels';
+import { alternarTipo } from './tipos';
 
 const schema = z.object({
   label: z.string().min(1, 'O rótulo é obrigatório.'),
   email: z.string().email('E-mail inválido.'),
-  types: z.array(z.enum(TIPOS)).min(1, 'Selecione ao menos um evento.'),
+  types: z.array(z.enum(NOTIFICATION_TYPES)).min(1, 'Selecione ao menos um evento.'),
 });
 type Values = z.infer<typeof schema>;
 
@@ -37,7 +38,7 @@ type Values = z.infer<typeof schema>;
  * Nasce com os seis marcados: é o mesmo padrão que a API aplica quando o corpo
  * não manda `types` (`TIPOS_PADRAO`). Quem quiser menos, desmarca aqui.
  */
-const VAZIO: Values = { label: '', email: '', types: [...TIPOS] };
+const VAZIO: Values = { label: '', email: '', types: [...NOTIFICATION_TYPES] };
 
 /** Cadastra um destino de e-mail. Nasce verificado: o endereço é do próprio usuário. */
 export function DestinoEmailDialog({

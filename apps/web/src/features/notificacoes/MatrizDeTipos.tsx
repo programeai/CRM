@@ -1,10 +1,12 @@
 import { Checkbox } from '@/components/ui/checkbox';
-import { translateNotificationType } from '@/lib/labels';
-import { TIPOS } from './tipos';
+import {
+  NOTIFICATION_TYPES,
+  translateNotificationType,
+} from '@/lib/labels';
 import type { NotificationType } from './api/types';
 
 /**
- * A grade compacta dos seis tipos, no cartão de um destino já cadastrado: ali
+ * A grade compacta dos tipos, no cartão de um destino já cadastrado: ali
  * cada clique salva na hora, e a lista de destinos não suporta uma linha por
  * tipo. No cadastro, quem mostra os mesmos tipos é a `ListaDeEventos` do
  * `IntegracaoDialog` — com a descrição de cada um, como no catálogo de
@@ -21,7 +23,7 @@ export function MatrizDeTipos({
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      {TIPOS.map((tipo) => (
+      {NOTIFICATION_TYPES.map((tipo) => (
         <label
           key={tipo}
           className="flex cursor-pointer items-center gap-2 text-sm"
