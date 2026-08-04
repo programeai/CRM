@@ -11,7 +11,7 @@ import {
   Lista,
   P,
   Sub,
-} from './prose';
+} from '@/components/ui/prose';
 
 const SECOES: Secao[] = [
   {

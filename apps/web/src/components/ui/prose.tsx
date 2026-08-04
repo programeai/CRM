@@ -3,9 +3,13 @@ import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 
 /**
- * Tipografia dos documentos legais. O projeto não usa o plugin `typography` do
- * Tailwind, então o texto corrido dos Termos e da Política é composto por estes
- * blocos — todos em cima dos tokens do design system, nada hard-coded.
+ * Tipografia de texto corrido. O projeto não usa o plugin `typography` do
+ * Tailwind, então toda página de leitura — os documentos legais e as páginas de
+ * ajuda — é composta por estes blocos, em cima dos tokens do design system e
+ * sem nada hard-coded.
+ *
+ * Vive no design system porque tem dois consumidores em features distintas
+ * (`features/legal` e `features/ajuda`).
  */
 
 export function P({ children, className }: { children: ReactNode; className?: string }) {
@@ -16,12 +20,24 @@ export function P({ children, className }: { children: ReactNode; className?: st
   );
 }
 
-/** Subtítulo dentro de uma seção. */
-export function Sub({ children }: { children: ReactNode }) {
+/**
+ * Subtítulo dentro de uma seção. `nivel` acompanha o cabeçalho da seção que o
+ * contém — `h3` sob um `h2` (documentos legais), `h4` sob um `h3` (páginas de
+ * ajuda, onde o `h1` é da tela) — para o leitor de tela não ver dois níveis
+ * iguais aninhados.
+ */
+export function Sub({
+  children,
+  nivel = 3,
+}: {
+  children: ReactNode;
+  nivel?: 3 | 4;
+}) {
+  const Tag = nivel === 4 ? 'h4' : 'h3';
   return (
-    <h3 className="mt-2 text-sm font-semibold tracking-[-0.01em] text-foreground">
+    <Tag className="mt-2 text-sm font-semibold tracking-[-0.01em] text-foreground">
       {children}
-    </h3>
+    </Tag>
   );
 }
 
@@ -42,6 +58,18 @@ export function Item({ children }: { children: ReactNode }) {
 /** Termo em destaque no meio do texto corrido. */
 export function Forte({ children }: { children: ReactNode }) {
   return <strong className="font-semibold text-foreground">{children}</strong>;
+}
+
+/**
+ * Nome de campo, cabeçalho ou valor literal no meio da frase. Para bloco de
+ * código de várias linhas, use o `CodeBlock`.
+ */
+export function Codigo({ children }: { children: ReactNode }) {
+  return (
+    <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.8125rem] text-foreground">
+      {children}
+    </code>
+  );
 }
 
 /** Caixa de destaque para pontos que o usuário não deve deixar passar. */
