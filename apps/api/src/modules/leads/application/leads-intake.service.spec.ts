@@ -9,6 +9,7 @@ import { LeadsIntakeService } from './leads-intake.service';
 import type { IntakeLeadDto } from '../api/dto/intake-lead.dto';
 import type { ContextoDeIntegracao } from '../api/intake-context';
 import type { LeadIntakeChannelRecord } from '../domain/lead-intake-channel.repository';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 describe('LeadsIntakeService', () => {
   const OWNER = 'owner-1';
@@ -51,15 +52,13 @@ describe('LeadsIntakeService', () => {
     ...extra,
   });
 
-  /** O que o guard publicou: chave de integração (caminho novo). */
+  /**
+   * O que o guard publicou. Uma forma só desde a Fase 19-B: o caminho legado por
+   * token de ambiente (que publicava `keyId: null`) saiu junto das variáveis.
+   */
   const porChave = (): ContextoDeIntegracao => ({
     ownerId: OWNER,
     keyId: CHAVE,
-  });
-  /** O que o guard publicou no caminho legado: token de ambiente, sem chave. */
-  const porTokenLegado = (): ContextoDeIntegracao => ({
-    ownerId: OWNER,
-    keyId: null,
   });
 
   beforeEach(() => {
@@ -101,6 +100,7 @@ describe('LeadsIntakeService', () => {
       canais as unknown as LeadIntakeChannelsService,
       members as unknown as WorkspaceMembersService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
   });
 
@@ -241,14 +241,6 @@ describe('LeadsIntakeService', () => {
 
       expect(keys.registrarUso).toHaveBeenCalledWith(OWNER, CHAVE);
     });
-
-    it('o caminho legado (keyId nulo) não marca uso de chave nenhuma', async () => {
-      await service.receber(lead(), porTokenLegado());
-
-      expect(keys.registrarUso).not.toHaveBeenCalled();
-      // …e grava normalmente, como antes desta fase.
-      expect(clients.create).toHaveBeenCalled();
-    });
   });
 
   describe('roteamento pelo canal', () => {
@@ -327,21 +319,6 @@ describe('LeadsIntakeService', () => {
       ];
       expect(patch.assigneeId).toBeUndefined();
       // Sem responsável válido, o aviso volta para o owner.
-      expect(notifications.notificarPeloSistema).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: OWNER }),
-      );
-    });
-
-    it('o caminho legado (keyId nulo) não busca canal e não roteia', async () => {
-      await service.receber(lead(), porTokenLegado());
-
-      expect(canais.findByKeyId).not.toHaveBeenCalled();
-      const [, patch] = clients.create.mock.calls[0] as [
-        string,
-        Record<string, unknown>,
-      ];
-      expect(patch.assigneeId).toBeUndefined();
-      expect(patch.sourceId).toBeUndefined();
       expect(notifications.notificarPeloSistema).toHaveBeenCalledWith(
         expect.objectContaining({ userId: OWNER }),
       );

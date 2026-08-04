@@ -14,9 +14,9 @@ import { criarColaborador, criarOwner, criarPapel } from './helpers/fixtures';
  * é por isso que este caminho tem e2e com banco de verdade, e não só spec de
  * regra com Prisma mockado.
  *
- * O caminho principal (chave de integração) não depende de `test/.env.test`: a
- * credencial é semeada no banco por `criarCanal`. Só o `describe` do legado
- * ainda depende, e o comentário lá explica por quê.
+ * Nada aqui depende de `test/.env.test`: a credencial é semeada no banco por
+ * `criarCanal`. O `describe` do caminho legado (token de ambiente) saiu na Fase
+ * 19-B, junto das duas variáveis.
  */
 const EMAIL_DO_OWNER = 'dono-da-ingestao@teste.local';
 
@@ -419,44 +419,6 @@ describe('Ingestão de lead (e2e)', () => {
 
       const cliente = await clientAdmin().client.findFirstOrThrow();
       expect(cliente.assigneeId).toBe(doCanal.id);
-    });
-  });
-
-  describe('caminho legado (token de ambiente)', () => {
-    /*
-      O token vem de `test/.env.test` e é repetido aqui de propósito: o
-      `ConfigModule.forRoot()` roda no import do AppModule, antes de qualquer
-      `beforeAll`, então setar `process.env` daqui chegaria tarde. Esta é a
-      ÚNICA parte do spec que depende disso — o caminho da chave não depende.
-      Mudar um lado exige mudar o outro.
-    */
-    const TOKEN = 'token-de-ingestao-para-teste-com-32-caracteres';
-
-    it('aceita o token do ambiente e grava na conta de LEAD_INTAKE_OWNER_EMAIL', async () => {
-      const owner = await criarOwner(EMAIL_DO_OWNER);
-
-      await enviar(LEAD, TOKEN).expect(200);
-
-      const cliente = await clientAdmin().client.findFirstOrThrow();
-      expect(cliente.ownerId).toBe(owner.id);
-    });
-
-    it('não roteia nem classifica: assigneeId e sourceId ficam nulos', async () => {
-      await criarOwner(EMAIL_DO_OWNER);
-
-      await enviar(LEAD, TOKEN).expect(200);
-
-      const cliente = await clientAdmin().client.findFirstOrThrow();
-      expect(cliente.assigneeId).toBeNull();
-      expect(cliente.sourceId).toBeNull();
-      // A tag da origem continua sendo o que classifica o lead legado.
-      expect(cliente.tags).toEqual(['site-institucional']);
-    });
-
-    it('sem owner correspondente ao e-mail configurado responde 503', async () => {
-      await enviar(LEAD, TOKEN).expect(503);
-
-      expect(await clientAdmin().client.count()).toBe(0);
     });
   });
 });

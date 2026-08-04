@@ -12,8 +12,11 @@ import type { Request } from 'express';
  */
 export interface ContextoDeIntegracao {
   ownerId: string;
-  /** `null` no caminho legado: token de ambiente não tem canal nem chave. */
-  keyId: string | null;
+  /**
+   * A chave que autenticou. **Nunca nulo** desde a Fase 19-B: era anulável
+   * enquanto o token de ambiente (sem canal nem chave) era aceito.
+   */
+  keyId: string;
 }
 
 export const INTAKE_CONTEXT = 'integracaoDaIngestao';
