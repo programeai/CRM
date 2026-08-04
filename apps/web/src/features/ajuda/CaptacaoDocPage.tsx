@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/prose';
 import { DocPagina, type DocSecao } from './DocPagina';
 import { TabelaDoc } from './TabelaDoc';
+import { endpointDaApi } from './endpoint';
 
 /**
  * Como entregar lead no CRM. É o contrato de `POST /leads/intake` escrito para
@@ -22,25 +23,7 @@ import { TabelaDoc } from './TabelaDoc';
  * o usuário tem, e um campo documentado a mais aqui vira `400` na prática.
  */
 
-/**
- * O endereço da instância, montado da mesma variável que o app usa para falar
- * com a API (`VITE_API_URL` já inclui o `/api/v1`). Assim a página mostra o
- * endereço real de quem está lendo — inclusive em instalação própria — em vez de
- * um host de exemplo que ninguém sabe substituir.
- *
- * Em produção essa variável é **relativa** (`/api/v1`, mesmo host do front atrás
- * do proxy). Aqui ela não pode ser: quem lê vai colar isso num sistema que roda
- * fora, e caminho relativo não resolve lá. Daí o host da janela na frente.
- */
-function endpointDeIngestao(): string {
-  const base = (import.meta.env.VITE_API_URL ?? '/api/v1').replace(/\/+$/, '');
-  const absoluta = /^https?:\/\//i.test(base)
-    ? base
-    : `${window.location.origin}${base}`;
-  return `${absoluta}/leads/intake`;
-}
-
-const ENDPOINT = endpointDeIngestao();
+const ENDPOINT = endpointDaApi('leads/intake');
 
 const CURL = `curl -X POST ${ENDPOINT} \\
   -H "Authorization: Bearer crm_SUA_CHAVE_AQUI" \\

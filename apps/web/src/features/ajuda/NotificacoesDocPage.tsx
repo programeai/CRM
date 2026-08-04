@@ -50,6 +50,49 @@ const PAYLOAD_TESTE = `{
 
 const URL_TELEGRAM = `https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>`;
 
+/**
+ * Verificação da assinatura, em Node. Usa `express.raw` de propósito: o corpo
+ * tem de ser os BYTES que chegaram, não um objeto reserializado.
+ */
+const VERIFICACAO = `import { createHmac, timingSafeEqual } from 'node:crypto';
+import express from 'express';
+
+const SEGREDO = process.env.CRM_WEBHOOK_SECRET;
+const JANELA_SEGUNDOS = 300; // 5 minutos
+
+const app = express();
+
+// express.raw, NÃO express.json: a assinatura é sobre os bytes que chegaram.
+app.post('/crm', express.raw({ type: 'application/json' }), (req, res) => {
+  const assinatura = req.header('X-CRM-Signature') ?? '';
+  const timestamp = req.header('X-CRM-Timestamp') ?? '';
+
+  // 1. Recalcula sobre o corpo CRU.
+  const esperado =
+    'sha256=' +
+    createHmac('sha256', SEGREDO)
+      .update(timestamp + '.' + req.body.toString('utf8'))
+      .digest('hex');
+
+  // 2. Compara em tempo constante. Tamanhos diferentes já reprovam.
+  const a = Buffer.from(assinatura);
+  const b = Buffer.from(esperado);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return res.sendStatus(401);
+  }
+
+  // 3. Recusa timestamp fora da janela — é isto que impede replay.
+  const idade = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!Number.isFinite(idade) || idade > JANELA_SEGUNDOS) {
+    return res.sendStatus(401);
+  }
+
+  const evento = JSON.parse(req.body.toString('utf8'));
+  // Responda 2xx rápido e processe depois: o CRM desiste em 10 segundos.
+  res.sendStatus(200);
+  processar(evento).catch(console.error);
+});`;
+
 /** O endereço desta instância, para o exemplo de link completo sair pronto. */
 const APP_URL = window.location.origin;
 
@@ -59,8 +102,15 @@ const CABECALHOS: [string, string][] = [
     'X-CRM-Delivery',
     'Identificador único desta entrega. Use como chave de idempotência: uma retentativa repete o mesmo valor.',
   ],
-  ['X-CRM-Timestamp', 'Momento do envio, em segundos desde 1970.'],
+  [
+    'X-CRM-Timestamp',
+    'Momento do envio, em segundos desde 1970. Entra no cálculo da assinatura.',
+  ],
   ['User-Agent', 'CRM-ProgrameAi/1.0'],
+  [
+    'X-CRM-Signature',
+    'Só nos destinos do tipo Webhook: a assinatura HMAC da entrega. Ver a seção 6.',
+  ],
 ];
 
 /** O que vem em `dados`, por evento. */
@@ -246,7 +296,8 @@ const SECOES: DocSecao[] = [
       <>
         <P>
           Sempre <Codigo>POST</Codigo> com <Codigo>application/json</Codigo>, um
-          aviso por chamada, cinco campos:
+          aviso por chamada, cinco campos. O corpo é o mesmo em todos os eventos —
+          o que muda é <Codigo>tipo</Codigo> e o conteúdo de <Codigo>dados</Codigo>.
         </P>
         <CodeBlock code={PAYLOAD} label="Corpo enviado" />
         <TabelaDoc
@@ -301,12 +352,94 @@ const SECOES: DocSecao[] = [
         />
         <Destaque>
           <P>
-            <Forte>Não há assinatura no envio.</Forte> Sem HMAC, sem segredo
-            compartilhado: quem conhece a URL consegue mandar corpo parecido para
-            ela. Portanto a <Forte>URL é a credencial</Forte> — trate como senha,
-            não a publique em repositório e prefira um caminho longo e aleatório.
-            Se ela vazar, apague o destino e crie outro: não existe rotação de URL,
+            <Forte>A URL continua sendo credencial.</Forte> Quem a conhece
+            consegue mandar corpo parecido para ela — trate como senha, não a
+            publique em repositório e prefira um caminho longo e aleatório. Se ela
+            vazar, apague o destino e crie outro: não existe rotação de URL,
             porque trocar o endereço é criar outro destino.
+          </P>
+          <P>
+            O que a <Forte>assinatura</Forte> resolve é o outro lado do problema:
+            confirmar que a entrega veio do CRM e que o corpo não foi alterado no
+            caminho. Ver a seção seguinte.
+          </P>
+        </Destaque>
+      </>
+    ),
+  },
+  {
+    id: 'assinatura',
+    titulo: 'Verificar a assinatura',
+    corpo: (
+      <>
+        <P>
+          Todo destino do tipo <Forte>Webhook</Forte> tem um{' '}
+          <Forte>segredo de assinatura</Forte>, mostrado uma única vez quando você
+          cadastra a integração. Com ele, cada entrega chega com um cabeçalho a
+          mais:
+        </P>
+        <TabelaDoc
+          colunas={['Cabeçalho', 'Conteúdo']}
+          linhas={[
+            [
+              <Codigo key="s">X-CRM-Signature</Codigo>,
+              <>
+                <Codigo>sha256=</Codigo> seguido do HMAC-SHA256, em hexadecimal,
+                de <Codigo>&lt;timestamp&gt;.&lt;corpo cru&gt;</Codigo>, com o
+                segredo como chave.
+              </>,
+            ],
+            [
+              <Codigo key="t">X-CRM-Timestamp</Codigo>,
+              'O mesmo valor que entrou no cálculo. É o insumo anti-replay.',
+            ],
+          ]}
+        />
+        <P>
+          A verificação tem <Forte>três passos</Forte>, e nenhum é opcional:
+        </P>
+        <Lista ordenada>
+          <Item>
+            Recalcular o HMAC sobre o <Forte>corpo cru</Forte> — os bytes exatos
+            que chegaram, <Forte>antes</Forte> de qualquer parse. Se o seu
+            framework já converteu o JSON em objeto e você reserializar, a
+            assinatura não vai casar: <Codigo>JSON.stringify</Codigo> não
+            reproduz byte a byte o que foi enviado.
+          </Item>
+          <Item>
+            Comparar em <Forte>tempo constante</Forte> (
+            <Codigo>crypto.timingSafeEqual</Codigo>), nunca com{' '}
+            <Codigo>===</Codigo>: a comparação byte a byte que sai no primeiro
+            byte diferente vaza informação sobre o valor esperado.
+          </Item>
+          <Item>
+            Recusar <Codigo>X-CRM-Timestamp</Codigo> muito antigo — 5 minutos é a
+            janela recomendada. <Forte>É este passo que impede replay:</Forte> sem
+            ele, um corpo capturado hoje pode ser reenviado amanhã com a mesma
+            assinatura válida.
+          </Item>
+        </Lista>
+        <CodeBlock code={VERIFICACAO} label="Node.js" copiedLabel="Código copiado." />
+        <Sub nivel={4}>Rotacionar o segredo</Sub>
+        <P>
+          Em <Interno to="/configuracoes/notificacoes">Configurações →
+          Notificações</Interno>, a ação <Forte>Rotacionar segredo</Forte> gera
+          outro e o exibe uma vez. O anterior <Forte>para de valer na hora</Forte>
+          , sem período de convivência: faça a rotação com o valor novo em mãos e
+          troque-o no receptor em seguida.
+        </P>
+        <Destaque>
+          <P>
+            <Forte>Slack, Discord e Telegram não recebem assinatura</Forte>, e não
+            é esquecimento: eles não têm onde verificá-la. O cabeçalho só sai nos
+            destinos do tipo Webhook — que são justamente os consumidos por n8n,
+            Zapier ou código seu, onde há onde conferir.
+          </P>
+          <P>
+            Destino de webhook cadastrado <Forte>antes</Forte> desta mudança
+            continua entregando <Forte>sem</Forte> o cabeçalho, exatamente como
+            antes. Para passar a receber assinatura, cadastre-o de novo ou
+            rotacione o segredo.
           </P>
         </Destaque>
       </>
