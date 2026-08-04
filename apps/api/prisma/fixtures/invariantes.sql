@@ -289,7 +289,8 @@ BEGIN
    WHERE n.nspname = 'public'
      AND c.relname IN (
        'LeadSourceCatalog', 'LostReasonCatalog', 'ServiceCatalog',
-       'ActivityTypeCatalog', 'IntegrationKey', 'LeadIntakeChannel'
+       'ActivityTypeCatalog', 'IntegrationKey', 'LeadIntakeChannel',
+       'OwnerWebhook', 'OwnerWebhookDelivery'
      )
      AND (c.relrowsecurity IS FALSE OR c.relforcerowsecurity IS FALSE);
   IF sem_rls IS NOT NULL THEN
@@ -509,5 +510,89 @@ BEGIN
   ) t;
   IF duplicadas > 0 THEN
     RAISE EXCEPTION 'Há % par(es) (número, versão) repetidos — o índice único não está valendo.', duplicadas;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Webhook de saída do owner (20260822100000_owner_webhook)
+-- ---------------------------------------------------------------------------
+-- Entrega não pode pertencer a owner diferente do webhook que a originou: as
+-- duas tabelas denormalizam `ownerId` para o RLS, e um `ownerId` divergente
+-- entregaria evento de um owner no endpoint de outro.
+DO $$
+DECLARE cruzadas INT;
+BEGIN
+  SELECT count(*) INTO cruzadas
+    FROM "OwnerWebhookDelivery" d
+    JOIN "OwnerWebhook" w ON w."id" = d."webhookId"
+   WHERE w."ownerId" <> d."ownerId";
+  IF cruzadas > 0 THEN
+    RAISE EXCEPTION 'Há % entrega(s) de webhook com ownerId divergente do webhook — isolamento por ownerId quebrado.', cruzadas;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Livro-razão de consentimento (20260824100000_consent_record)
+-- ---------------------------------------------------------------------------
+-- O append-only tem de estar valendo NO BANCO: se `crm_app` recuperar UPDATE ou
+-- DELETE, a prova exigida pelo art. 8º § 2º passa a ser reescrevível pela
+-- aplicação, e o portão não pode deixar isso passar em silêncio.
+DO $$
+DECLARE indevidos TEXT;
+BEGIN
+  SELECT string_agg(privilege_type, ', ') INTO indevidos
+    FROM information_schema.table_privileges
+   WHERE table_schema = 'public'
+     AND table_name = 'ConsentRecord'
+     AND grantee = 'crm_app'
+     AND privilege_type IN ('UPDATE', 'DELETE');
+  IF indevidos IS NOT NULL THEN
+    RAISE EXCEPTION 'crm_app tem % em "ConsentRecord" — o livro-razão de consentimento deixou de ser append-only.', indevidos;
+  END IF;
+END $$;
+
+-- Consentimento não pode apontar para titular de OUTRO owner. `subjectId` não tem
+-- FK (o titular pode ser Client OU Contact), então é aqui que o isolamento é
+-- conferido.
+DO $$
+DECLARE cruzados INT;
+BEGIN
+  SELECT count(*) INTO cruzados FROM (
+    SELECT 1 FROM "ConsentRecord" c JOIN "Client"  s ON s."id" = c."subjectId"
+      WHERE c."subjectType" = 'CLIENT'  AND s."ownerId" <> c."ownerId"
+    UNION ALL
+    SELECT 1 FROM "ConsentRecord" c JOIN "Contact" s ON s."id" = c."subjectId"
+      WHERE c."subjectType" = 'CONTACT' AND s."ownerId" <> c."ownerId"
+  ) t;
+  IF cruzados > 0 THEN
+    RAISE EXCEPTION 'Há % registro(s) de consentimento apontando para titular de OUTRO owner — isolamento por ownerId quebrado.', cruzados;
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- Índices da varredura de retenção (20260825100000_retention_indexes)
+-- ---------------------------------------------------------------------------
+-- A faxina diária é CROSS-OWNER e filtra só por `createdAt`. Os outros índices
+-- destas tabelas têm `ownerId` como coluna líder, e prefixo à esquerda não serve
+-- a um filtro sem `ownerId` — sem estes dois a varredura vira seq scan nas duas
+-- maiores tabelas do banco, e degrada em SILÊNCIO (o job continua correto, só
+-- fica lento até travar a noite inteira). Uma migration futura que os derrube
+-- passaria verde sem esta invariante.
+DO $$
+DECLARE faltando TEXT;
+BEGIN
+  SELECT string_agg(t.tabela, ', ') INTO faltando
+    FROM (VALUES ('AuditLog'), ('Notification')) AS t(tabela)
+   WHERE NOT EXISTS (
+     SELECT 1
+       FROM pg_index i
+       JOIN pg_class c ON c.oid = i.indrelid
+      WHERE c.relname = t.tabela
+        AND i.indnatts = 1
+        AND (SELECT a.attname FROM pg_attribute a
+              WHERE a.attrelid = c.oid AND a.attnum = i.indkey[0]) = 'createdAt'
+   );
+  IF faltando IS NOT NULL THEN
+    RAISE EXCEPTION 'Falta índice em ("createdAt") em: % — a varredura de retenção passaria a fazer seq scan.', faltando;
   END IF;
 END $$;
