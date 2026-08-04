@@ -61,8 +61,23 @@ export class PrismaAccountPurgeRepository implements AccountPurgeRepository {
           contagem[nome] = (await fn()).count;
         };
 
-        // 1. Negócio, na ordem de `prisma/seed.ts:242-251` — a mesma que a
-        //    limpeza idempotente do seed exercita a cada execução.
+        /*
+          1. Negócio, na ordem de `prisma/seed.ts:242-251` — a mesma que a
+             limpeza idempotente do seed exercita a cada execução.
+
+          O consentimento vem ANTES de `Client`/`Contact` porque ele aponta para
+          os dois (`subjectId`, sem FK): apagar o titular primeiro deixaria a
+          linha órfã até o `DELETE FROM "User"` levá-la por cascata, e a ordem
+          explícita é a doutrina de `shared/purge.ts` ("nenhuma cascata").
+
+          Ele é apagado, e não preservado: o `REVOKE DELETE` vale para `crm_app` e
+          é o que impede a APLICAÇÃO de reescrever a prova; o expurgo roda por
+          `PrismaAdminService` (`crm_user`), como já faz com o `AuditLog`. E pela
+          mesma razão da 19-A: o registro carrega PII de TERCEIRO, e retê-la
+          depois do encerramento seria tratar fora das instruções (LGPD art. 42,
+          § 1º, I).
+        */
+        await apagar('consentimentos', () => tx.consentRecord.deleteMany(onde));
         await apagar('cobrancas', () => tx.payment.deleteMany(onde));
         await apagar('demandas', () => tx.task.deleteMany(onde));
         await apagar('atividades', () => tx.activity.deleteMany(onde));

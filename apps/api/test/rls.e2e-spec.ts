@@ -79,14 +79,17 @@ describe('Isolamento por ownerId (e2e)', () => {
       expect(desprotegidas).toEqual([]);
     });
 
-    it('as 24 tabelas protegidas hoje continuam protegidas', async () => {
+    it('as 27 tabelas protegidas hoje continuam protegidas', async () => {
       // Contagem-âncora: pega remoção acidental de policy numa migration.
       // Subir este número junto com a migration que adiciona a tabela nova é
       // parte do trabalho — é o momento de perguntar se ela precisa de RLS.
+      //
+      // 24 → 27 na Fase 19-B: `OwnerWebhook`, `OwnerWebhookDelivery` e
+      // `ConsentRecord` — as três com `ownerId` e com policy `owner_isolation`.
       const [{ total }] = await clientAdmin().$queryRaw<{ total: bigint }[]>`
         SELECT count(*) AS total FROM pg_policies WHERE schemaname = 'public'
       `;
-      expect(Number(total)).toBe(24);
+      expect(Number(total)).toBe(27);
     });
 
     it('crm_app sem app.owner_id definido não enxerga linha nenhuma (fail-closed)', async () => {
@@ -253,6 +256,121 @@ describe('Isolamento por ownerId (e2e)', () => {
         .get(`/api/v1/clients/${clienteDoB.id}`)
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Camada 3: append-only NO BANCO (não por disciplina de código).
+  // -------------------------------------------------------------------------
+  describe('livro-razão de consentimento é append-only no banco', () => {
+    /**
+     * Conexão como `crm_app` — a role da aplicação, sujeita a RLS e aos GRANTs.
+     * É ela que precisa ser incapaz de reescrever a prova; o `clientAdmin`
+     * (`crm_user`) consegue, e é isso que permite o expurgo de conta apagar.
+     */
+    const comoApp = async <T>(fn: (db: PrismaClient) => Promise<T>) => {
+      const app_ = new PrismaClient({
+        datasources: { db: { url: process.env.APP_DATABASE_URL! } },
+      });
+      try {
+        return await fn(app_);
+      } finally {
+        await app_.$disconnect();
+      }
+    };
+
+    /** Semeia uma linha pelo client admin e devolve o id. */
+    const semearConsentimento = async () => {
+      const owner = await criarOwner('dono@teste.local');
+      const cliente = await clientAdmin().client.create({
+        data: { name: 'Titular', ownerId: owner.id },
+      });
+      const linha = await clientAdmin().consentRecord.create({
+        data: {
+          ownerId: owner.id,
+          subjectType: 'CLIENT',
+          subjectId: cliente.id,
+          purpose: 'comunicacao_marketing',
+          granted: true,
+          textVersion: '2026-08-1',
+          channel: 'formulario-site',
+          recordedByName: 'Ana',
+          occurredAt: new Date(),
+        },
+      });
+      return { ownerId: owner.id, linhaId: linha.id };
+    };
+
+    /*
+      O art. 8º § 2º põe o ônus da prova do consentimento no controlador. Um
+      livro-razão que a própria aplicação pode reescrever não é prova de nada — daí
+      o `REVOKE UPDATE, DELETE ON "ConsentRecord" FROM crm_app`, no molde do
+      `AuditLog`. Estes dois casos afirmam que o REVOKE está valendo.
+    */
+    it('crm_app NÃO consegue dar UPDATE numa linha de consentimento', async () => {
+      const { ownerId, linhaId } = await semearConsentimento();
+
+      await comoApp(async (db) => {
+        await db.$executeRawUnsafe(
+          `SELECT set_config('app.owner_id', '${ownerId}', false)`,
+        );
+        await expect(
+          db.$executeRawUnsafe(
+            `UPDATE "ConsentRecord" SET "granted" = false WHERE "id" = '${linhaId}'`,
+          ),
+        ).rejects.toThrow(/permission denied|permissão negada/i);
+      });
+
+      // …e a linha continua como estava.
+      const depois = await clientAdmin().consentRecord.findUniqueOrThrow({
+        where: { id: linhaId },
+      });
+      expect(depois.granted).toBe(true);
+    });
+
+    it('crm_app NÃO consegue dar DELETE numa linha de consentimento', async () => {
+      const { ownerId, linhaId } = await semearConsentimento();
+
+      await comoApp(async (db) => {
+        await db.$executeRawUnsafe(
+          `SELECT set_config('app.owner_id', '${ownerId}', false)`,
+        );
+        await expect(
+          db.$executeRawUnsafe(
+            `DELETE FROM "ConsentRecord" WHERE "id" = '${linhaId}'`,
+          ),
+        ).rejects.toThrow(/permission denied|permissão negada/i);
+      });
+
+      expect(
+        await clientAdmin().consentRecord.count({ where: { id: linhaId } }),
+      ).toBe(1);
+    });
+
+    it('crm_app CONSEGUE inserir e ler — append-only não é read-only', async () => {
+      const { ownerId } = await semearConsentimento();
+      const cliente = await clientAdmin().client.findFirstOrThrow();
+
+      await comoApp(async (db) => {
+        await db.$executeRawUnsafe(
+          `SELECT set_config('app.owner_id', '${ownerId}', false)`,
+        );
+        // A revogação: LINHA NOVA, que é o caminho que a aplicação usa.
+        await db.consentRecord.create({
+          data: {
+            ownerId,
+            subjectType: 'CLIENT',
+            subjectId: cliente.id,
+            purpose: 'comunicacao_marketing',
+            granted: false,
+            textVersion: '2026-08-1',
+            channel: 'telefone',
+            recordedByName: 'Ana',
+            occurredAt: new Date(),
+          },
+        });
+        await expect(db.consentRecord.findMany()).resolves.toHaveLength(2);
+      });
     });
   });
 });

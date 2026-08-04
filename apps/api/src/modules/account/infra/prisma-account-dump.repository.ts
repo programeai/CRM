@@ -67,6 +67,7 @@ export class PrismaAccountDumpRepository implements AccountDumpRepository {
       contratos,
       pagamentos,
       atividades,
+      consentimentos,
     ] = await Promise.all([
       db.subscription.findUnique({
         where: { ownerId },
@@ -279,6 +280,29 @@ export class PrismaAccountDumpRepository implements AccountDumpRepository {
           assignee: { select: { name: true } },
         },
       }),
+      /*
+        O livro-razão de consentimento (Fase 19-B). `recordedByUserId` NÃO entra:
+        o que interessa ao titular é QUEM registrou pelo nome, que já está
+        denormalizado em `recordedByName` — e o id de um colaborador é
+        identificador técnico sem utilidade subsequente para quem recebe o dump.
+      */
+      db.consentRecord.findMany({
+        where: { ownerId },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          subjectType: true,
+          subjectId: true,
+          purpose: true,
+          granted: true,
+          textVersion: true,
+          channel: true,
+          evidence: true,
+          informedRetention: true,
+          recordedByName: true,
+          occurredAt: true,
+          createdAt: true,
+        },
+      }),
     ]);
 
     return {
@@ -462,6 +486,19 @@ export class PrismaAccountDumpRepository implements AccountDumpRepository {
         scheduledFor: a.scheduledFor,
         completedAt: a.completedAt,
         createdAt: a.createdAt,
+      })),
+      consentimentos: consentimentos.map((c) => ({
+        titularTipo: c.subjectType,
+        titularId: c.subjectId,
+        finalidade: c.purpose,
+        consentiu: c.granted,
+        versaoDoTexto: c.textVersion,
+        canal: c.channel,
+        evidencia: c.evidence,
+        retencaoInformada: c.informedRetention,
+        registradoPor: c.recordedByName,
+        manifestadoEm: c.occurredAt,
+        registradoEm: c.createdAt,
       })),
     };
   }

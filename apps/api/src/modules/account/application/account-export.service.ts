@@ -86,6 +86,7 @@ export class AccountExportService {
       contratos: dados.contratos.length,
       cobrancas: dados.cobrancas.length,
       atividades: dados.atividades.length,
+      consentimentos: dados.consentimentos.length,
     };
 
     return {
@@ -112,6 +113,7 @@ export class AccountExportService {
       contratos: dados.contratos,
       cobrancas: dados.cobrancas,
       atividades: dados.atividades,
+      consentimentos: dados.consentimentos,
     };
   }
 

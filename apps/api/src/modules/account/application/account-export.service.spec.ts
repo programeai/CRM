@@ -6,6 +6,7 @@ import type {
 } from '../domain/account-dump.repository';
 import type { AuditService } from '../../audit/audit.service';
 import type { ConfigService } from '@nestjs/config';
+import { VERSAO_DO_DUMP } from '../domain/account-dump';
 
 const OWNER = 'owner-1';
 
@@ -95,6 +96,7 @@ function dadosMock(): DadosDoDump {
     contratos: [],
     cobrancas: [],
     atividades: [],
+    consentimentos: [],
   };
 }
 
@@ -128,7 +130,10 @@ describe('AccountExportService', () => {
       };
     };
 
-    expect(dump.manifesto.versaoDoEsquema).toBe(1);
+    // Sobe junto de toda mudança de FORMA do dump: 2 quando `consentimentos`
+    // entrou (Fase 19-B). Quem consome um dump antigo precisa saber o que mudou.
+    expect(dump.manifesto.versaoDoEsquema).toBe(VERSAO_DO_DUMP);
+    expect(VERSAO_DO_DUMP).toBe(2);
     expect(dump.manifesto.contagem.clientes).toBe(1);
     expect(dump.manifesto.contagem.colaboradores).toBe(1);
     expect(dump.manifesto.naoIncluido.length).toBeGreaterThan(0);

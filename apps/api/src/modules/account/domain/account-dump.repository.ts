@@ -1,6 +1,7 @@
 import type {
   AssinaturaExportada,
   AtividadeExportada,
+  ConsentimentoExportado,
   CanalExportado,
   CatalogosExportados,
   ClienteExportado,
@@ -37,6 +38,7 @@ export interface DadosDoDump {
   contratos: ContratoExportado[];
   cobrancas: CobrancaExportada[];
   atividades: AtividadeExportada[];
+  consentimentos: ConsentimentoExportado[];
 }
 
 export interface AccountDumpRepository {
