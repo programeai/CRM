@@ -11,6 +11,7 @@ import { AccessModule } from './modules/access/access.module';
 import { AccessGuard } from './modules/access/access.guard';
 import { AuditModule } from './modules/audit/audit.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
@@ -20,6 +21,7 @@ import { DataModule } from './modules/data/data.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { PublicApiModule } from './modules/public-api/public-api.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
 import { PipelineModule } from './modules/pipeline/pipeline.module';
 import { ProposalsModule } from './modules/proposals/proposals.module';
@@ -27,6 +29,8 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TrashModule } from './modules/trash/trash.module';
+import { ConsentModule } from './modules/consent/consent.module';
+import { RetentionModule } from './modules/retention/retention.module';
 import { AccountModule } from './modules/account/account.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { HealthModule } from './modules/health/health.module';
@@ -68,6 +72,9 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     AccessModule,
     AuditModule,
     NotificationsModule, // ← @Global(), junto do AuditModule pelo mesmo motivo
+    // ← @Global() pelo mesmo motivo dos dois acima: a emissão de evento de
+    // negócio é transversal e cruza módulos que não devem depender entre si.
+    WebhooksModule,
     AuthModule,
     CollaboratorsModule,
     WorkspaceModule,
@@ -77,6 +84,9 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     ClientsModule,
     ContactsModule,
     LeadsModule,
+    // Depois de LeadsModule: as duas são fronteiras de escrita por chave de
+    // integração, e a de lead é a mais antiga (17-A).
+    PublicApiModule,
     ActivitiesModule,
     PipelineModule,
     ProposalsModule,
@@ -84,6 +94,8 @@ import { CABECALHO_REQUEST_ID } from './shared/logging/request-context.middlewar
     FinanceModule,
     DashboardModule,
     TrashModule,
+    ConsentModule,
+    RetentionModule,
     AccountModule,
     BillingModule,
     HealthModule,
