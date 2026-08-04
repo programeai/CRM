@@ -16,11 +16,30 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
 import { SessionsService, type DeviceInfo } from './sessions.service';
 import { AccessRecordsService } from './access-records.service';
+import { TotpService } from './totp/totp.service';
+import {
+  TIPO_DO_DESAFIO,
+  TTL_DO_DESAFIO,
+  type PayloadDoDesafio,
+} from './totp/desafio-de-2fa';
 import type { AccessContext } from '../access/domain/access-context';
 import type { OAuthProfile } from './oauth/oauth.service';
 
 /** Validade do token de redefinição de senha. */
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+/** Par de tokens de uma sessão emitida. */
+export interface SessaoEmitida {
+  accessToken: string;
+  refreshToken: string;
+}
+
+/**
+ * Resultado do login: sessão **ou** desafio de segundo fator. Nunca os dois — é
+ * o que o controller discrimina para decidir se emite o cookie de refresh.
+ */
+export type ResultadoDeLogin =
+  SessaoEmitida | { twoFactorRequired: true; desafio: string };
 
 @Injectable()
 export class AuthService {
@@ -33,6 +52,7 @@ export class AuthService {
     private config: ConfigService,
     private mail: MailService,
     private accessRecords: AccessRecordsService,
+    private totp: TotpService,
   ) {}
 
   async register(
@@ -100,7 +120,11 @@ export class AuthService {
     return this.issueTokens(created.id, device, 'LOGIN_OAUTH');
   }
 
-  async login(email: string, password: string, device: DeviceInfo = {}) {
+  async login(
+    email: string,
+    password: string,
+    device: DeviceInfo = {},
+  ): Promise<ResultadoDeLogin> {
     const user = await this.users.findByEmail(email);
     // `passwordHash` nulo = conta só-OAuth ou convite de colaborador ainda não
     // aceito: nos dois casos não há o que verificar, e a resposta é genérica.
@@ -114,7 +138,88 @@ export class AuthService {
     // A checagem vem DEPOIS da senha de propósito: sem isso, o erro específico
     // revelaria a existência da conta a quem não sabe a senha.
     this.assertActive(user.active);
+    /*
+      O segundo fator entra AQUI, e este é o único ponto do arquivo entre a
+      validação da senha e a emissão de sessão.
+
+      **Nada de `AccessRecord` neste ramo:** a lei fala de registro de ACESSO, e
+      uma senha correta sem o segundo fator não é acesso. Ele é registrado em
+      `concluirLoginCom2fa`, com kind `LOGIN_2FA`.
+    */
+    if (await this.totp.exigeSegundoFator(user.id)) {
+      return {
+        twoFactorRequired: true,
+        desafio: await this.emitirDesafio(user.id),
+      };
+    }
     return this.issueTokens(user.id, device);
+  }
+
+  /**
+   * Segundo passo: valida o desafio e o código (TOTP **ou** de recuperação) e
+   * emite a sessão. `kind: 'LOGIN_2FA'` distingue o acesso com segundo fator do
+   * comum — os dois são acessos bem-sucedidos, que é o que a tabela registra.
+   */
+  async concluirLoginCom2fa(
+    desafio: string,
+    codigo: string,
+    device: DeviceInfo = {},
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const userId = await this.verificarDesafio(desafio);
+    const ok =
+      (await this.totp.verificar(userId, codigo)) ||
+      (await this.totp.consumirCodigoDeRecuperacao(userId, codigo));
+    if (!ok) {
+      /*
+        Sem o código no log, e sem e-mail: a linha vive 30 dias num Grafana
+        publicado. O `TotpService` já emitiu `mfa.codigo_recusado` com o contador
+        de falhas; esta linha registra que a recusa foi **no login**, que é o
+        caminho que interessa vigiar.
+      */
+      this.logger.warn({
+        evento: 'mfa.login_recusado',
+        msg: 'Segundo fator recusado no login.',
+        usuarioId: userId,
+      });
+      throw new UnauthorizedException('Código inválido ou expirado.');
+    }
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    // Colaborador desativado ENTRE o primeiro e o segundo passo não entra.
+    this.assertActive(user.active);
+    return this.issueTokens(userId, device, 'LOGIN_2FA');
+  }
+
+  /** O JWT curto que representa "a senha já foi provada". */
+  private emitirDesafio(sub: string): Promise<string> {
+    const payload: PayloadDoDesafio = { sub, tipo: TIPO_DO_DESAFIO };
+    return this.jwt.signAsync(payload, {
+      secret: this.config.get('JWT_ACCESS_SECRET'),
+      expiresIn: TTL_DO_DESAFIO,
+    });
+  }
+
+  /**
+   * Valida o desafio e devolve o `userId`. O `tipo: 'mfa'` é conferido à mão e
+   * **não** é detalhe: sem ele, um access token válido (mesmo segredo, mesmo
+   * `sub`) seria aceito aqui e o segundo fator viraria decoração.
+   */
+  private async verificarDesafio(desafio: string): Promise<string> {
+    try {
+      const payload = await this.jwt.verifyAsync<PayloadDoDesafio>(desafio, {
+        secret: this.config.get('JWT_ACCESS_SECRET'),
+      });
+      if (payload.tipo !== TIPO_DO_DESAFIO || !payload.sub) {
+        throw new Error('tipo inesperado');
+      }
+      return payload.sub;
+    } catch {
+      // Expirado, assinatura inválida ou token de outro propósito: a mensagem é
+      // a mesma, e ela diz o que a pessoa precisa fazer (entrar de novo).
+      throw new UnauthorizedException(
+        'A confirmação expirou. Entre com e-mail e senha de novo.',
+      );
+    }
   }
 
   /**
@@ -431,6 +536,84 @@ export class AuthService {
    * `argon2.verify`); no access porque logout e "revogar esta sessão" precisam
    * saber qual é a sessão corrente numa rota autenticada.
    */
+  // --- segundo fator (TOTP) -------------------------------------------------
+
+  /** Estado do 2FA para a tela de Segurança. */
+  statusDoSegundoFator(userId: string) {
+    return this.totp.status(userId);
+  }
+
+  /**
+   * Inicia o cadastro: gera o segredo e devolve o QR. **Não liga o 2FA** — só
+   * `confirmarSegundoFator` liga, e só com um código válido do autenticador.
+   */
+  async iniciarSegundoFator(userId: string) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+    // O e-mail é o `label` do `otpauth://`: é o que a pessoa vê no app para saber
+    // qual conta é qual quando tem várias.
+    return this.totp.iniciar(userId, user.email);
+  }
+
+  /** Confirma e liga. Devolve os códigos de recuperação, uma única vez. */
+  confirmarSegundoFator(userId: string, codigo: string) {
+    return this.totp.confirmar(userId, codigo);
+  }
+
+  /** Regenera os códigos, invalidando os antigos. Exige reautenticação. */
+  async regenerarCodigosDeRecuperacao(
+    userId: string,
+    confirmacao: { password?: string; codigo?: string },
+  ) {
+    await this.assertReautenticado(userId, confirmacao);
+    return this.totp.regenerarCodigos(userId);
+  }
+
+  /** Desliga o 2FA. Exige reautenticação. */
+  async desativarSegundoFator(
+    userId: string,
+    confirmacao: { password?: string; codigo?: string },
+  ): Promise<void> {
+    await this.assertReautenticado(userId, confirmacao);
+    await this.totp.desativar(userId);
+  }
+
+  /**
+   * Reautenticação para mexer no próprio segundo fator (OWASP ASVS 3.7.1): a
+   * senha **ou** um código válido do autenticador.
+   *
+   * **`ForbiddenException`, nunca `UnauthorizedException`** — mesmo precedente de
+   * `AccountDeletionService.assertReautenticado`: um 401 em rota autenticada
+   * dispara o refresh/logout do cliente HTTP, e uma senha errada no diálogo
+   * derrubaria a sessão em vez de mostrar a mensagem.
+   *
+   * O código é aceito como alternativa porque quem entrou por login social e
+   * nunca definiu senha não tem senha para provar — `passwordSetAt`, e não
+   * `passwordHash IS NOT NULL`, é quem responde isso (conta OAuth nasce com uma
+   * senha aleatória que ninguém conhece).
+   */
+  private async assertReautenticado(
+    userId: string,
+    confirmacao: { password?: string; codigo?: string },
+  ): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+
+    if (confirmacao.password && user.passwordSetAt && user.passwordHash) {
+      if (await argon2.verify(user.passwordHash, confirmacao.password)) return;
+      throw new ForbiddenException('Senha incorreta.');
+    }
+    if (confirmacao.codigo) {
+      if (await this.totp.verificar(userId, confirmacao.codigo)) return;
+      throw new ForbiddenException('Código inválido ou expirado.');
+    }
+    throw new ForbiddenException(
+      user.passwordSetAt
+        ? 'Confirme com a sua senha ou com um código do autenticador.'
+        : 'Confirme com um código do autenticador.',
+    );
+  }
+
   private async issueTokens(
     sub: string,
     device: DeviceInfo = {},

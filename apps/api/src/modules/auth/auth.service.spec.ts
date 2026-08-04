@@ -13,9 +13,15 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../../mail/mail.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import type { TotpService } from './totp/totp.service';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let totp: {
+    exigeSegundoFator: jest.Mock;
+    verificar: jest.Mock;
+    consumirCodigoDeRecuperacao: jest.Mock;
+  };
   let users: jest.Mocked<
     Pick<
       UsersService,
@@ -74,6 +80,16 @@ describe('AuthService', () => {
         chave in valoresDeConfig ? valoresDeConfig[chave] : 'x',
       ),
     } as unknown as ConfigService;
+    /*
+      Segundo fator DESLIGADO por default nestes casos: eles são sobre senha,
+      sessão e registro de acesso. O caminho com 2FA tem `describe` próprio, e o
+      ciclo completo por HTTP está no `auth.e2e-spec.ts`.
+    */
+    totp = {
+      exigeSegundoFator: jest.fn().mockResolvedValue(false),
+      verificar: jest.fn().mockResolvedValue(false),
+      consumirCodigoDeRecuperacao: jest.fn().mockResolvedValue(false),
+    };
     service = new AuthService(
       users as unknown as UsersService,
       sessions as unknown as SessionsService,
@@ -81,6 +97,7 @@ describe('AuthService', () => {
       config,
       mail as unknown as MailService,
       accessRecords as unknown as AccessRecordsService,
+      totp as unknown as TotpService,
     );
   });
 
