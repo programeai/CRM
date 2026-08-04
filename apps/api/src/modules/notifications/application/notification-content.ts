@@ -117,6 +117,9 @@ const ENTIDADE: Record<AuditEntity, string> = {
   // A conta (Fase 19-A) também nunca dispara notificação — exportar/encerrar
   // viram trilha de auditoria e e-mail direto, não o sino da central.
   ACCOUNT: 'a conta',
+  // O webhook de saída (Fase 19-B) também não: cadastrar/rotacionar/excluir
+  // viram trilha de auditoria, e o que ele PRODUZ sai por HTTP, não pelo sino.
+  WEBHOOK: 'o webhook',
 };
 
 /**
