@@ -10,7 +10,7 @@ import {
 /** Editar cobrança — permitido apenas enquanto `PENDING` (ver PaymentsService.update). */
 export class UpdatePaymentDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Descrição obrigatória.' })
   @MinLength(1, { message: 'Descrição obrigatória.' })
   description?: string;
 

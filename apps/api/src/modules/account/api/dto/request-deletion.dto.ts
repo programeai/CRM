@@ -8,7 +8,7 @@ import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
  */
 export class RequestDeletionDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Senha inválida.' })
   @MaxLength(200, { message: 'A senha informada é longa demais.' })
   password?: string;
 

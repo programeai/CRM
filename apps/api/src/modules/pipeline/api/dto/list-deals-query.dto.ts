@@ -6,7 +6,7 @@ export class ListDealsQueryDto extends PaginationQueryDto {
   @IsUUID('4', { message: 'Cliente inválido.' })
   clientId?: string;
   @IsOptional() @IsUUID('4', { message: 'Estágio inválido.' }) stageId?: string;
-  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString({ message: 'Busca inválida.' }) search?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'Responsável inválido.' })

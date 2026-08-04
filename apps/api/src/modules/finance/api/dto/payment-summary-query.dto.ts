@@ -9,7 +9,7 @@ import { BillingType } from '@prisma/client';
 
 /** Filtros do resumo de recebimentos (mesmos da listagem, exceto paginação e status). */
 export class PaymentSummaryQueryDto {
-  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString({ message: 'Busca inválida.' }) search?: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'Cliente inválido.' })

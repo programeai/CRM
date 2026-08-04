@@ -17,5 +17,7 @@ export class ImportPreviaDto {
   tipo: TipoDeImportacao;
 
   /** JSON de `{ "Coluna da planilha": "chaveDoCampo" | null }`. Ausente = o servidor sugere. */
-  @IsOptional() @IsString() mapeamento?: string;
+  @IsOptional()
+  @IsString({ message: 'Mapeamento de colunas inválido.' })
+  mapeamento?: string;
 }

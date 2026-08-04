@@ -85,7 +85,7 @@ export class BillingPlanDto {
  */
 export class DeriveContractFromProposalDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Descrição obrigatória.' })
   @MinLength(1, { message: 'Descrição obrigatória.' })
   description?: string;
 

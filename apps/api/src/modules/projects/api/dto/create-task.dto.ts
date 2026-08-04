@@ -20,7 +20,9 @@ export class CreateTaskDto {
   @MinLength(2, { message: 'O título deve ter no mínimo 2 caracteres.' })
   title: string;
 
-  @IsOptional() @IsString() description?: string;
+  @IsOptional()
+  @IsString({ message: 'Descrição inválida.' })
+  description?: string;
 
   @IsOptional()
   @IsEnum(TaskStatus, { message: 'Status inválido.' })
@@ -40,7 +42,7 @@ export class CreateTaskDto {
   tags?: string[];
 
   @IsOptional()
-  @IsArray()
+  @IsArray({ message: 'O checklist deve ser uma lista.' })
   @ValidateNested({ each: true })
   @Type(() => ChecklistItemDto)
   checklist?: ChecklistItemDto[];

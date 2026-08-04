@@ -22,6 +22,6 @@ export class PayPaymentDto {
   method: PaymentMethod;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Observações inválidas.' })
   notes?: string;
 }

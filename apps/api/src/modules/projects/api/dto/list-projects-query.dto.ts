@@ -9,5 +9,5 @@ export class ListProjectsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(ProjectStatus, { message: 'Status inválido.' })
   status?: ProjectStatus;
-  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString({ message: 'Busca inválida.' }) search?: string;
 }

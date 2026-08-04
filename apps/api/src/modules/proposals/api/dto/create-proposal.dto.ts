@@ -28,7 +28,7 @@ export class CreateProposalDto {
   @IsUUID('4', { message: 'Tipo de serviço inválido.' })
   serviceTypeId: string;
 
-  @IsArray()
+  @IsArray({ message: 'Os itens devem ser uma lista.' })
   @ArrayNotEmpty({ message: 'Informe ao menos um item.' })
   @ValidateNested({ each: true })
   @Type(() => ProposalItemDto)
@@ -39,9 +39,13 @@ export class CreateProposalDto {
   @Min(0, { message: 'O desconto não pode ser negativo.' })
   discount?: number;
 
-  @IsOptional() @IsString() scope?: string;
-  @IsOptional() @IsString() paymentTerms?: string;
-  @IsOptional() @IsString() deliveryTime?: string;
+  @IsOptional() @IsString({ message: 'Escopo inválido.' }) scope?: string;
+  @IsOptional()
+  @IsString({ message: 'Condições de pagamento inválidas.' })
+  paymentTerms?: string;
+  @IsOptional()
+  @IsString({ message: 'Prazo de entrega inválido.' })
+  deliveryTime?: string;
 
   @IsOptional()
   @IsDateString({}, { message: 'Data de validade inválida.' })
