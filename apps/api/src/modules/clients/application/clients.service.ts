@@ -23,6 +23,7 @@ import { normalizePage, paginated } from '../../../shared/pagination';
 import { normalizeTag, type TagUsage } from '../../../shared/tags';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
 import { assertArquivado, assertSemFilhos } from '../../../shared/purge';
+import type { OpcoesDeEscrita } from '../../../shared/opcoes-de-escrita';
 import {
   assertCabeNaExportacao,
   MAX_EXPORT_ROWS,
@@ -30,6 +31,8 @@ import {
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { ExportService } from '../../data/application/export.service';
 import { assigneeMudou } from '../../../shared/assignee-changed';
@@ -39,17 +42,11 @@ import type { ListClientsQueryDto } from '../api/dto/list-clients-query.dto';
 import type { ExportClientsQueryDto } from '../api/dto/export-clients-query.dto';
 import { COLUNAS_DE_CLIENTE } from './client-export-columns';
 
-/** Opções de escrita de quem chama de fora do caminho de requisição humana. */
-export interface OpcoesDeEscritaDeCliente {
-  /**
-   * `false` desliga o `RECORD_ASSIGNED` da atribuição. Só a ingestão externa
-   * de lead usa: ela não tem `AccessContext` (a rota é `@Public()`), então
-   * `notificar` cairia no early-return `notificacao.sem_contexto` a cada lead
-   * — e o aviso de quem recebeu o lead é o `LEAD_RECEIVED`, que a própria
-   * ingestão emite pelo caminho de sistema.
-   */
-  avisarResponsavel?: boolean;
-}
+/*
+  As opções de escrita subiram para `shared/opcoes-de-escrita.ts` quando a API
+  pública passou a precisar da mesma coisa em `DealsService`, `ActivitiesService`
+  e `TasksService`: o mesmo julgamento em quatro services pede um tipo só.
+*/
 
 @Injectable()
 export class ClientsService {
@@ -58,6 +55,7 @@ export class ClientsService {
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
     private readonly catalogos: CatalogosService,
     private readonly exporter: ExportService,
   ) {}
@@ -65,7 +63,7 @@ export class ClientsService {
   async create(
     ownerId: string,
     dto: CreateClientDto,
-    opcoes: OpcoesDeEscritaDeCliente = {},
+    opcoes: OpcoesDeEscrita = {},
   ): Promise<ClientWithAssignee> {
     // `assigneeId` entra pelo spread do DTO — sem esta linha, iria ao banco sem validação.
     await this.members.assertMember(ownerId, dto.assigneeId);
@@ -99,6 +97,18 @@ export class ClientsService {
           entity: 'CLIENT',
           entityId: criado.id,
           entityLabel: criado.name,
+        },
+      });
+      // Gêmeo do aviso interno, para FORA da workspace. Mesma transação, mesmo
+      // "engole a própria falha": webhook não pode derrubar a operação.
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: criado.id,
+        dados: {
+          entidade: 'CLIENT',
+          titulo: criado.name,
+          responsavelId: dto.assigneeId,
+          link: `/clientes/${criado.id}`,
         },
       });
     }
@@ -156,7 +166,7 @@ export class ClientsService {
     ownerId: string,
     id: string,
     dto: UpdateClientDto,
-    opcoes: OpcoesDeEscritaDeCliente = {},
+    opcoes: OpcoesDeEscrita = {},
   ): Promise<ClientWithAssignee> {
     await this.members.assertMember(ownerId, dto.assigneeId);
     if (dto.sourceId) {
@@ -190,6 +200,16 @@ export class ClientsService {
           entity: 'CLIENT',
           entityId: id,
           entityLabel: atualizado.name,
+        },
+      });
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: id,
+        dados: {
+          entidade: 'CLIENT',
+          titulo: atualizado.name,
+          responsavelId: dto.assigneeId,
+          link: `/clientes/${id}`,
         },
       });
     }

@@ -12,6 +12,7 @@ import type { WorkspaceMembersService } from '../../workspace/application/worksp
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { CatalogosService } from '../../catalogos/application/catalogos.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 describe('DealsService', () => {
   let repo: jest.Mocked<DealRepository>;
@@ -60,6 +61,7 @@ describe('DealsService', () => {
       members as unknown as WorkspaceMembersService,
       audit as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
       catalogos as unknown as CatalogosService,
     );
   });

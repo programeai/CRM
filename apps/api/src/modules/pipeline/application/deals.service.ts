@@ -16,11 +16,14 @@ import { ProjectsService } from '../../projects/application/projects.service';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import { CatalogosService } from '../../catalogos/application/catalogos.service';
 import { assertArquivado } from '../../../shared/purge';
 import { normalizePage, paginated } from '../../../shared/pagination';
 import { assigneeMudou } from '../../../shared/assignee-changed';
 import { ALL_RECORDS, type AssigneeScope } from '../../../shared/record-scope';
+import type { OpcoesDeEscrita } from '../../../shared/opcoes-de-escrita';
 import type { CreateDealDto } from '../api/dto/create-deal.dto';
 import type { UpdateDealDto } from '../api/dto/update-deal.dto';
 import type { ListDealsQueryDto } from '../api/dto/list-deals-query.dto';
@@ -40,6 +43,7 @@ export class DealsService {
     private readonly members: WorkspaceMembersService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
     private readonly catalogos: CatalogosService,
   ) {}
 
@@ -100,7 +104,11 @@ export class DealsService {
     return this.loadOwned(ownerId, id, scope);
   }
 
-  async create(ownerId: string, dto: CreateDealDto): Promise<DealWithClient> {
+  async create(
+    ownerId: string,
+    dto: CreateDealDto,
+    opcoes: OpcoesDeEscrita = {},
+  ): Promise<DealWithClient> {
     await this.clients.findOne(ownerId, dto.clientId); // valida que o cliente é do dono
     await this.members.assertMember(ownerId, dto.assigneeId);
     await this.catalogos.assertUtilizavel(
@@ -127,7 +135,7 @@ export class DealsService {
     // Gatilho (f). DEPOIS da escrita e na MESMA transação do request: a
     // notificação commita junto com a atribuição, ou nenhuma das duas commita.
     // Auto-atribuição é descartada dentro do `notificar`.
-    if (dto.assigneeId) {
+    if (dto.assigneeId && opcoes.avisarResponsavel !== false) {
       await this.notifications.notificar({
         userId: dto.assigneeId,
         evento: {
@@ -135,6 +143,18 @@ export class DealsService {
           entity: 'DEAL',
           entityId: criado.id,
           entityLabel: criado.title,
+        },
+      });
+      // Gêmeo do aviso interno, para FORA da workspace. Mesma transação, mesmo
+      // "engole a própria falha": webhook não pode derrubar a operação.
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: criado.id,
+        dados: {
+          entidade: 'DEAL',
+          titulo: criado.title,
+          responsavelId: dto.assigneeId,
+          link: '/pipeline',
         },
       });
     }
@@ -181,6 +201,16 @@ export class DealsService {
           entity: 'DEAL',
           entityId: id,
           entityLabel: atualizado.title,
+        },
+      });
+      await this.webhooks.emitir({
+        evento: EVENTO_POR_TIPO.RECORD_ASSIGNED,
+        entityId: id,
+        dados: {
+          entidade: 'DEAL',
+          titulo: atualizado.title,
+          responsavelId: dto.assigneeId,
+          link: '/pipeline',
         },
       });
     }

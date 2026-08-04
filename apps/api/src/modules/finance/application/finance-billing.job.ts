@@ -11,6 +11,8 @@ import {
 import { billingDatesInWindow } from './schedule';
 import { AuditService } from '../../audit/audit.service';
 import { NotificationsService } from '../../notifications/notifications.service';
+import { OwnerWebhooksEmitterService } from '../../webhooks/application/owner-webhooks-emitter.service';
+import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 
 /** Nome exibido na tela de auditoria para as duas rotinas diárias. */
 const ATOR_ROTINA = 'Rotina diária';
@@ -24,6 +26,7 @@ export class FinanceBillingJob {
     @Inject(PAYMENT_REPOSITORY) private readonly payments: PaymentRepository,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly webhooks: OwnerWebhooksEmitterService,
   ) {}
 
   /**
@@ -79,6 +82,21 @@ export class FinanceBillingJob {
           clienteNome: p.clienteNome,
           valor: p.amount,
           dataAlvo: p.dueDate,
+        },
+      });
+      // Gêmeo do aviso interno, para FORA da workspace. `emitirPeloSistema`
+      // porque o cron roda cross-owner, sem `app.owner_id`, e engole a própria
+      // falha do mesmo jeito.
+      await this.webhooks.emitirPeloSistema({
+        ownerId: p.ownerId,
+        evento: EVENTO_POR_TIPO.PAYMENT_OVERDUE,
+        entityId: p.id,
+        dados: {
+          descricao: p.description,
+          clienteNome: p.clienteNome,
+          valor: p.amount,
+          vencimento: p.dueDate.toISOString(),
+          link: '/financeiro',
         },
       });
     }

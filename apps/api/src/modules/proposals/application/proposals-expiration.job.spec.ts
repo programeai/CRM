@@ -2,6 +2,7 @@ import { ProposalsExpirationJob } from './proposals-expiration.job';
 import type { ProposalRepository } from '../domain/proposal.repository';
 import type { AuditService } from '../../audit/audit.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import { webhooksEmitterFake } from '../../webhooks/application/webhooks-emitter.mock';
 
 function auditMock() {
   return { registrarPeloSistema: jest.fn().mockResolvedValue(undefined) };
@@ -20,6 +21,7 @@ describe('ProposalsExpirationJob', () => {
       repo,
       auditMock() as unknown as AuditService,
       notificationsMock() as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
     await job.run();
     expect(repo.expireOverdue).toHaveBeenCalledWith(expect.any(Date));
@@ -53,6 +55,7 @@ describe('ProposalsExpirationJob', () => {
       repo,
       audit as unknown as AuditService,
       notificationsMock() as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
 
     await job.run();
@@ -98,6 +101,7 @@ describe('ProposalsExpirationJob', () => {
       repo,
       auditMock() as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
 
     await job.run();
@@ -138,6 +142,7 @@ describe('ProposalsExpirationJob', () => {
       repo,
       auditMock() as unknown as AuditService,
       notifications as unknown as NotificationsService,
+      webhooksEmitterFake(),
     );
 
     await job.run();
