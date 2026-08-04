@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
+import { ConsentimentoDoContatoDialog } from '@/features/consentimento/ConsentimentoDoContatoDialog';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Archive, Pencil, Star, UserPlus } from 'lucide-react';
+import { Archive, Pencil, ShieldCheck, Star, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,8 @@ export default function ContatosTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | undefined>();
   const [toArchive, setToArchive] = useState<Contact | undefined>();
+  /** O contato cujo livro-razão de consentimento está aberto. */
+  const [verConsentimento, setVerConsentimento] = useState<Contact | null>(null);
 
   const {
     register,
@@ -188,6 +191,15 @@ export default function ContatosTab() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  aria-label={`Consentimento de ${contact.name}`}
+                  title="Consentimento"
+                  onClick={() => setVerConsentimento(contact)}
+                >
+                  <ShieldCheck />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label="Editar contato"
                   onClick={() => openEdit(contact)}
                 >
@@ -300,6 +312,11 @@ export default function ContatosTab() {
         destructive
         pending={archiveContact.isPending}
         onConfirm={() => void confirmArchive()}
+      />
+
+      <ConsentimentoDoContatoDialog
+        contato={verConsentimento}
+        onFechar={() => setVerConsentimento(null)}
       />
     </div>
   );

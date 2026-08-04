@@ -235,3 +235,15 @@ export const NOTIFICATION_CHANNEL_KIND_LABELS = {
 export const translateNotificationChannelKind = make(
   NOTIFICATION_CHANNEL_KIND_LABELS,
 );
+
+/**
+ * Tipo de titular do livro-razão de consentimento (Fase 19-B). As FINALIDADES
+ * **não** entram aqui: elas vêm de `GET /consentimentos/finalidades`, como as
+ * permissões e os escopos de integração — rótulo de catálogo do backend não é
+ * duplicado no front.
+ */
+export const CONSENT_SUBJECT_TYPE_LABELS = {
+  CLIENT: 'Cliente',
+  CONTACT: 'Contato',
+} as const;
+export const translateConsentSubjectType = make(CONSENT_SUBJECT_TYPE_LABELS);

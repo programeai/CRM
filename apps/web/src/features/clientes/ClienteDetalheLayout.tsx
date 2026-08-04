@@ -90,6 +90,15 @@ export default function ClienteDetalheLayout() {
       description: 'Contratos firmados com este cliente.',
       permission: ['financeiro:ver', 'financeiro:gerenciar'],
     },
+    {
+      label: 'Consentimento',
+      to: `/clientes/${id}/consentimento`,
+      description:
+        'O que este titular autorizou, quando e sob qual texto. Registro append-only.',
+      // Sem permissão própria: consentimento é parte do cadastro do titular, e
+      // quem vê o cliente vê o que ele autorizou. Registrar exige
+      // `cliente:gerenciar`, e o botão é escondido por quem monta o painel.
+    },
   ];
   const tabs = allTabs.filter((tab) => canAny(tab.permission ?? []));
 
