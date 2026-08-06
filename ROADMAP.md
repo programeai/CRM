@@ -134,6 +134,20 @@ depois construiu. Ver a nota da Fase 19-B, em "O que falta".
 Na 17-A o lead entra apenas servidor-a-servidor. Nada no desenho impede o formulário — o canal de
 captação é o registro que ele usaria.
 
+**Da captação de atribuição de anúncio** (ver [spec](specs/plans/2026-08-05-atribuicao-de-anuncio-na-captacao.md)):
+o **consentimento** ficou fora por decisão. Nada sai do CRM para plataforma de anúncio nesta etapa, então
+não há `compartilhamento_terceiro` a consentir; e quem registra consentimento é quem exibe o formulário —
+o `site-v2`, que vive em outro repositório. `POST /leads/intake` não grava nenhuma linha de `ConsentRecord`,
+e a única porta de escrita (`POST /consentimentos`) exige JWT, inalcançável pela rota pública.
+
+> **Bloqueio explícito:** a fase de **envio de conversão** não pode começar sem porta de consentimento na
+> ingestão. Repassar dado de lead ao Meta ou ao Google é compartilhamento com terceiro, e o art. 7º § 5º
+> exige consentimento **específico e separado** — `compartilhamento_terceiro` já existe no catálogo para isso.
+
+Também fora por decisão, e aditivos quando houver requisito: `metaLeadId` (só existe em lead de Instant Form,
+que não entra por esta rota), `client_ip_address`/`client_user_agent` (a 19-A decidiu não registrar IP fora do
+evento de autenticação), colunas de **último toque** e as colunas de atribuição no CSV de clientes.
+
 **Da Fase 6** (dashboard): o funil é desenhado em barras **sem lib de gráfico**, com tokens de tema.
 Não é limitação a corrigir, é a escolha vigente — gráfico novo segue o mesmo caminho antes de
 acrescentar dependência.
