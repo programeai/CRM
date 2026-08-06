@@ -15,6 +15,10 @@ import {
   type ClientWithAssignee,
 } from '../domain/client.repository';
 import {
+  CAMPOS_DE_ATRIBUICAO,
+  type AtribuicaoDeAnuncio,
+} from '../domain/ad-attribution';
+import {
   inferPersonType,
   isValidDocument,
   onlyDigits,
@@ -244,6 +248,42 @@ export class ClientsService {
       antes: { status: 'LEAD' },
       depois: { status: 'ACTIVE' },
     });
+  }
+
+  /**
+   * Grava a atribuição de anúncio do clique que trouxe o lead — fronteira
+   * pública do módulo para a ingestão externa (`modules/leads`).
+   *
+   * Por que um método próprio, e não `update({ … })`: aqui a regra é do MÓDULO
+   * DE CLIENTES, não de quem chama. **Só preenche coluna vazia.** A 17-A
+   * decidiu que origem, tags e fonte contam de onde o cadastro veio na PRIMEIRA
+   * vez, e atribuição segue a mesma lei — o clique que trouxe a pessoa de volta
+   * não apaga o que a trouxe originalmente. Mas as colunas nasceram nulas nesta
+   * fase, então um cadastro anterior ao deploy precisa PODER recebê-las quando o
+   * lead volta; preencher-só-o-vazio é o que satisfaz as duas coisas de uma vez.
+   *
+   * Idempotente e silencioso, como `promoverParaAtivo`: sem lacuna a preencher
+   * não escreve nada (o `updatedAt` mentiria) e não registra trilha — não há
+   * ação de pessoa a auditar, e `AuditLog` retém 5 anos contra o "enquanto a
+   * conta existir" do `Client`.
+   *
+   * Não existe porta autenticada para estes campos: eles não estão em
+   * `CreateClientDto` nem em `UpdateClientDto`. É assim que "somente leitura" é
+   * uma verdade da fronteira HTTP, e não uma convenção que o próximo PR quebra.
+   */
+  async registrarAtribuicao(
+    ownerId: string,
+    id: string,
+    atribuicao: AtribuicaoDeAnuncio,
+  ): Promise<void> {
+    const atual = await this.findOne(ownerId, id);
+    const patch: Record<string, string | Date> = {};
+    for (const campo of CAMPOS_DE_ATRIBUICAO) {
+      const valor = atribuicao[campo];
+      if (valor !== null && atual[campo] === null) patch[campo] = valor;
+    }
+    if (Object.keys(patch).length === 0) return;
+    await this.repo.update(id, ownerId, patch);
   }
 
   async archive(ownerId: string, id: string): Promise<ClientWithAssignee> {
