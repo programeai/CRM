@@ -12,6 +12,13 @@ const STATUS: Record<string, string> = {
  * Colunas da planilha de clientes. Espelham os rótulos pt-BR da interface: o
  * `status` sai traduzido e a origem sai por `source.name` (o `include` já vem
  * do repositório) — `sourceId` cru seria um UUID na planilha do usuário.
+ *
+ * A atribuição de anúncio (`fbclid`, `utmSource`, …) NÃO está aqui de propósito.
+ * Seriam dez colunas permanentemente vazias na planilha de todo owner que não
+ * roda anúncio, e esta planilha é a que o usuário abre para trabalhar. Quem
+ * precisa do dado inteiro tem a portabilidade da conta (`GET /account/export`),
+ * que carrega as dez — ali o formato já é largo e a completude é obrigação
+ * legal, não conveniência. Reverter é acrescentar dez linhas aqui.
  */
 export const COLUNAS_DE_CLIENTE: ExportColumn<ClientWithAssignee>[] = [
   { header: 'Nome', value: (c) => c.name, width: 32 },
