@@ -4,7 +4,7 @@
  * esperar dele. Vai no manifest, por exigência prática de portabilidade (WP29:
  * "along with useful metadata").
  */
-export const VERSAO_DO_DUMP = 2; // ← 2 na Fase 19-B: entrou `consentimentos`
+export const VERSAO_DO_DUMP = 3; // ← 3: atribuição de anúncio no cliente (2 entrou `consentimentos`)
 
 /**
  * O que o dump NÃO carrega, declarado no próprio arquivo. Metade por segurança
@@ -117,6 +117,22 @@ export interface ClienteExportado {
   district: string | null;
   city: string | null;
   state: string | null;
+  /**
+   * Atribuição de anúncio, capturada na ingestão. Entra no dump porque é dado
+   * que o CRM guarda SOBRE UMA PESSOA e o titular tem direito de levar — e
+   * porque é o único lugar onde ele sai do CRM (o CSV de clientes não o carrega,
+   * por decisão; ver `client-export-columns.ts`).
+   */
+  fbclid: string | null;
+  fbclidAt: Date | null;
+  fbp: string | null;
+  gclid: string | null;
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  landingUrl: string | null;
   archivedAt: Date | null;
   createdAt: Date;
 }
