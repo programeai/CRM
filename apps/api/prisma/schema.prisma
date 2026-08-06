@@ -312,6 +312,28 @@ model Client {
   district   String?
   city       String?
   state      String? // UF
+  // --- atribuição de anúncio (capturada na ingestão de lead; nunca editável) ---
+  // A única porta de escrita é `POST /leads/intake`, por
+  // `ClientsService.registrarAtribuicao`, que só preenche o que está vazio:
+  // estes campos contam de qual clique a pessoa veio na PRIMEIRA vez.
+  //
+  // `fbclid` é case-sensitive e NÃO pode ser normalizado (doc da Meta: "do not
+  // apply any modifications before using"). `fbclidAt` é o instante em que o
+  // CRM primeiro o observou — sem ele o `fbc` (`fb.1.<ms>.<fbclid>`) não se
+  // monta, e é o dado irrecuperável desta fase; os dois nascem juntos ou nenhum
+  // nasce (invariante em `fixtures/invariantes.sql`).
+  //
+  // Sem índice de propósito: nesta fase ninguém filtra por atribuição.
+  fbclid      String?
+  fbclidAt    DateTime?
+  fbp         String?
+  gclid       String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+  landingUrl  String?
   // --- soft delete ---
   archivedAt DateTime?
   // Responsável pelo registro. Opcional: registro sem responsável é visível para

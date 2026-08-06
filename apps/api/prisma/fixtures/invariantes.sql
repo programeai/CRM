@@ -596,3 +596,39 @@ BEGIN
     RAISE EXCEPTION 'Falta índice em ("createdAt") em: % — a varredura de retenção passaria a fazer seq scan.', faltando;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Atribuição de anúncio na captação (20260826100000_ad_attribution)
+-- ---------------------------------------------------------------------------
+-- As colunas nascem nulas e a migration é aditiva, então não há backfill a
+-- conferir. O que se afirma aqui são duas REGRAS do conjunto que nenhuma
+-- constraint expressa:
+--
+--  1. `fbclid` e `fbclidAt` andam JUNTOS. O `fbc` que a Conversions API consome
+--     é `fb.1.<ms>.<fbclid>`: um `fbclid` sem o instante não monta nada, e um
+--     instante sem `fbclid` não identifica ninguém. Meio-par não estoura em
+--     lugar nenhum — ele vira, meses depois, um lead que parecia atribuível e
+--     não é. Quem garante o par é `montarAtribuicao`; isto é o portão.
+--  2. Nenhum campo é STRING VAZIA. `''` leria como "tem valor" em todo `IS NOT
+--     NULL` daqui para a frente. O normalizador da ingestão (`texto()`) grava
+--     NULL para vazio, e é isso que se confere.
+DO $$
+DECLARE
+  meio_par INT;
+  vazias   INT;
+BEGIN
+  SELECT count(*) INTO meio_par FROM "Client"
+   WHERE ("fbclid" IS NULL) <> ("fbclidAt" IS NULL);
+  IF meio_par > 0 THEN
+    RAISE EXCEPTION 'Há % cliente(s) com fbclid meio-preenchido (um campo nulo e o outro não) — sem o par não há como montar o fbc.', meio_par;
+  END IF;
+
+  -- `'' IN (NULL, …)` avalia NULL, e WHERE NULL não conta a linha: cliente sem
+  -- atribuição nenhuma passa direto, que é o comportamento desejado.
+  SELECT count(*) INTO vazias FROM "Client"
+   WHERE '' IN ("fbclid", "fbp", "gclid", "utmSource", "utmMedium",
+                "utmCampaign", "utmContent", "utmTerm", "landingUrl");
+  IF vazias > 0 THEN
+    RAISE EXCEPTION 'Há % cliente(s) com campo de atribuição em string vazia — a ingestão devia ter gravado NULL.', vazias;
+  END IF;
+END $$;
