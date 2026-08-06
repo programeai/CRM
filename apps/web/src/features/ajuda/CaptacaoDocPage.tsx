@@ -52,7 +52,16 @@ const CORPO_COMPLETO = `{
   "pagina": "/agenda-cheia",
   "recebidoEm": "2026-08-04T17:32:00.000Z",
   "resumo": "Faturamento entre 20k e 50k. Sem processo de follow-up.",
-  "cenario": "Operação no limite"
+  "cenario": "Operação no limite",
+  "fbclid": "IwAR2F4-dbP0l7Mn1IawQQGCINEz7PYXQvwjNwB",
+  "fbp": "fb.1.1596403881668.1116446470",
+  "gclid": "Cj0KCQiAr4-ABhCDARIsACY",
+  "utmSource": "facebook",
+  "utmMedium": "cpc",
+  "utmCampaign": "agenda-cheia-agosto",
+  "utmContent": "criativo-3",
+  "utmTerm": "crm para agencia",
+  "urlDeEntrada": "https://programeai.com.br/agenda-cheia?utm_source=facebook&utm_campaign=agenda-cheia-agosto"
 }`;
 
 const RESPOSTA_OK = `{
@@ -149,6 +158,39 @@ const CAMPOS: string[][] = [
     'Não',
     '—',
     'Aceito por compatibilidade e não guardado. Ver o aviso abaixo.',
+  ],
+  [
+    'fbclid',
+    'texto',
+    'Não',
+    'até 400',
+    'Identificador de clique do Meta, exatamente como veio na URL. Não mude a caixa das letras.',
+  ],
+  [
+    'fbp',
+    'texto',
+    'Não',
+    'até 100',
+    'O cookie _fbp do navegador, se o seu site tiver o Pixel instalado.',
+  ],
+  [
+    'gclid',
+    'texto',
+    'Não',
+    'até 400',
+    'Identificador de clique do Google Ads (ou gbraid/wbraid, no lugar dele).',
+  ],
+  ['utmSource', 'texto', 'Não', 'até 200', 'O utm_source da URL.'],
+  ['utmMedium', 'texto', 'Não', 'até 200', 'O utm_medium da URL.'],
+  ['utmCampaign', 'texto', 'Não', 'até 200', 'O utm_campaign da URL.'],
+  ['utmContent', 'texto', 'Não', 'até 200', 'O utm_content da URL.'],
+  ['utmTerm', 'texto', 'Não', 'até 200', 'O utm_term da URL.'],
+  [
+    'urlDeEntrada',
+    'texto',
+    'Não',
+    'até 2000',
+    'A URL completa da página onde a pessoa entrou, com http e a query inteira.',
   ],
 ];
 
@@ -280,10 +322,12 @@ const SECOES: DocSecao[] = [
     corpo: (
       <>
         <P>
-          São treze campos, e só três são obrigatórios:{' '}
+          São vinte e dois campos, e só três são obrigatórios:{' '}
           <Codigo>nome</Codigo>, <Codigo>whatsapp</Codigo> e{' '}
           <Codigo>origem</Codigo>. Os opcionais aceitam <Codigo>null</Codigo> ou
-          podem simplesmente não vir.
+          podem simplesmente não vir. Os nove últimos são a{' '}
+          <Interno to="/ajuda/captacao#atribuicao">atribuição de anúncio</Interno>{' '}
+          — leia a seção antes de ligá-los.
         </P>
         <TabelaDoc
           colunas={['Campo', 'Tipo', 'Obrigatório', 'Limite', 'O que faz']}
@@ -308,6 +352,12 @@ const SECOES: DocSecao[] = [
             nada do seu conteúdo chega ao cadastro. O que aparece para quem
             atende é <Codigo>resumo</Codigo> e <Codigo>cenario</Codigo>.
           </P>
+          <P>
+            <Forte>Ligue a atribuição no seu site só depois</Forte> de confirmar
+            que o CRM já aceita os campos novos — o inverso responde{' '}
+            <Codigo>400</Codigo> e o lead é perdido. Teste com o comando da seção
+            3 antes de mexer no formulário.
+          </P>
         </Destaque>
         <Sub nivel={4}>Sobre o whatsapp</Sub>
         <P>
@@ -323,6 +373,89 @@ const SECOES: DocSecao[] = [
           cliente e <Codigo>nome</Codigo> fica no contato principal. Sem{' '}
           <Codigo>empresa</Codigo>, o cadastro recebe o nome da pessoa.
         </P>
+      </>
+    ),
+  },
+  {
+    id: 'atribuicao',
+    titulo: 'Atribuição de anúncio',
+    corpo: (
+      <>
+        <P>
+          Se o seu site recebe tráfego pago, ele pode entregar ao CRM de qual
+          clique o lead veio: os <Codigo>utm_*</Codigo> da URL, o{' '}
+          <Codigo>fbclid</Codigo> do Meta, o <Codigo>gclid</Codigo> do Google e o
+          cookie <Codigo>_fbp</Codigo>. O CRM guarda tudo no cadastro do cliente,
+          junto do resto, e mostra na aba <Forte>Dados</Forte>.
+        </P>
+        <P>
+          Esses campos são <Forte>somente leitura</Forte> depois de gravados:
+          ninguém os edita pela tela nem pela API de clientes, e um lead que volta
+          a preencher o formulário <Forte>não</Forte> reescreve a atribuição da
+          primeira vez — ela conta de qual anúncio a pessoa veio originalmente. A
+          única exceção é campo que ficou vazio: esse o lead novo preenche.
+        </P>
+        <Destaque>
+          <P>
+            <Forte>
+              Isto ainda NÃO envia conversão para o Meta nem para o Google.
+            </Forte>{' '}
+            Esta etapa só guarda o dado. O envio é um trabalho separado, e é bom
+            você saber por que antes de contar com ele.
+          </P>
+          <P>
+            <Forte>O prazo do Meta é curto.</Forte> A API de conversões recusa o
+            envio inteiro se o evento tiver mais de <Forte>7 dias</Forte>, e a
+            janela de atribuição a clique do Gerenciador de Anúncios também é de{' '}
+            <Forte>7 dias</Forte> (o programa de leads aceita a conversão em até
+            28 dias da geração do lead). Ou seja: um negócio que fecha{' '}
+            <Forte>meses</Forte> depois do clique não tem, hoje, caminho
+            documentado de atribuição no Meta. Os 90 dias que se lê por aí são a
+            validade recomendada do cookie <Codigo>_fbc</Codigo>, que é outra
+            coisa.
+          </P>
+          <P>
+            <Forte>O do Google é longo.</Forte> Conversão offline por{' '}
+            <Codigo>gclid</Codigo> é aceita até <Forte>90 dias</Forte> depois do
+            clique — o que combina com o ciclo de venda de uma agência. Se você
+            escolhe um só, mande o <Codigo>gclid</Codigo>.
+          </P>
+          <P>
+            Vale capturar de todo modo, e por um motivo específico: o{' '}
+            <Forte>instante</Forte> do clique não é recuperável depois. Ele é
+            gravado agora ou nunca, e sem ele nenhum envio futuro funciona,
+            qualquer que seja o prazo.
+          </P>
+        </Destaque>
+        <Sub nivel={4}>O que o seu site precisa fazer</Sub>
+        <Lista>
+          <Item>
+            Ler os <Codigo>utm_*</Codigo>, o <Codigo>fbclid</Codigo> e o{' '}
+            <Codigo>gclid</Codigo> da URL na <Forte>primeira</Forte> visita e
+            guardá-los até o formulário ser enviado (sessão, cookie próprio,{' '}
+            <Codigo>localStorage</Codigo>). Quem lê só no momento do envio perde
+            todo mundo que navegou uma página antes de preencher.
+          </Item>
+          <Item>
+            Mandar o <Codigo>fbclid</Codigo>{' '}
+            <Forte>sem mudar a caixa das letras</Forte>. O Meta trata maiúscula e
+            minúscula como significativas, e "arrumar" o valor o invalida.
+          </Item>
+          <Item>
+            Mandar <Codigo>recebidoEm</Codigo> junto. É dele que o CRM tira o
+            instante do clique — sem ele, vale a hora em que a chamada chegou, o
+            que atrasa o registro se a sua integração tem fila.
+          </Item>
+          <Item>
+            <Forte>
+              Consentimento é responsabilidade de quem exibe o formulário.
+            </Forte>{' '}
+            Repassar dado de lead a uma plataforma de anúncio é compartilhamento
+            com terceiro, e o art. 7º § 5º da LGPD exige consentimento específico
+            e separado para isso. O CRM guarda o que você enviar; quem coleta o
+            consentimento é o seu site.
+          </Item>
+        </Lista>
       </>
     ),
   },
