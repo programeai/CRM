@@ -16,6 +16,24 @@ const CAMPOS_OMITIDOS = new Set([
   'stripeCustomerId',
   'stripeSubscriptionId',
   'document', // CPF/CNPJ: dado pessoal que a trilha não precisa repetir
+  // Atribuição de anúncio. Hoje NENHUMA escrita de `Client` passa `antes`/
+  // `depois` ao `AuditService` (só `promoverParaAtivo`, com `{ status }`), então
+  // isto é seguro preventivo, não conserto: no dia em que uma escrita de cliente
+  // passar a diffar, um identificador publicitário iria para `AuditLog.diff`,
+  // que retém 5 anos (`retention/domain/retencao.ts:42`) contra o "enquanto a
+  // conta existir" do próprio `Client` — sobreviveria ao cliente. Mesma razão de
+  // `document`. A lista canônica é `modules/clients/domain/ad-attribution.ts`;
+  // aqui ela é repetida porque `shared` não pode depender de `modules`.
+  'fbclid',
+  'fbclidAt',
+  'fbp',
+  'gclid',
+  'utmSource',
+  'utmMedium',
+  'utmCampaign',
+  'utmContent',
+  'utmTerm',
+  'landingUrl',
   'secret', // segredo HMAC do destino/webhook (Fase 19-B)
   'config', // Json do destino de notificação: carrega URL-credencial e segredo
   'updatedAt', // muda em toda escrita; diria só "houve escrita"

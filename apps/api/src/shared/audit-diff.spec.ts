@@ -65,6 +65,15 @@ describe('calcularDiff', () => {
     ).toEqual({ status: { antes: 'ACTIVE', depois: 'CANCELED' } });
   });
 
+  it('atribuição de anúncio não entra na trilha — AuditLog retém 5 anos', () => {
+    expect(
+      calcularDiff(
+        { fbclid: null, utmSource: null },
+        { fbclid: 'IwAR2F4-dbP0l7Mn', utmSource: 'facebook' },
+      ),
+    ).toBeNull();
+  });
+
   it('aceita um conjunto de omissão customizado', () => {
     expect(
       calcularDiff({ campoX: 1 }, { campoX: 2 }, new Set(['campoX'])),
