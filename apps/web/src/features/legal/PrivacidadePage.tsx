@@ -1,6 +1,7 @@
 import { EMPRESA } from '@/lib/company';
 import { LegalLayout, type Secao } from './LegalLayout';
 import {
+  Codigo,
   Dado,
   Destaque,
   Email,
@@ -206,9 +207,29 @@ const SECOES: Secao[] = [
           </Item>
         </Lista>
         <P>
-          Não usamos ferramentas de análise comportamental, rastreadores
-          publicitários ou perfis de marketing. Não fazemos decisões automatizadas
-          que afetem seus interesses.
+          <Forte>Não rastreamos você.</Forte> O {EMPRESA.produto} não usa
+          ferramentas de análise comportamental, rastreadores publicitários nem
+          perfis de marketing sobre quem usa o CRM, e não faz decisões
+          automatizadas que afetem seus interesses. Não há pixel de publicidade
+          em nenhuma tela do produto.
+        </P>
+        <P>
+          <Forte>
+            Coisa diferente: o conteúdo que você registra pode conter
+            identificador de publicidade.
+          </Forte>{' '}
+          Se você integra a captação de leads do seu site ao CRM, o seu site pode
+          nos entregar de qual anúncio o lead veio — parâmetros de campanha (
+          <Codigo>utm_source</Codigo>, <Codigo>utm_campaign</Codigo> e afins),
+          identificadores de clique do Meta e do Google (<Codigo>fbclid</Codigo>,{' '}
+          <Codigo>gclid</Codigo>) e o cookie <Codigo>_fbp</Codigo>, se houver.
+          Nós{' '}
+          <Forte>guardamos</Forte> isso junto do cadastro do cliente, porque{' '}
+          <Forte>você</Forte> decidiu coletá-lo: quem escolhe a finalidade e
+          obtém o consentimento do titular é você, como controlador desses dados;
+          nós apenas os armazenamos, como operador. O {EMPRESA.produto} não envia
+          esse dado a nenhuma plataforma de publicidade, e não o usa para
+          finalidade própria nenhuma.
         </P>
 
         <Sub>Dados de pagamento</Sub>
@@ -258,8 +279,12 @@ const SECOES: Secao[] = [
           </Item>
         </Lista>
         <P>
-          Não vendemos dados pessoais, não os cedemos para fins publicitários e não
-          os usamos para treinar modelos de inteligência artificial.
+          Não vendemos dados pessoais, não os cedemos para fins publicitários e
+          não os usamos para treinar modelos de inteligência artificial. Isso
+          inclui o identificador de publicidade que a captação de leads pode
+          armazenar no conteúdo do CRM: ele fica no seu cadastro e{' '}
+          <Forte>não sai daqui</Forte> — nós não o repassamos ao Meta, ao Google
+          nem a ninguém.
         </P>
       </>
     ),
@@ -604,9 +629,11 @@ export default function PrivacidadePage() {
             publicidade.
           </p>
           <p>
-            Não vendemos dados, não usamos rastreadores publicitários e não treinamos
-            modelos de IA com o seu conteúdo. Dados de cartão ficam na Stripe e não
-            passam pelos nossos servidores.
+            Não vendemos dados, não usamos rastreadores publicitários no produto
+            e não treinamos modelos de IA com o seu conteúdo. Se você integra a
+            captação de leads, guardamos o identificador de campanha que o seu
+            site enviar — como operador, sem repassá-lo a ninguém. Dados de
+            cartão ficam na Stripe e não passam pelos nossos servidores.
           </p>
         </>
       }
