@@ -9,6 +9,7 @@ import { EVENTO_POR_TIPO } from '../../webhooks/domain/owner-webhook-event';
 import { WorkspaceMembersService } from '../../workspace/application/workspace-members.service';
 import { LeadIntakeChannelsService } from './lead-intake-channels.service';
 import { empilharNota, montarNotaDeLead } from './nota-de-lead';
+import { montarAtribuicao, temAtribuicao } from './atribuicao-de-anuncio';
 import type { IntakeLeadDto } from '../api/dto/intake-lead.dto';
 import type { ContextoDeIntegracao } from '../api/intake-context';
 import type { LeadIntakeChannelRecord } from '../domain/lead-intake-channel.repository';
@@ -167,6 +168,19 @@ export class LeadsIntakeService {
       cidade: dto.cidade,
     });
 
+    const atribuicao = montarAtribuicao({
+      fbclid: dto.fbclid,
+      fbp: dto.fbp,
+      gclid: dto.gclid,
+      utmSource: dto.utmSource,
+      utmMedium: dto.utmMedium,
+      utmCampaign: dto.utmCampaign,
+      utmContent: dto.utmContent,
+      utmTerm: dto.utmTerm,
+      urlDeEntrada: dto.urlDeEntrada,
+      recebidoEm: dto.recebidoEm,
+    });
+
     const existente = await this.clients.findByPhoneDigits(
       ownerId,
       dto.whatsapp,
@@ -190,6 +204,20 @@ export class LeadsIntakeService {
         },
         { avisarResponsavel: false },
       );
+      /*
+        A atribuição é a única coisa do cadastro existente que a reingestão
+        pode tocar — e mesmo ela só onde está VAZIA. Fica fora do patch acima de
+        propósito: aquele patch é "o que a reingestão reescreve", e atribuição
+        não é reescrita, é preenchimento de lacuna. A regra mora dentro de
+        `registrarAtribuicao`, não aqui, porque é regra do módulo de clientes.
+      */
+      if (temAtribuicao(atribuicao)) {
+        await this.clients.registrarAtribuicao(
+          ownerId,
+          existente.id,
+          atribuicao,
+        );
+      }
       return {
         status: 'atualizado',
         clientId: existente.id,
@@ -228,6 +256,17 @@ export class LeadsIntakeService {
       },
       { avisarResponsavel: false },
     );
+
+    /*
+      Escrita à parte, e não campo no DTO de criação: atribuição não está em
+      `CreateClientDto` de propósito (é somente leitura na fronteira HTTP), e
+      abri-la só para este caminho abriria para o formulário de cliente também.
+      Custa uma leitura e uma escrita a mais, dentro da mesma transação, e só
+      quando há algo a gravar — hoje, nunca.
+    */
+    if (temAtribuicao(atribuicao)) {
+      await this.clients.registrarAtribuicao(ownerId, criado.id, atribuicao);
+    }
 
     await this.contacts.create(ownerId, criado.id, {
       name: dto.nome,

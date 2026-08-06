@@ -421,4 +421,105 @@ describe('Ingestão de lead (e2e)', () => {
       expect(cliente.assigneeId).toBe(doCanal.id);
     });
   });
+
+  /**
+   * A rota é `@Public()` e escreve em tabela com RLS: sem `app.owner_id` o RLS
+   * não estoura — grava zero linha e a rota responde sucesso. Por isso cada
+   * afirmação aqui é sobre a LINHA NO BANCO, nunca sobre o status da resposta.
+   */
+  describe('atribuição de anúncio', () => {
+    const COM_ATRIBUICAO = {
+      ...LEAD,
+      fbclid: 'IwAR2F4-dbP0l7Mn1IawQQGCINEz7PYXQvwjNwB',
+      fbp: 'fb.1.1596403881668.1116446470',
+      gclid: 'Cj0KCQiAr4-ABhCDARIsACY',
+      utmSource: 'facebook',
+      utmMedium: 'cpc',
+      utmCampaign: 'agenda-cheia-agosto',
+      utmContent: 'criativo-3',
+      utmTerm: 'crm para agencia',
+      urlDeEntrada:
+        'https://programeai.com.br/agenda-cheia?utm_source=facebook',
+    };
+
+    it('grava a atribuição na linha do cliente, com o fbclidAt de recebidoEm', async () => {
+      const owner = await criarOwner(EMAIL_DO_OWNER);
+      const { valor } = await criarCanal(owner.id);
+
+      await enviar(COM_ATRIBUICAO, valor).expect(200);
+
+      const cliente = await clientAdmin().client.findFirstOrThrow();
+      // A caixa do fbclid é preservada: a Meta a trata como significativa.
+      expect(cliente.fbclid).toBe(COM_ATRIBUICAO.fbclid);
+      expect(cliente.fbclidAt?.toISOString()).toBe(LEAD.recebidoEm);
+      expect(cliente.fbp).toBe(COM_ATRIBUICAO.fbp);
+      expect(cliente.gclid).toBe(COM_ATRIBUICAO.gclid);
+      expect(cliente.utmSource).toBe('facebook');
+      expect(cliente.utmMedium).toBe('cpc');
+      expect(cliente.utmCampaign).toBe('agenda-cheia-agosto');
+      expect(cliente.utmContent).toBe('criativo-3');
+      expect(cliente.utmTerm).toBe('crm para agencia');
+      expect(cliente.landingUrl).toBe(COM_ATRIBUICAO.urlDeEntrada);
+    });
+
+    it('lead sem atribuição deixa as dez colunas nulas', async () => {
+      const owner = await criarOwner(EMAIL_DO_OWNER);
+      const { valor } = await criarCanal(owner.id);
+
+      await enviar(LEAD, valor).expect(200);
+
+      const cliente = await clientAdmin().client.findFirstOrThrow();
+      expect(cliente.fbclid).toBeNull();
+      expect(cliente.fbclidAt).toBeNull();
+      expect(cliente.fbp).toBeNull();
+      expect(cliente.gclid).toBeNull();
+      expect(cliente.utmSource).toBeNull();
+      expect(cliente.utmMedium).toBeNull();
+      expect(cliente.utmCampaign).toBeNull();
+      expect(cliente.utmContent).toBeNull();
+      expect(cliente.utmTerm).toBeNull();
+      expect(cliente.landingUrl).toBeNull();
+    });
+
+    it('lead reincidente PRESERVA a atribuição da primeira vez', async () => {
+      const owner = await criarOwner(EMAIL_DO_OWNER);
+      const { valor } = await criarCanal(owner.id);
+
+      await enviar({ ...COM_ATRIBUICAO, utmCampaign: 'agosto' }, valor).expect(
+        200,
+      );
+      await enviar(
+        { ...COM_ATRIBUICAO, utmCampaign: 'setembro' },
+        valor,
+      ).expect(200);
+
+      expect(await clientAdmin().client.count()).toBe(1);
+      const cliente = await clientAdmin().client.findFirstOrThrow();
+      expect(cliente.utmCampaign).toBe('agosto');
+    });
+
+    it('lead reincidente PREENCHE a coluna que estava vazia', async () => {
+      const owner = await criarOwner(EMAIL_DO_OWNER);
+      const { valor } = await criarCanal(owner.id);
+
+      await enviar(LEAD, valor).expect(200);
+      const antes = await clientAdmin().client.findFirstOrThrow();
+      expect(antes.gclid).toBeNull();
+
+      await enviar({ ...LEAD, gclid: 'Cj0KCQiAr4' }, valor).expect(200);
+
+      expect(await clientAdmin().client.count()).toBe(1);
+      const depois = await clientAdmin().client.findFirstOrThrow();
+      expect(depois.gclid).toBe('Cj0KCQiAr4');
+    });
+
+    it('recusa fbclid acima do limite sem gravar nada', async () => {
+      const owner = await criarOwner(EMAIL_DO_OWNER);
+      const { valor } = await criarCanal(owner.id);
+
+      await enviar({ ...LEAD, fbclid: 'x'.repeat(401) }, valor).expect(400);
+
+      expect(await clientAdmin().client.count()).toBe(0);
+    });
+  });
 });

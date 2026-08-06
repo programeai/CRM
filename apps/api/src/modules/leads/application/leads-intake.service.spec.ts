@@ -23,6 +23,7 @@ describe('LeadsIntakeService', () => {
     create: jest.Mock;
     update: jest.Mock;
     findByPhoneDigits: jest.Mock;
+    registrarAtribuicao: jest.Mock;
   };
   let contacts: { create: jest.Mock };
   let keys: { registrarUso: jest.Mock };
@@ -76,6 +77,7 @@ describe('LeadsIntakeService', () => {
       create: jest.fn().mockResolvedValue({ id: 'cli-1', name: 'Ana Ribeiro' }),
       update: jest.fn().mockResolvedValue({ id: 'cli-9' }),
       findByPhoneDigits: jest.fn().mockResolvedValue(null),
+      registrarAtribuicao: jest.fn().mockResolvedValue(undefined),
     };
     contacts = { create: jest.fn().mockResolvedValue({ id: 'ct-1' }) };
     keys = {
@@ -406,6 +408,69 @@ describe('LeadsIntakeService', () => {
         expect.anything(),
         { avisarResponsavel: false },
       );
+    });
+  });
+
+  describe('atribuição de anúncio', () => {
+    /** O que o `site-v2` mandará quando ligar a atribuição. */
+    const comAtribuicao = () =>
+      lead({
+        recebidoEm: '2026-08-04T17:32:00.123Z',
+        fbclid: 'IwAR2F4-dbP0l7Mn',
+        utmSource: 'facebook',
+      });
+
+    it('lead sem atribuição NÃO chama registrarAtribuicao — o custo é zero hoje', async () => {
+      await service.receber(lead(), porChave());
+
+      expect(clients.registrarAtribuicao).not.toHaveBeenCalled();
+    });
+
+    it('cadastro novo grava a atribuição, com fbclidAt derivado de recebidoEm', async () => {
+      await service.receber(comAtribuicao(), porChave());
+
+      expect(clients.registrarAtribuicao).toHaveBeenCalledTimes(1);
+      expect(clients.registrarAtribuicao).toHaveBeenCalledWith(OWNER, 'cli-1', {
+        fbclid: 'IwAR2F4-dbP0l7Mn',
+        fbclidAt: new Date('2026-08-04T17:32:00.123Z'),
+        fbp: null,
+        gclid: null,
+        utmSource: 'facebook',
+        utmMedium: null,
+        utmCampaign: null,
+        utmContent: null,
+        utmTerm: null,
+        landingUrl: null,
+      });
+    });
+
+    it('lead reincidente também grava, no id do cadastro existente', async () => {
+      clients.findByPhoneDigits.mockResolvedValue({
+        id: 'cli-9',
+        notes: null,
+        assigneeId: null,
+      });
+
+      await service.receber(comAtribuicao(), porChave());
+
+      expect(clients.registrarAtribuicao).toHaveBeenCalledTimes(1);
+      expect(clients.registrarAtribuicao).toHaveBeenCalledWith(
+        OWNER,
+        'cli-9',
+        expect.objectContaining({ utmSource: 'facebook' }),
+      );
+    });
+
+    it('reincidente sem atribuição não chama nada', async () => {
+      clients.findByPhoneDigits.mockResolvedValue({
+        id: 'cli-9',
+        notes: null,
+        assigneeId: null,
+      });
+
+      await service.receber(lead(), porChave());
+
+      expect(clients.registrarAtribuicao).not.toHaveBeenCalled();
     });
   });
 });
