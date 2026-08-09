@@ -24,13 +24,10 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    // 402 (assinatura expirada): leva ao paywall. Evita laço se já estiver nele.
-    if (error.response?.status === 402) {
-      if (window.location.pathname !== '/assinatura') {
-        window.location.href = '/assinatura';
-      }
-      return Promise.reject(error);
-    }
+    // 402 (assinatura inativa) não redireciona: o gate só barra escrita, e
+    // arrastar quem está lendo para o paywall custaria o formulário aberto. A
+    // mensagem em pt-BR do backend já explica o bloqueio pelo toast da tela, e o
+    // caminho para assinar fica no aviso fixo do `SubscriptionBlockedNotice`.
     const isRefreshCall = original?.url?.includes('/auth/refresh');
     if (error.response?.status !== 401 || original._retry || isRefreshCall) {
       return Promise.reject(error);
