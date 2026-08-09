@@ -7,10 +7,32 @@ Guia de configuração da cobrança por assinatura do ProgrameAi CRM.
 > (o padrão) e o CRM roda 100% liberado, sem nunca inicializar o Stripe.
 
 Modelo: **R$ 27,97/mês** por owner, com **14 dias de trial** concedidos no cadastro.
-Expirado o trial sem assinatura ativa, o acesso ao CRM é bloqueado (HTTP `402`) —
-restam liberadas apenas as rotas de billing e as rotas públicas (login/logout).
 A cobrança em si é 100% delegada ao Stripe (Checkout + Customer Portal + Webhooks);
 **não** armazenamos dados de cartão.
+
+## O que o bloqueio bloqueia
+
+Expirado o trial sem assinatura ativa, **o gate barra escrita, não leitura**:
+
+- **Continua liberado:** toda consulta (`GET`/`HEAD`/`OPTIONS`, incluindo as
+  exportações), o cadastro de **cliente novo** (`POST /clients`), as rotas de
+  `/auth` (login, logout, sessões, 2FA), `/billing`, `/account` (portabilidade e
+  encerramento), o aceite de convite, e as rotas públicas por chave de
+  integração — `POST /leads/intake` e `POST /public/*` — para que nenhum lead se
+  perca durante a inadimplência.
+- **Bloqueado (HTTP `402`):** todo o resto que escreve — editar cliente, abrir
+  oportunidade, proposta, projeto, tarefa, contrato, lançamento financeiro,
+  gerenciar colaboradores, integrações e webhooks.
+
+Os jobs em background (notificações, e-mails, webhooks de saída, cobranças
+recorrentes dos clientes do owner) **seguem rodando** para quem está inadimplente
+— é decisão de produto, não descuido: a operação do assinante não pode parar de
+avisar os clientes dele por causa de um cartão recusado.
+
+No frontend, o `402` **não** redireciona (arrastar quem está lendo para o paywall
+custaria o formulário aberto): a mensagem em pt-BR aparece no toast da própria
+tela e o caminho para o Stripe fica no aviso fixo acima do conteúdo
+(`SubscriptionBlockedNotice`), visível já no painel.
 
 ---
 
@@ -130,7 +152,9 @@ Depois de editar o `.env`, **reinicie a API** para recarregar a configuração.
 6. O webhook `checkout.session.completed`/`customer.subscription.*` deve marcar a
    assinatura como **ativa** — o acesso permanece liberado.
 7. Para testar o bloqueio: no banco, coloque `trialEndsAt` no passado (sem
-   assinatura ativa) e navegue no CRM → você é redirecionado ao **paywall** (`/assinatura`).
+   assinatura ativa) e navegue no CRM → as telas continuam **carregando os dados
+   normalmente**, com o aviso de assinatura inativa no topo. Salvar qualquer
+   coisa (menos um cliente novo) responde `402` e mostra o toast explicando.
 
 ---
 

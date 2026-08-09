@@ -97,6 +97,26 @@ Ordem dos guards globais no `app.module.ts` — **não altere**: `ThrottlerGuard
 - **Owner tem todas as permissões** por definição e não pode ser desativado — por isso não existe (nem é necessária) trava anti-lockout. O papel `system` ("Administrador") também vale o catálogo inteiro, resolvido em tempo de execução para não desatualizar quando uma permissão nova entra.
 - Rota que agrega módulos diferentes sem exigir permissão (ex.: `GET /dashboard/summary`) recebe as permissões da sessão e devolve `null` no bloco que o usuário não pode ver — não vaze agregado por falta de decorator.
 
+## Gate de assinatura — bloqueia escrita, nunca leitura
+
+O `BillingGuard` (SaaS hospedado; na autohospedagem libera tudo) **só barra
+métodos que escrevem**. `GET`/`HEAD`/`OPTIONS` passam sempre: sem assinatura
+ativa o owner mantém acesso integral de consulta e exportação ao que já
+cadastrou, e continua podendo criar cliente novo (`POST /clients`, a única
+escrita de negócio isenta). O resto responde `402`.
+
+Regras ao mexer nisso:
+
+- **Não marque rota nova com `@AllowWithoutSubscription()` sem decisão explícita
+  de produto.** Cada isenção é receita que deixa de existir. Hoje as isenções são
+  `/auth` (identidade e sessão), `/billing`, `/account` (LGPD), o aceite de
+  convite e `POST /clients`.
+- Rota de **leitura** não precisa de isenção nenhuma — o método já a libera.
+- Alterar o comportamento do gate exige atualizar junto `billing.guard.spec.ts`,
+  a seção "Gate de assinatura" do `ENDPOINTS.md`, `docs/billing-stripe.md` e o
+  texto dos Termos (`apps/web/src/features/legal/TermosPage.tsx`), que promete
+  ao usuário exatamente o que o guard entrega.
+
 ## Testes — o que pode e o que não pode ser mockado
 
 Mockar o Prisma nos specs de regra de negócio é o certo: eles testam a regra,
