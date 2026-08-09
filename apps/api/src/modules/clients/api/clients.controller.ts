@@ -17,6 +17,7 @@ import {
 import type { AccessContext } from '../../access/domain/access-context';
 import { resolveAssigneeScope } from '../../../shared/record-scope';
 import { RequirePermission } from '../../access/require-permission.decorator';
+import { AllowWithoutSubscription } from '../../billing/allow-without-subscription.decorator';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ListClientsQueryDto } from './dto/list-clients-query.dto';
@@ -39,6 +40,12 @@ export class ClientsController {
     );
   }
 
+  /**
+   * Única escrita liberada para quem está sem assinatura ativa: um cliente novo
+   * que aparece durante a inadimplência não pode se perder. O restante do CRM
+   * (editar o cliente, abrir oportunidade, proposta, projeto…) continua no `402`.
+   */
+  @AllowWithoutSubscription()
   @RequirePermission('cliente:gerenciar')
   @Post()
   create(@CurrentOwnerId() ownerId: string, @Body() dto: CreateClientDto) {

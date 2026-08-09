@@ -13,11 +13,22 @@ import { ALLOW_WITHOUT_SUBSCRIPTION_KEY } from './allow-without-subscription.dec
 import type { AuthenticatedRequest } from '../access/domain/access-context';
 
 /**
+ * Métodos que só leem. O gate nunca os barra: quem deixou de pagar continua
+ * consultando tudo que já cadastrou — o que ele perde é o avanço no uso.
+ */
+const METODOS_DE_LEITURA = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
  * Gate de assinatura. Registrado como APP_GUARD **após** o AccessGuard (precisa
  * de `req.access`). Só atua quando o billing está habilitado; caso contrário
  * (autohospedagem) libera tudo. Libera também rotas públicas e as rotas de
  * billing/webhook (`@AllowWithoutSubscription()`), senão um owner bloqueado não
  * conseguiria assinar.
+ *
+ * **O bloqueio é só de escrita.** Sem assinatura ativa o owner mantém acesso de
+ * leitura ao histórico inteiro (é o que os Termos prometem: "seus dados
+ * continuam guardados") e segue podendo cadastrar cliente novo — nenhum lead se
+ * perde durante a inadimplência. Todo o resto que escreve responde `402`.
  */
 @Injectable()
 export class BillingGuard implements CanActivate {
@@ -46,6 +57,12 @@ export class BillingGuard implements CanActivate {
     if (allowWithout) return true;
 
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+
+    // Leitura passa sempre — inclusive as exportações, que são `GET`. Vale
+    // também para `GET /auth/me`: sem isso o front não carregaria as permissões
+    // e nem o próprio dono veria o botão de assinar.
+    if (METODOS_DE_LEITURA.has(req.method)) return true;
+
     // Owner da workspace (resolvido pelo AccessGuard, que roda antes): o
     // colaborador herda o gate da assinatura de quem o convidou — ele não tem
     // assinatura própria.
@@ -55,7 +72,7 @@ export class BillingGuard implements CanActivate {
 
     if (!(await this.access.hasAccess(ownerId))) {
       throw new HttpException(
-        'Sua assinatura expirou. Ative um plano para continuar usando o CRM.',
+        'Sua assinatura está inativa. Você continua consultando o que já cadastrou e registrando novos clientes, mas as demais ações exigem uma assinatura ativa.',
         HttpStatus.PAYMENT_REQUIRED, // 402
       );
     }
