@@ -1,7 +1,4 @@
-import { useState } from 'react';
 import { Navigate } from 'react-router';
-import { toast } from 'sonner';
-import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,35 +9,19 @@ import {
 } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useCan } from '@/hooks/use-can';
-import { startCheckout } from './api';
+import { PRICE_LABEL, useAssinarAgora } from './assinar';
 import { useSubscription } from './useSubscription';
 import SubscriptionSettings from './SubscriptionSettings';
 
-const PRICE_LABEL = 'R$ 27,97/mês';
-
 /**
- * Rota `/assinatura`. Destino do redirecionamento no `402`. Quando o billing
- * está desabilitado (autohospedagem), não há o que mostrar → volta ao início.
- * Bloqueado → paywall; com acesso → tela de gerenciamento da assinatura.
+ * Rota `/assinatura`, alcançada pelo menu ou pelo aviso de assinatura inativa.
+ * Quando o billing está desabilitado (autohospedagem), não há o que mostrar →
+ * volta ao início. Bloqueado → paywall; com acesso → tela de gerenciamento.
  */
 export default function PaywallPage() {
   const { billingEnabled, isBlocked, isPending } = useSubscription();
   const { can } = useCan();
-  const [busy, setBusy] = useState(false);
-
-  const assinar = async () => {
-    setBusy(true);
-    try {
-      await startCheckout();
-    } catch (err) {
-      const message =
-        isAxiosError(err) && typeof err.response?.data?.message === 'string'
-          ? err.response.data.message
-          : 'Não foi possível iniciar o pagamento. Tente novamente.';
-      toast.error(message);
-      setBusy(false);
-    }
-  };
+  const { assinar, busy } = useAssinarAgora();
 
   if (isPending) {
     return (
@@ -61,11 +42,11 @@ export default function PaywallPage() {
         <Card className="w-full max-w-md text-center">
           <CardHeader>
             <CardTitle className="text-2xl">
-              {isBlocked ? 'Acesso suspenso' : 'Assinatura'}
+              {isBlocked ? 'Assinatura inativa' : 'Assinatura'}
             </CardTitle>
             <CardDescription>
               {isBlocked
-                ? 'A assinatura desta conta está inativa, então o CRM ficou indisponível. Fale com o responsável pela conta para reativar.'
+                ? 'A conta segue com acesso de consulta e ao cadastro de novos clientes, mas as demais ações estão bloqueadas. Fale com o responsável pela conta para reativar a assinatura.'
                 : 'A assinatura é gerenciada pelo responsável pela conta. Você não precisa fazer nada por aqui.'}
             </CardDescription>
           </CardHeader>
@@ -88,10 +69,11 @@ export default function PaywallPage() {
     <div className="grid min-h-[70vh] place-items-center p-4">
       <Card className="w-full max-w-md text-center">
         <CardHeader>
-          <CardTitle className="text-2xl">Seu período de teste acabou</CardTitle>
+          <CardTitle className="text-2xl">Sua assinatura está inativa</CardTitle>
           <CardDescription>
-            Assine para continuar usando o ProgrameAi CRM e manter seus dados,
-            pipeline e financeiro sempre à mão.
+            Seus dados continuam aqui: você segue consultando tudo que já
+            cadastrou e registrando novos clientes. Assine para voltar a usar o
+            pipeline, as propostas, os projetos e o financeiro.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">

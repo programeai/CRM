@@ -30,6 +30,7 @@ import { Reautenticar2faDto } from './dto/reautenticar-2fa.dto';
 import { OAuthService } from './oauth/oauth.service';
 import { CaptchaService } from './captcha/captcha.service';
 import { Public } from './public.decorator';
+import { AllowWithoutSubscription } from '../billing/allow-without-subscription.decorator';
 import type { DeviceInfo } from './sessions.service';
 import {
   REFRESH_COOKIE,
@@ -46,6 +47,12 @@ import type { AccessContext } from '../access/domain/access-context';
 
 const OAUTH_STATE_COOKIE = 'oauth_state';
 
+/**
+ * Identidade e sessão — nada aqui é "uso do CRM", então o controller inteiro é
+ * isento do gate de assinatura. Sem isso, um owner inadimplente não conseguiria
+ * sair da conta, revogar um dispositivo nem mexer no próprio 2FA.
+ */
+@AllowWithoutSubscription()
 @Controller('auth')
 export class AuthController {
   constructor(

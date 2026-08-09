@@ -136,9 +136,11 @@ const SECOES: Secao[] = [
         <P>
           Toda conta nova recebe <Forte>{DIAS_DE_TESTE} dias de teste</Forte> com
           acesso completo, sem cobrança e sem necessidade de cartão. Encerrado o
-          teste sem assinatura ativa, o acesso ao CRM é bloqueado — seus dados
-          continuam guardados e voltam a ficar acessíveis assim que a assinatura for
-          contratada.
+          teste sem assinatura ativa, a conta passa a <Forte>somente leitura</Forte>:
+          você continua consultando e exportando tudo que já cadastrou, e ainda pode
+          registrar novos clientes, mas as demais ações ficam bloqueadas até a
+          assinatura ser contratada. Nada é apagado — o uso completo volta assim que
+          o pagamento for confirmado.
         </P>
         <Sub>Assinatura</Sub>
         <Lista>

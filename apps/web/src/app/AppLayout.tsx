@@ -36,6 +36,7 @@ import { useAuth } from "@/lib/auth";
 import { useMe } from "@/features/perfil/api/hooks";
 import { SinoDeNotificacoes } from "@/features/notificacoes/SinoDeNotificacoes";
 import { useSubscription } from "@/features/billing/useSubscription";
+import SubscriptionBlockedNotice from "@/features/billing/SubscriptionBlockedNotice";
 import { useCan } from "@/hooks/use-can";
 import { formatDate } from "@/lib/format";
 import { NAV_GROUPS } from "./nav";
@@ -55,7 +56,8 @@ export default function AppLayout() {
   const userInitial = userLabel.charAt(0).toUpperCase();
 
   // Billing só aparece na instância SaaS hospedada (billingEnabled=true).
-  const { billingEnabled, isTrialing, daysLeftInTrial } = useSubscription();
+  const { billingEnabled, isTrialing, daysLeftInTrial, isBlocked } =
+    useSubscription();
 
   // Navegação por permissão: o item só aparece com uma das chaves exigidas, e
   // grupo que ficou sem item nenhum não é renderizado (ex.: Organização para
@@ -209,24 +211,27 @@ export default function AppLayout() {
             </DropdownMenu>
           </div>
         </header>
-        {/* Aviso do teste só para quem pode assinar — colaborador não resolveria. */}
+        {/* Contagem do teste só para quem pode assinar — colaborador não resolveria.
+            Zerado o teste, quem fala é o aviso de bloqueio abaixo. */}
         {billingEnabled &&
           can("assinatura:gerenciar") &&
           isTrialing &&
-          daysLeftInTrial != null && (
+          daysLeftInTrial != null &&
+          daysLeftInTrial > 0 && (
             <button
               type="button"
               onClick={() => navigate("/assinatura")}
               className="flex w-full items-center justify-center gap-2 border-b bg-primary/10 px-4 py-2 text-sm text-primary hover:bg-primary/15"
             >
               <CreditCard className="size-4" />
-              {daysLeftInTrial > 0
-                ? `Você está em período de teste — ${daysLeftInTrial} ${
-                    daysLeftInTrial === 1 ? "dia restante" : "dias restantes"
-                  }. Assine agora.`
-                : "Seu período de teste terminou. Assine para continuar."}
+              {`Você está em período de teste — ${daysLeftInTrial} ${
+                daysLeftInTrial === 1 ? "dia restante" : "dias restantes"
+              }. Assine agora.`}
             </button>
           )}
+        {/* Assinatura inativa: aviso fixo com o caminho para o Stripe. Fica de
+            fora de `/assinatura`, onde o próprio paywall já diz tudo. */}
+        {isBlocked && pathname !== "/assinatura" && <SubscriptionBlockedNotice />}
         <main className="min-w-0 flex-1 p-6">
           <Outlet />
         </main>

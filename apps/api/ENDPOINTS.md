@@ -25,6 +25,24 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
   requisição seguinte, sem esperar o access token expirar.
 - Catálogo de permissões: `GET /permissions` (e `apps/api/src/shared/permissions.ts`).
 
+**Gate de assinatura (vale para todas as rotas autenticadas):** só existe na
+instância SaaS hospedada (`BILLING_ENABLED=true` + chaves Stripe); na
+autohospedagem o `BillingGuard` libera tudo. **O gate é de escrita.** Sem
+assinatura ativa (teste expirado, `CANCELED`, `PAST_DUE` fora do grace) o owner —
+e todo colaborador dele, que herda o gate — mantém **leitura integral**:
+`GET`/`HEAD`/`OPTIONS` nunca são barrados, incluindo as exportações. Os demais
+métodos respondem
+`402 { message: 'Sua assinatura está inativa. Você continua consultando o que já cadastrou e registrando novos clientes, mas as demais ações exigem uma assinatura ativa.' }`.
+
+- Escapam do `402`: `POST /clients` (cliente novo não pode se perder na
+  inadimplência), todo o controller de `/auth` (identidade e sessão não são uso
+  do CRM), as rotas de `/billing` e `/account` já marcadas
+  `@AllowWithoutSubscription()`, o aceite de convite e tudo que é `@Public()` —
+  o que inclui `POST /leads/intake` e a API pública de escrita `POST /public/*`,
+  abertas de propósito para não perder lead durante a inadimplência.
+- O status vem de `GET /billing/status` (campo `hasAccess`); o backend é a
+  autoridade, o frontend só espelha.
+
 ---
 
 ## Health
@@ -40,6 +58,8 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 ---
 
 ## Auth
+
+Todo o controller é **isento do gate de assinatura** (`@AllowWithoutSubscription()` na classe): identidade e sessão não são uso do CRM. Sem isso, um owner inadimplente não conseguiria sair da conta, revogar um dispositivo nem mexer no próprio 2FA — e o `GET /auth/me` bloqueado deixaria o frontend sem as permissões, escondendo dele o próprio botão de assinar.
 
 ### POST /auth/register
 - **Propósito:** Autocadastro de usuário: cria a conta e já autentica, emitindo access token e refresh token.
@@ -232,7 +252,7 @@ assinatura desse owner. O **owner tem todas as permissões** por definição.
 
 ### POST /clients
 - **Propósito:** Criar um cliente para o usuário autenticado (`ownerId` derivado do token).
-- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`.
+- **Auth:** Bearer (access token). Permissão: `cliente:gerenciar`. **Isenta do gate de assinatura** (`@AllowWithoutSubscription()`) — é a única escrita de negócio que sobrevive à inadimplência, para que nenhum cliente novo se perca. Editar o cliente depois (`PATCH /clients/:id`) já exige assinatura ativa.
 - **Body:** `{ name: string (mín. 2), tradeName?, document?, email?, phone?, website?, sourceId?: uuid | null, status?, tags?: string[], notes?, zipCode?, street?, number?, complement?, district?, city?, state?, assigneeId?: uuid | null }`
   `personType` **não** entra no corpo: é deduzido do `document` (11 dígitos = CPF → `INDIVIDUAL`, 14 = CNPJ → `COMPANY`). Sem documento, vale o default do schema (`COMPANY`). `sourceId` referencia um item vivo de `GET /catalogos/fontes-de-lead` do mesmo owner.
 - **Resposta:** `201 Client` (com `assignee: { id, name } | null` e `source: { id, name, active } | null`).
@@ -1334,7 +1354,7 @@ negaria o direito a quem mais precisa dele.
 
 ## Billing (Stripe)
 
-Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo apenas quando `BILLING_ENABLED=true` e as chaves Stripe estão presentes; na autohospedagem o Stripe nunca é inicializado e checkout/portal respondem `503`. O estado local (`Subscription`, 1 por owner, sob RLS) é um espelho sincronizado pelo webhook. As três rotas abaixo são isentas do `BillingGuard` (`@AllowWithoutSubscription()`) para que um owner com trial expirado ainda consiga assinar.
+Cobrança por assinatura da instância **SaaS hospedada** (R$ 27,97/mês). Ativo apenas quando `BILLING_ENABLED=true` e as chaves Stripe estão presentes; na autohospedagem o Stripe nunca é inicializado e checkout/portal respondem `503`. O estado local (`Subscription`, 1 por owner, sob RLS) é um espelho sincronizado pelo webhook. As três rotas abaixo são isentas do `BillingGuard` (`@AllowWithoutSubscription()`) para que um owner com trial expirado ainda consiga assinar. Sobre o que o gate barra de fato, ver "Gate de assinatura" no topo deste arquivo.
 
 ### POST /billing/checkout
 - **Propósito:** Criar (ou reaproveitar) o customer no Stripe e abrir uma sessão de Checkout no modo assinatura para o preço único configurado (`STRIPE_PRICE_ID`). Retorna a URL hospedada do Stripe.
