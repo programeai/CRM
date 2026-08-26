@@ -140,6 +140,92 @@ describe('ClientsService', () => {
     });
   });
 
+  describe('registrarAtribuicao', () => {
+    const CLIQUE = new Date('2026-08-04T17:32:00.123Z');
+
+    /** As dez chaves, todas nulas. Os testes sobrescrevem só o que interessa. */
+    const vazia = () => ({
+      fbclid: null,
+      fbclidAt: null,
+      fbp: null,
+      gclid: null,
+      utmSource: null,
+      utmMedium: null,
+      utmCampaign: null,
+      utmContent: null,
+      utmTerm: null,
+      landingUrl: null,
+    });
+
+    /** Cliente sem atribuição nenhuma: as dez colunas nulas no banco. */
+    const semAtribuicao = () => ({ id: 'c1', name: 'Acme', ...vazia() });
+
+    it('preenche só o que está vazio — não reescreve o primeiro toque', async () => {
+      repo.findById.mockResolvedValue({
+        ...semAtribuicao(),
+        utmSource: 'antigo',
+      } as never);
+      repo.update.mockResolvedValue({ id: 'c1' } as never);
+
+      await service.registrarAtribuicao('owner-1', 'c1', {
+        ...vazia(),
+        fbclid: 'IwAR2F4',
+        fbclidAt: CLIQUE,
+        utmSource: 'novo',
+      });
+
+      expect(repo.update).toHaveBeenCalledWith('c1', 'owner-1', {
+        fbclid: 'IwAR2F4',
+        fbclidAt: CLIQUE,
+      });
+      const [, , patch] = repo.update.mock.calls[0] as [
+        string,
+        string,
+        Record<string, unknown>,
+      ];
+      expect(patch).not.toHaveProperty('utmSource');
+    });
+
+    it('sem lacuna a preencher NÃO escreve — o updatedAt mentiria', async () => {
+      repo.findById.mockResolvedValue({
+        ...semAtribuicao(),
+        fbclid: 'primeiro',
+        fbclidAt: CLIQUE,
+        utmSource: 'facebook',
+      } as never);
+
+      await service.registrarAtribuicao('owner-1', 'c1', {
+        ...vazia(),
+        fbclid: 'segundo',
+        fbclidAt: new Date(),
+        utmSource: 'google',
+      });
+
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('atribuição toda nula não escreve nada', async () => {
+      repo.findById.mockResolvedValue(semAtribuicao() as never);
+
+      await service.registrarAtribuicao('owner-1', 'c1', vazia());
+
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('nunca registra trilha — não há ação de pessoa a auditar', async () => {
+      repo.findById.mockResolvedValue(semAtribuicao() as never);
+      repo.update.mockResolvedValue({ id: 'c1' } as never);
+
+      await service.registrarAtribuicao('owner-1', 'c1', {
+        ...vazia(),
+        gclid: 'Cj0KCQ',
+      });
+
+      expect(repo.update).toHaveBeenCalled();
+      expect(audit.registrar).not.toHaveBeenCalled();
+    });
+  });
+
   it('cria cliente derivando ownerId e limpando o documento', async () => {
     repo.existsByDocument.mockResolvedValue(false);
     repo.create.mockResolvedValue({ id: 'c1' } as never);

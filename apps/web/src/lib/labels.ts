@@ -247,3 +247,27 @@ export const CONSENT_SUBJECT_TYPE_LABELS = {
   CONTACT: 'Contato',
 } as const;
 export const translateConsentSubjectType = make(CONSENT_SUBJECT_TYPE_LABELS);
+
+/**
+ * Rótulos dos campos de atribuição de anúncio. `Record` de CHAVE para rótulo, e
+ * não um `make()`: `make` traduz o VALOR de um enum, e aqui o valor é texto
+ * livre da plataforma de anúncio ("facebook", "cpc") — o que precisa de pt-BR é
+ * o nome do campo.
+ *
+ * O nome técnico entra entre parênteses de propósito: quem configura a
+ * integração procura por `utm_campaign`, e quem só usa o CRM lê "Campanha". Os
+ * dois públicos abrem a mesma tela. E "Fonte do tráfego" em vez de "Origem"
+ * porque `Origem` já é a fonte de lead do catálogo, na MESMA aba.
+ */
+export const AD_ATTRIBUTION_LABELS = {
+  utmSource: 'Fonte do tráfego (utm_source)',
+  utmMedium: 'Mídia (utm_medium)',
+  utmCampaign: 'Campanha (utm_campaign)',
+  utmContent: 'Conteúdo (utm_content)',
+  utmTerm: 'Termo (utm_term)',
+  landingUrl: 'URL de entrada',
+  fbclid: 'ID de clique do Meta (fbclid)',
+  fbclidAt: 'Clique observado em',
+  fbp: 'Cookie do navegador Meta (_fbp)',
+  gclid: 'ID de clique do Google (gclid)',
+} as const;

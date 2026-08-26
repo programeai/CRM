@@ -1,22 +1,25 @@
 import { useOutletContext } from 'react-router';
 import { TagBadge } from '@/components/ui/tag-badge';
-import { translatePersonType } from '@/lib/labels';
-import { formatDocument, formatPhone } from '@/lib/format';
+import { AD_ATTRIBUTION_LABELS, translatePersonType } from '@/lib/labels';
+import { formatDateTime, formatDocument, formatPhone } from '@/lib/format';
 import type { Client } from '../api/types';
 
 function Row({
   label,
   value,
   href,
+  mono,
 }: {
   label: string;
   value?: string | null;
   href?: string | null;
+  /** Valor opaco e longo (click id, URL): monoespaçado e quebrando no meio. */
+  mono?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm">
+      <dd className={mono ? 'font-mono text-xs break-all' : 'text-sm'}>
         {value ? (
           href ? (
             <a
@@ -41,6 +44,21 @@ function Row({
 function toWebsiteUrl(website?: string | null): string | null {
   if (!website) return null;
   return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+}
+
+/** Algum campo de atribuição chegou? Só então a seção existe. */
+function temAtribuicao(client: Client): boolean {
+  return Boolean(
+    client.utmSource ||
+      client.utmMedium ||
+      client.utmCampaign ||
+      client.utmContent ||
+      client.utmTerm ||
+      client.landingUrl ||
+      client.fbclid ||
+      client.fbp ||
+      client.gclid,
+  );
 }
 
 function Section({
@@ -96,6 +114,47 @@ export default function DadosTab() {
       <Section title="Endereço">
         <Row label="Endereço" value={address} />
       </Section>
+
+      {/*
+        Atribuição de anúncio. Escondida por inteiro quando não há nada — e o
+        normal é não haver: só chega em lead capturado por um site que envia
+        `fbclid`/`utm_*`. Uma seção com dez "—" ensinaria que o CRM perdeu o
+        dado. Tudo aqui é LEITURA: a única porta de escrita é a captação.
+      */}
+      {temAtribuicao(client) && (
+        <Section title="Atribuição de anúncio">
+          <Row
+            label={AD_ATTRIBUTION_LABELS.utmSource}
+            value={client.utmSource}
+          />
+          <Row
+            label={AD_ATTRIBUTION_LABELS.utmMedium}
+            value={client.utmMedium}
+          />
+          <Row
+            label={AD_ATTRIBUTION_LABELS.utmCampaign}
+            value={client.utmCampaign}
+          />
+          <Row
+            label={AD_ATTRIBUTION_LABELS.utmContent}
+            value={client.utmContent}
+          />
+          <Row label={AD_ATTRIBUTION_LABELS.utmTerm} value={client.utmTerm} />
+          <Row
+            label={AD_ATTRIBUTION_LABELS.landingUrl}
+            value={client.landingUrl}
+            href={client.landingUrl}
+            mono
+          />
+          <Row label={AD_ATTRIBUTION_LABELS.fbclid} value={client.fbclid} mono />
+          <Row
+            label={AD_ATTRIBUTION_LABELS.fbclidAt}
+            value={formatDateTime(client.fbclidAt)}
+          />
+          <Row label={AD_ATTRIBUTION_LABELS.fbp} value={client.fbp} mono />
+          <Row label={AD_ATTRIBUTION_LABELS.gclid} value={client.gclid} mono />
+        </Section>
+      )}
 
       <section className="flex flex-col gap-3">
         <h2 className="font-heading text-sm font-medium">Tags</h2>

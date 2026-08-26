@@ -84,6 +84,18 @@ function dadosMock(): DadosDoDump {
         district: null,
         city: null,
         state: null,
+        // Atribuição de anúncio: preenchida de propósito, para o teste do
+        // `select`/mapper ter o que procurar no arquivo serializado.
+        fbclid: 'IwAR2F4-dbP0l7Mn',
+        fbclidAt: new Date('2026-08-04T17:32:00.123Z'),
+        fbp: null,
+        gclid: null,
+        utmSource: 'facebook',
+        utmMedium: null,
+        utmCampaign: null,
+        utmContent: null,
+        utmTerm: null,
+        landingUrl: null,
         archivedAt: null,
         createdAt: new Date(),
       },
@@ -131,9 +143,10 @@ describe('AccountExportService', () => {
     };
 
     // Sobe junto de toda mudança de FORMA do dump: 2 quando `consentimentos`
-    // entrou (Fase 19-B). Quem consome um dump antigo precisa saber o que mudou.
+    // entrou (Fase 19-B), 3 quando o cliente passou a carregar a atribuição de
+    // anúncio. Quem consome um dump antigo precisa saber o que mudou.
     expect(dump.manifesto.versaoDoEsquema).toBe(VERSAO_DO_DUMP);
-    expect(VERSAO_DO_DUMP).toBe(2);
+    expect(VERSAO_DO_DUMP).toBe(3);
     expect(dump.manifesto.contagem.clientes).toBe(1);
     expect(dump.manifesto.contagem.colaboradores).toBe(1);
     expect(dump.manifesto.naoIncluido.length).toBeGreaterThan(0);
@@ -149,6 +162,21 @@ describe('AccountExportService', () => {
     expect(texto).not.toContain('stripeCustomerId');
     expect(texto).not.toContain('stripeSubscriptionId');
     expect(texto).not.toContain('$argon2');
+  });
+
+  /**
+   * O `select` e o mapper do dump falham CALADOS: coluna nova simplesmente não
+   * aparece no arquivo, e só o tipo `ClienteExportado` quebra a compilação. Sem
+   * este teste, um `select` esquecido passa verde para sempre.
+   */
+  it('a atribuição de anúncio do cliente chega ao arquivo serializado', async () => {
+    const arquivo = await service.gerar(OWNER);
+    const texto = await text(arquivo.getStream());
+
+    expect(texto).toContain('IwAR2F4-dbP0l7Mn');
+    expect(texto).toContain('facebook');
+    expect(texto).toContain('fbclidAt');
+    expect(texto).toContain('landingUrl');
   });
 
   it('registra a trilha com entity ACCOUNT e action EXPORTAR', async () => {

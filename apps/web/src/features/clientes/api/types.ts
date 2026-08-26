@@ -30,6 +30,24 @@ export interface Client {
   district?: string | null;
   city?: string | null;
   state?: string | null;
+  /*
+    Atribuição de anúncio: de qual clique o lead veio. SOMENTE LEITURA — a única
+    porta de escrita é `POST /leads/intake`, e a API recusa estes campos em
+    `POST`/`PATCH /clients` com 400. Este mesmo tipo alimenta `Partial<Client>`
+    nas mutações, então não os inclua em nenhum formulário: o 400 viria do
+    servidor, mas o erro nasceria aqui.
+  */
+  fbclid?: string | null;
+  /** ISO 8601. Instante em que o CRM primeiro observou o `fbclid`. */
+  fbclidAt?: string | null;
+  fbp?: string | null;
+  gclid?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
+  landingUrl?: string | null;
   archivedAt?: string | null;
   assigneeId?: string | null;
   assignee?: Assignee | null;
