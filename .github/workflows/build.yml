@@ -274,7 +274,7 @@ jobs:
 
       - name: Configurar Buildx
         if: steps.detectar.outputs.api == 'true' || steps.detectar.outputs.web == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build e push da imagem da API
         if: steps.detectar.outputs.api == 'true'

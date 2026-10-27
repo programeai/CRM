@@ -126,7 +126,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Configurar Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Sem `secrets` em lugar nenhum, para o job valer igual em PR de fork.
       # VITE_TURNSTILE_SITE_KEY fica vazia: a chave do captcha é pública e o
